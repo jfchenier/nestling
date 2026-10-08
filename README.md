@@ -21,8 +21,8 @@ docker compose up -d --build
 # API at http://<your-server>:8080/api/v1, health check at /health
 ```
 
-Data lives in `./data/nestling.db`. Back up that file (stop the container first, or use
-`sqlite3 nestling.db ".backup backup.db"`).
+Data lives in `nestling.db` inside the `nestling-data` Docker volume. To back it up:
+`docker compose stop && docker run --rm -v nestling_nestling-data:/data -v "$PWD":/backup debian cp /data/nestling.db /backup/`.
 
 Without Docker:
 
