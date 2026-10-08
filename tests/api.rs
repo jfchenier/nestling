@@ -1,0 +1,243 @@
+//! End-to-end tests against an in-memory database.
+
+use axum::{
+    body::Body,
+    http::{Method, Request, StatusCode},
+    Router,
+};
+use http_body_util::BodyExt;
+use nestling::{app, connect, AppState, Config, NaraConfig};
+use serde_json::{json, Value};
+use tower::ServiceExt;
+
+struct Client {
+    app: Router,
+}
+
+impl Client {
+    async fn new() -> Self {
+        let db = connect("sqlite::memory:", 1).await.unwrap();
+        let state = AppState::new(db, Config { open_registration: true, nara: NaraConfig::default() });
+        Client { app: app(state, None) }
+    }
+
+    async fn call(&self, method: Method, path: &str, token: Option<&str>, body: Option<Value>) -> (StatusCode, Value) {
+        let mut req = Request::builder().method(method).uri(format!("/api/v1{path}"));
+        if let Some(t) = token {
+            req = req.header("authorization", format!("Bearer {t}"));
+        }
+        let req = match body {
+            Some(b) => req.header("content-type", "application/json").body(Body::from(b.to_string())),
+            None => req.body(Body::empty()),
+        }
+        .unwrap();
+        let res = self.app.clone().oneshot(req).await.unwrap();
+        let status = res.status();
+        let bytes = res.into_body().collect().await.unwrap().to_bytes();
+        let json = if bytes.is_empty() { Value::Null } else { serde_json::from_slice(&bytes).unwrap_or(Value::Null) };
+        (status, json)
+    }
+
+    async fn register(&self, email: &str, name: &str) -> String {
+        let (s, b) = self
+            .call(Method::POST, "/auth/register", None, Some(json!({ "email": email, "password": "correct horse", "name": name })))
+            .await;
+        assert_eq!(s, StatusCode::CREATED, "{b}");
+        b["token"].as_str().unwrap().to_string()
+    }
+}
+
+#[tokio::test]
+async fn full_flow() {
+    let c = Client::new().await;
+    let mom = c.register("mom@example.com", "Mom").await;
+    let dad = c.register("dad@example.com", "Dad").await;
+
+    // Auth required
+    let (s, _) = c.call(Method::GET, "/me", None, None).await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED);
+
+    // Family + child
+    let (s, fam) = c.call(Method::POST, "/families", Some(&mom), Some(json!({ "name": "Home", "timezone": "America/New_York" }))).await;
+    assert_eq!(s, StatusCode::CREATED, "{fam}");
+    let fid = fam["id"].as_str().unwrap().to_string();
+    let (s, child) = c
+        .call(Method::POST, &format!("/families/{fid}/children"), Some(&mom), Some(json!({ "name": "Léa", "birth_date": "2026-06-01" })))
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{child}");
+    let cid = child["id"].as_str().unwrap().to_string();
+
+    // Dad can't see it until invited
+    let (s, _) = c.call(Method::GET, &format!("/children/{cid}"), Some(&dad), None).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    let (s, inv) = c.call(Method::POST, &format!("/families/{fid}/invites"), Some(&mom), None).await;
+    assert_eq!(s, StatusCode::CREATED, "{inv}");
+    let code = inv["code"].as_str().unwrap();
+    let (s, joined) = c.call(Method::POST, &format!("/invites/{code}/accept"), Some(&dad), None).await;
+    assert_eq!(s, StatusCode::OK, "{joined}");
+    assert_eq!(joined["members"].as_array().unwrap().len(), 2);
+    assert_eq!(joined["role"], "caregiver");
+
+    // Events
+    let (s, ev) = c
+        .call(Method::POST, &format!("/children/{cid}/events"), Some(&dad),
+            Some(json!({ "type": "feed", "method": "bottle", "amount_ml": 120, "milk": "formula", "start": "2026-10-08T08:00" })))
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{ev}");
+    assert_eq!(ev["start"], "2026-10-08T08:00:00-04:00");
+    assert_eq!(ev["amount_ml"], 120.0);
+    let eid = ev["id"].as_str().unwrap().to_string();
+
+    let (s, err) = c.call(Method::POST, &format!("/children/{cid}/events"), Some(&dad), Some(json!({ "type": "diaper" }))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    assert_eq!(err["error"]["code"], "bad_request");
+
+    let (s, _) = c
+        .call(Method::POST, &format!("/children/{cid}/events"), Some(&mom),
+            Some(json!({ "type": "diaper", "wet": true, "dirty": true, "color": "yellow", "consistency": "mushy", "start": "2026-10-08T08:30" })))
+        .await;
+    assert_eq!(s, StatusCode::CREATED);
+    let (s, _) = c
+        .call(Method::POST, &format!("/children/{cid}/events"), Some(&mom),
+            Some(json!({ "type": "sleep", "start": "2026-10-08T09:00", "end": "2026-10-08T10:30" })))
+        .await;
+    assert_eq!(s, StatusCode::CREATED);
+    let (s, _) = c
+        .call(Method::POST, &format!("/children/{cid}/events"), Some(&mom),
+            Some(json!({ "type": "growth", "weight_g": 6400, "length_cm": 62 })))
+        .await;
+    assert_eq!(s, StatusCode::CREATED);
+    let (s, h) = c
+        .call(Method::POST, &format!("/children/{cid}/events"), Some(&mom),
+            Some(json!({ "type": "health", "kind": "medicine", "name": "Tylenol", "dose": 2.5, "dose_unit": "ml" })))
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{h}");
+
+    // Patch
+    let (s, ev2) = c.call(Method::PATCH, &format!("/events/{eid}"), Some(&mom), Some(json!({ "amount_ml": 150, "note": "hungry" }))).await;
+    assert_eq!(s, StatusCode::OK, "{ev2}");
+    assert_eq!(ev2["amount_ml"], 150.0);
+    assert_eq!(ev2["milk"], "formula");
+    assert_eq!(ev2["note"], "hungry");
+
+    // List + filter
+    let (_, list) = c.call(Method::GET, &format!("/children/{cid}/events?type=feed,diaper"), Some(&dad), None).await;
+    assert_eq!(list["events"].as_array().unwrap().len(), 2);
+    let (_, list) = c.call(Method::GET, &format!("/children/{cid}/events?limit=2"), Some(&dad), None).await;
+    assert_eq!(list["events"].as_array().unwrap().len(), 2);
+    assert!(list["next_to"].is_string());
+
+    // Trends for that day
+    let (s, t) = c.call(Method::GET, &format!("/children/{cid}/trends?days=1&to=2026-10-08"), Some(&dad), None).await;
+    assert_eq!(s, StatusCode::OK, "{t}");
+    assert_eq!(t["days"][0]["feed"]["bottle_ml"], 150.0);
+    assert_eq!(t["days"][0]["sleep"]["total_seconds"], 5400);
+    assert_eq!(t["days"][0]["diaper"]["dirty"], 1);
+
+    // Delete shows as tombstone in sync
+    let (_, sync0) = c.call(Method::GET, &format!("/families/{fid}/sync"), Some(&dad), None).await;
+    let cursor = sync0["cursor"].as_i64().unwrap();
+    assert_eq!(sync0["events"].as_array().unwrap().len(), 5);
+    let (s, _) = c.call(Method::DELETE, &format!("/events/{eid}"), Some(&dad), None).await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    let (_, sync1) = c.call(Method::GET, &format!("/families/{fid}/sync?since={cursor}"), Some(&dad), None).await;
+    let evs = sync1["events"].as_array().unwrap();
+    assert_eq!(evs.len(), 1);
+    assert_eq!(evs[0]["deleted"], true);
+
+    // Summary
+    let (s, sum) = c.call(Method::GET, &format!("/children/{cid}/summary"), Some(&mom), None).await;
+    assert_eq!(s, StatusCode::OK, "{sum}");
+    assert_eq!(sum["last"]["feed"], Value::Null);
+    assert_eq!(sum["last"]["diaper"]["dirty"], true);
+}
+
+#[tokio::test]
+async fn timers() {
+    let c = Client::new().await;
+    let t = c.register("a@example.com", "A").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&t), Some(json!({ "name": "F" }))).await;
+    let fid = fam["id"].as_str().unwrap();
+    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&t), Some(json!({ "name": "B" }))).await;
+    let cid = child["id"].as_str().unwrap();
+
+    // Breastfeed that started 20 minutes ago on the left
+    let start = (chrono::Utc::now() - chrono::Duration::minutes(20)).to_rfc3339();
+    let (s, timer) = c
+        .call(Method::POST, &format!("/children/{cid}/timers"), Some(&t), Some(json!({ "kind": "breastfeed", "side": "left", "start": start })))
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{timer}");
+    let tid = timer["id"].as_str().unwrap();
+    assert_eq!(timer["running"], true);
+    assert!(timer["elapsed_seconds"].as_i64().unwrap() >= 1199);
+
+    let (s, _) = c.call(Method::POST, &format!("/children/{cid}/timers"), Some(&t), Some(json!({ "kind": "breastfeed" }))).await;
+    assert_eq!(s, StatusCode::CONFLICT);
+
+    let (s, sw) = c.call(Method::POST, &format!("/timers/{tid}/switch"), Some(&t), None).await;
+    assert_eq!(s, StatusCode::OK, "{sw}");
+    assert_eq!(sw["side"], "right");
+    let (s, p) = c.call(Method::POST, &format!("/timers/{tid}/pause"), Some(&t), None).await;
+    assert_eq!(s, StatusCode::OK, "{p}");
+    assert_eq!(p["running"], false);
+    let (s, _) = c.call(Method::POST, &format!("/timers/{tid}/pause"), Some(&t), None).await;
+    assert_eq!(s, StatusCode::CONFLICT);
+    let (s, _) = c.call(Method::POST, &format!("/timers/{tid}/resume"), Some(&t), Some(json!({ "side": "left" }))).await;
+    assert_eq!(s, StatusCode::OK);
+
+    let (s, ev) = c.call(Method::POST, &format!("/timers/{tid}/stop"), Some(&t), Some(json!({ "note": "sleepy" }))).await;
+    assert_eq!(s, StatusCode::CREATED, "{ev}");
+    assert_eq!(ev["type"], "feed");
+    assert_eq!(ev["method"], "breast");
+    assert_eq!(ev["start_side"], "left");
+    assert!(ev["left_seconds"].as_i64().unwrap() >= 1199);
+    assert_eq!(ev["note"], "sleepy");
+
+    let (_, timers) = c.call(Method::GET, &format!("/children/{cid}/timers"), Some(&t), None).await;
+    assert_eq!(timers["timers"].as_array().unwrap().len(), 0);
+
+    // Sleep timer -> sleep event
+    let (_, st) = c.call(Method::POST, &format!("/children/{cid}/timers"), Some(&t), Some(json!({ "kind": "sleep", "start": "now" }))).await;
+    let sid = st["id"].as_str().unwrap();
+    let (s, ev) = c.call(Method::POST, &format!("/timers/{sid}/stop"), Some(&t), None).await;
+    assert_eq!(s, StatusCode::CREATED, "{ev}");
+    assert_eq!(ev["type"], "sleep");
+}
+
+#[tokio::test]
+async fn nara_import_from_upload() {
+    let c = Client::new().await;
+    let t = c.register("a@example.com", "A").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&t), Some(json!({ "name": "F", "timezone": "America/New_York" }))).await;
+    let fid = fam["id"].as_str().unwrap();
+    let tracks = json!({
+        "-Ovk1": { "type": "FEED", "feedType": "BOTTLE", "beginDt": 1759921200000i64, "childKey": "kid",
+                   "bottleTypeBreastMilk": true, "bottleVolumeNum": 40, "bottleVolumeExp": 1, "bottleVolumeUnit": "FLOZ" },
+        "-Ovk2": { "type": "DIAPER", "beginDt": 1759924800000i64, "childKey": "kid", "diaperTypePee": true },
+        "-Ovk3": { "type": "SLEEP", "beginDt": 1759928400000i64, "childKey": "kid" },
+        "-Ovk4": { "type": "PARENT_NOTE", "beginDt": 1759928400000i64, "childKey": "kid", "note": "First smile!" }
+    });
+
+    let (s, dry) = c.call(Method::POST, &format!("/families/{fid}/import/nara"), Some(&t), Some(json!({ "tracks": tracks, "dry_run": true }))).await;
+    assert_eq!(s, StatusCode::OK, "{dry}");
+    assert_eq!(dry["importable"], 3);
+    assert_eq!(dry["children_to_create"], 1);
+
+    let (s, res) = c.call(Method::POST, &format!("/families/{fid}/import/nara"), Some(&t), Some(json!({ "tracks": tracks }))).await;
+    assert_eq!(s, StatusCode::OK, "{res}");
+    assert_eq!(res["imported"], 3);
+    assert_eq!(res["skipped"]["sleep still in progress"], 1);
+    let cid = res["children_created"][0]["id"].as_str().unwrap().to_string();
+
+    // Re-import is idempotent
+    let (_, res2) = c.call(Method::POST, &format!("/families/{fid}/import/nara"), Some(&t), Some(json!({ "tracks": tracks }))).await;
+    assert_eq!(res2["imported"], 0);
+    assert_eq!(res2["updated"], 3);
+
+    let (_, list) = c.call(Method::GET, &format!("/children/{cid}/events"), Some(&t), None).await;
+    let evs = list["events"].as_array().unwrap();
+    assert_eq!(evs.len(), 3);
+    let feed = evs.iter().find(|e| e["type"] == "feed").unwrap();
+    assert_eq!(feed["amount_ml"], 118.3);
+    assert_eq!(feed["source"], "nara");
+}

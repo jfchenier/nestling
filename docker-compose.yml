@@ -1,0 +1,13 @@
+services:
+  nestling:
+    build: .
+    container_name: nestling
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./data:/data
+    environment:
+      # Set to "false" after you and your caregivers have created accounts.
+      NESTLING_OPEN_REGISTRATION: "true"
+      RUST_LOG: "nestling=info,tower_http=info"
