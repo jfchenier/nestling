@@ -55,9 +55,38 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - `sync2` with `prevSyncKey: null` is assumed to return the full history (no pagination).
 - Child names are not fetched from Nara; imported children are created as "Baby" / "Baby N".
 
-## Next steps
+## Roadmap (what's left)
 
-1. Get `cargo build` + `cargo test` green; run `cargo clippy`.
-2. Run the server, smoke-test with the curl tour in README.md, then a Nara import dry run.
-3. Build the web app (PWA) on top of the API — Nara-like UI: big buttons for feed/sleep/diaper,
-   live timers, timeline, trends. Served by the server via `NESTLING_WEB_DIR`.
+### 1. Make the server work (next)
+- [ ] `cargo build` + `cargo test` green; `cargo clippy` clean.
+- [ ] Run in Docker on the home server; smoke-test with the curl tour in README.md.
+- [ ] Nara import **dry run** on the real account to verify the assumptions above.
+
+### 2. Known server gaps
+- [ ] **Timer stop race:** `timers::stop` inserts the event, then deletes the timer, outside a
+      transaction. Two caregivers stopping at once can create duplicate events. Do it in one
+      transaction and only insert if the timer delete affected a row.
+- [ ] **Offline/idempotent writes** (needed by the native app): let clients supply event ids
+      (or an `Idempotency-Key`) so retried uploads don't duplicate.
+- [ ] **Nara child names:** importer creates "Baby" / "Baby N"; find where Nara stores child
+      profiles (names, birth dates) and import them.
+- [ ] **Security basics:** rate-limit login/register; password reset without email (e.g. owner
+      generates a reset code, or a CLI command on the server).
+- [ ] **Data export:** download everything as CSV/JSON (today: copy the SQLite file).
+- [ ] **OpenAPI spec** so the web and native clients can generate their API code.
+- [ ] Optional: reminders ("no feed in 3 h"), photos on milestones, Home Assistant integration
+      (`/children/{id}/summary` already works as a REST sensor).
+- Note: SSE behind a reverse proxy needs response buffering disabled.
+
+### 3. Web app (PWA), served by the server via `NESTLING_WEB_DIR`
+- [ ] Nara-like home: big feed/sleep/diaper buttons with "time since", live timers
+      (switch side/pause/stop), today's totals.
+- [ ] Timeline with edit/delete; forms for every event type; metric/imperial display.
+- [ ] Trends charts (1/7/14+ days).
+- [ ] Sign-in, family invites, child switcher, settings, Nara import screen.
+- [ ] Live updates via `/families/{id}/stream`; installable (manifest + service worker).
+
+### 4. Native mobile app
+- [ ] React Native or Flutter (undecided), same API.
+- [ ] Adds over the PWA: offline logging + `/sync`, home-screen widgets, lock-screen live timer.
+- [ ] Distribution: app stores vs TestFlight vs sideloading (undecided).
