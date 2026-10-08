@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api/api.dart';
@@ -16,12 +17,23 @@ String defaultServer() => kIsWeb && Uri.base.scheme.startsWith('http') ? Uri.bas
 class AppState extends ChangeNotifier {
   AppState(this._prefs) {
     server = _prefs.getString('server') ?? defaultServer();
+    themeMode = ThemeMode.values.where((m) => m.name == _prefs.getString('theme')).firstOrNull ?? ThemeMode.system;
     final token = _prefs.getString('token');
     if (server.isNotEmpty && token != null) api = Api(server, token);
   }
 
   final SharedPreferences _prefs;
   String server = '';
+
+  /// Light / dark / follow the system; stored on this device.
+  ThemeMode themeMode = ThemeMode.system;
+
+  void setThemeMode(ThemeMode mode) {
+    themeMode = mode;
+    _prefs.setString('theme', mode.name);
+    notifyListeners();
+  }
+
   Api? api;
 
   Me? me;

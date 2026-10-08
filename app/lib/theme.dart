@@ -1,49 +1,118 @@
 import 'package:flutter/material.dart';
 
-/// Calm dark palette in the spirit of Nara: deep navy, soft pastel band per activity,
-/// serif display type.
-class Palette {
-  static const background = Color(0xFF1D2030);
-  static const surface = Color(0xFF2A2E3D); // cards
-  static const raised = Color(0xFF343949); // inputs, sheets, dialogs
-  static const line = Color(0xFF3E4354);
-  static const ink = Color(0xFFEEEAE3); // text on dark
-  static const muted = Color(0xFFA3A7B3);
-  static const bandInk = Color(0xFF1D2030); // text on pastel bands
-  static const accent = Color(0xFF4F6E9E); // round + buttons, selected toggles
-  static const accentLight = Color(0xFF8FA9D1);
-  static const danger = Color(0xFFE5806F);
-  static const nav = Color(0xFF171A27);
+/// Nestling's own "nursery garden" palette: warm oat neutrals, a eucalyptus accent and
+/// soft earthy pastels per activity (no baby pink / baby blue). Light and dark variants.
+@immutable
+class AppColors extends ThemeExtension<AppColors> {
+  const AppColors({
+    required this.brightness,
+    required this.background,
+    required this.surface,
+    required this.raised,
+    required this.line,
+    required this.ink,
+    required this.muted,
+    required this.bandInk,
+    required this.accent,
+    required this.onAccent,
+    required this.accentSoft,
+    required this.danger,
+    required this.nav,
+  });
+
+  final Brightness brightness;
+  final Color background; // page
+  final Color surface; // cards
+  final Color raised; // inputs, sheets, dialogs
+  final Color line;
+  final Color ink; // main text
+  final Color muted;
+  final Color bandInk; // text on pastel bands (dark in both modes)
+  final Color accent; // buttons, + , selected toggles
+  final Color onAccent;
+  final Color accentSoft; // tinted panels, selection fills
+  final Color danger;
+  final Color nav;
+
+  bool get isDark => brightness == Brightness.dark;
+
+  static const light = AppColors(
+    brightness: Brightness.light,
+    background: Color(0xFFF7F3EC),
+    surface: Color(0xFFFFFDF8),
+    raised: Color(0xFFEFE8DD),
+    line: Color(0xFFE3DACB),
+    ink: Color(0xFF2E2925),
+    muted: Color(0xFF7C746A),
+    bandInk: Color(0xFF2E2925),
+    accent: Color(0xFF3D7A6A),
+    onAccent: Colors.white,
+    accentSoft: Color(0xFFDDEBE4),
+    danger: Color(0xFFB4492F),
+    nav: Color(0xFFFFFDF8),
+  );
+
+  static const dark = AppColors(
+    brightness: Brightness.dark,
+    background: Color(0xFF1B1A18),
+    surface: Color(0xFF262421),
+    raised: Color(0xFF322F2B),
+    line: Color(0xFF3D3934),
+    ink: Color(0xFFF0EAE1),
+    muted: Color(0xFFA69E93),
+    bandInk: Color(0xFF24211E),
+    accent: Color(0xFF93C9B6),
+    onAccent: Color(0xFF1B1A18),
+    accentSoft: Color(0xFF2A3833),
+    danger: Color(0xFFE59478),
+    nav: Color(0xFF161513),
+  );
+
+  @override
+  AppColors copyWith() => this;
+
+  @override
+  AppColors lerp(AppColors? other, double t) => t < 0.5 || other == null ? this : other;
+}
+
+extension AppColorsX on BuildContext {
+  AppColors get pal => Theme.of(this).extension<AppColors>()!;
 }
 
 /// Serif family for titles and big numbers (Libre Caslon Text, bundled).
 const serif = 'Caslon';
 
-TextStyle serifStyle(double size, {Color color = Palette.ink, FontWeight weight = FontWeight.w400, double? height}) =>
+/// Serif text; without [color] it inherits the surrounding text color (so it follows the theme).
+TextStyle serifStyle(double size, {Color? color, FontWeight weight = FontWeight.w400, double? height}) =>
     TextStyle(fontFamily: serif, fontSize: size, color: color, fontWeight: weight, height: height, letterSpacing: -0.2);
 
-/// Look of each kind of record: label, line icon and the pastel band color.
+/// Look of each kind of record: label, line icon, its pastel and a deep tone of the same hue.
 class Kind {
-  const Kind(this.label, this.icon, this.color);
+  const Kind(this.label, this.icon, this.color, this.deepTone);
   final String label;
   final IconData icon;
+
+  /// Pastel used for bands, blobs and chart fills (same in both themes).
   final Color color;
 
-  /// Accent on dark backgrounds (the band color reads well on navy).
-  Color get deep => color;
+  /// Darker shade of the same hue, for text and marks on light backgrounds.
+  final Color deepTone;
 
-  static const breast = Kind('Nursing', Icons.favorite_border_rounded, Color(0xFFF7C948));
-  static const bottle = Kind('Bottle', Icons.local_drink_outlined, Color(0xFFF2DD9A));
-  static const solids = Kind('Solids', Icons.restaurant_rounded, Color(0xFFF0AE68));
-  static const combo = Kind('Combo', Icons.join_inner_rounded, Color(0xFFF7C948));
-  static const sleep = Kind('Sleep', Icons.bedtime_outlined, Color(0xFFB7DCEB));
-  static const diaper = Kind('Diaper', Icons.baby_changing_station_outlined, Color(0xFFEFE7D8));
-  static const pump = Kind('Pump', Icons.water_drop_outlined, Color(0xFFF4A698));
-  static const growth = Kind('Growth', Icons.straighten_rounded, Color(0xFFB5DB8E));
-  static const health = Kind('Health', Icons.medical_services_outlined, Color(0xFFC7CBF3));
-  static const activity = Kind('Activity', Icons.wb_sunny_outlined, Color(0xFFD6C4F2));
-  static const milestone = Kind('Milestone', Icons.star_border_rounded, Color(0xFFA6DADF));
-  static const note = Kind('Note', Icons.edit_note_rounded, Color(0xFFD9D4CC));
+  /// Accent that reads well on the current background.
+  Color on(AppColors c) => c.isDark ? color : deepTone;
+
+  static const breast = Kind('Nursing', Icons.favorite_border_rounded, Color(0xFFF5C4A1), Color(0xFFB0602D)); // apricot
+  static const bottle = Kind('Bottle', Icons.local_drink_outlined, Color(0xFFF2DCA4), Color(0xFF94701C)); // honey
+  static const solids = Kind('Solids', Icons.restaurant_rounded, Color(0xFFEFAE80), Color(0xFFA9532A)); // carrot
+  static const combo = Kind('Combo', Icons.join_inner_rounded, Color(0xFFF5C4A1), Color(0xFFB0602D));
+  static const sleep = Kind('Sleep', Icons.bedtime_outlined, Color(0xFFD4CBEA), Color(0xFF65529C)); // dusk lilac
+  static const diaper = Kind('Diaper', Icons.baby_changing_station_outlined, Color(0xFFCADFBC), Color(0xFF4A763A)); // sage
+  static const pump = Kind('Pump', Icons.water_drop_outlined, Color(0xFFEDE29B), Color(0xFF7E7116)); // butter
+  static const growth = Kind('Growth', Icons.straighten_rounded, Color(0xFFE4D4BA), Color(0xFF7A5F3C)); // oat
+  static const health = Kind('Health', Icons.medical_services_outlined, Color(0xFFCBD19A), Color(0xFF616B26)); // moss
+  static const activity = Kind('Activity', Icons.wb_sunny_outlined, Color(0xFFB9E0D1), Color(0xFF2C755E)); // seafoam
+  static const milestone = Kind('Milestone', Icons.star_border_rounded, Color(0xFFEBC46E), Color(0xFF8A6210)); // marigold
+  static const note = Kind('Note', Icons.edit_note_rounded, Color(0xFFDDD6CC), Color(0xFF6B6359)); // stone
 
   /// Look of an event (feeds are split by method).
   static Kind of(String type, [String? method]) {
@@ -75,23 +144,24 @@ class Kind {
   }
 }
 
-ThemeData buildTheme() {
+ThemeData buildTheme(AppColors c) {
   final scheme = ColorScheme.fromSeed(
-    seedColor: Palette.accent,
-    brightness: Brightness.dark,
-    surface: Palette.surface,
-    primary: Palette.accentLight,
-    onPrimary: Palette.bandInk,
-    secondaryContainer: Palette.accent,
-    onSecondaryContainer: Colors.white,
-    error: Palette.danger,
-    outline: Palette.line,
-    outlineVariant: Palette.line,
-    surfaceContainerHigh: Palette.raised,
-    surfaceContainerHighest: Palette.raised,
+    seedColor: c.accent,
+    brightness: c.brightness,
+    surface: c.surface,
+    primary: c.accent,
+    onPrimary: c.onAccent,
+    secondaryContainer: c.accent,
+    onSecondaryContainer: c.onAccent,
+    error: c.danger,
+    outline: c.line,
+    outlineVariant: c.line,
+    surfaceContainerHigh: c.raised,
+    surfaceContainerHighest: c.raised,
+    onSurface: c.ink,
   );
-  final base = ThemeData(useMaterial3: true, colorScheme: scheme, scaffoldBackgroundColor: Palette.background);
-  final text = base.textTheme.apply(bodyColor: Palette.ink, displayColor: Palette.ink);
+  final base = ThemeData(useMaterial3: true, colorScheme: scheme, scaffoldBackgroundColor: c.background, extensions: [c]);
+  final text = base.textTheme.apply(bodyColor: c.ink, displayColor: c.ink);
   return base.copyWith(
     textTheme: text.copyWith(
       displayMedium: text.displayMedium?.copyWith(fontFamily: serif),
@@ -101,34 +171,35 @@ ThemeData buildTheme() {
       titleMedium: text.titleMedium?.copyWith(fontWeight: FontWeight.w600),
     ),
     appBarTheme: AppBarTheme(
-      backgroundColor: Palette.background,
-      foregroundColor: Palette.ink,
+      backgroundColor: c.background,
+      foregroundColor: c.ink,
       elevation: 0,
       scrolledUnderElevation: 0,
       centerTitle: false,
-      titleTextStyle: serifStyle(28),
+      titleTextStyle: serifStyle(28, color: c.ink),
     ),
     cardTheme: CardThemeData(
-      color: Palette.surface,
+      color: c.surface,
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-    ),
-    dividerTheme: const DividerThemeData(color: Palette.line, space: 1, thickness: 1),
-    navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: Palette.nav,
-      indicatorColor: Palette.accent,
-      iconTheme: WidgetStateProperty.resolveWith(
-        (s) => IconThemeData(color: s.contains(WidgetState.selected) ? Colors.white : Palette.muted),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: c.isDark ? BorderSide.none : BorderSide(color: c.line),
       ),
+    ),
+    dividerTheme: DividerThemeData(color: c.line, space: 1, thickness: 1),
+    navigationBarTheme: NavigationBarThemeData(
+      backgroundColor: c.nav,
+      indicatorColor: c.accentSoft,
+      iconTheme: WidgetStateProperty.resolveWith((s) => IconThemeData(color: s.contains(WidgetState.selected) ? c.accent : c.muted)),
       labelTextStyle: WidgetStateProperty.resolveWith(
-        (s) => TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: s.contains(WidgetState.selected) ? Palette.ink : Palette.muted),
+        (s) => TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: s.contains(WidgetState.selected) ? c.ink : c.muted),
       ),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        backgroundColor: Palette.accent,
-        foregroundColor: Colors.white,
+        backgroundColor: c.accent,
+        foregroundColor: c.onAccent,
         minimumSize: const Size(64, 52),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
         textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
@@ -136,59 +207,59 @@ ThemeData buildTheme() {
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        foregroundColor: Palette.ink,
+        foregroundColor: c.ink,
         minimumSize: const Size(64, 52),
-        side: const BorderSide(color: Palette.ink, width: 1.5),
+        side: BorderSide(color: c.ink, width: 1.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(26)),
         textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
       ),
     ),
-    textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: Palette.accentLight)),
+    textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: c.accent)),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: Palette.raised,
-      labelStyle: const TextStyle(color: Palette.muted),
-      hintStyle: const TextStyle(color: Palette.muted),
+      fillColor: c.raised,
+      labelStyle: TextStyle(color: c.muted),
+      hintStyle: TextStyle(color: c.muted),
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
       enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Palette.accentLight, width: 1.5),
+        borderSide: BorderSide(color: c.accent, width: 1.5),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     ),
     chipTheme: base.chipTheme.copyWith(
-      backgroundColor: Palette.surface,
-      selectedColor: Palette.accent,
-      side: const BorderSide(color: Palette.line),
+      backgroundColor: c.surface,
+      selectedColor: c.accent,
+      side: BorderSide(color: c.line),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      labelStyle: const TextStyle(fontWeight: FontWeight.w500, color: Palette.ink),
+      labelStyle: TextStyle(fontWeight: FontWeight.w500, color: c.ink),
     ),
     segmentedButtonTheme: SegmentedButtonThemeData(
       style: ButtonStyle(
-        backgroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Palette.accent : Palette.surface),
-        foregroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Colors.white : Palette.ink),
-        side: const WidgetStatePropertyAll(BorderSide(color: Palette.line)),
+        backgroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? c.accent : c.surface),
+        foregroundColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? c.onAccent : c.ink),
+        side: WidgetStatePropertyAll(BorderSide(color: c.line)),
       ),
     ),
     switchTheme: SwitchThemeData(
-      thumbColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Colors.white : Palette.ink),
-      trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? Palette.accent : Palette.line),
-      trackOutlineColor: const WidgetStatePropertyAll(Colors.transparent),
+      thumbColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? c.onAccent : c.muted),
+      trackColor: WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? c.accent : c.raised),
+      trackOutlineColor: WidgetStatePropertyAll(c.line),
     ),
-    bottomSheetTheme: const BottomSheetThemeData(
-      backgroundColor: Palette.raised,
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: c.raised,
       showDragHandle: false,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       clipBehavior: Clip.antiAlias,
     ),
-    dialogTheme: const DialogThemeData(backgroundColor: Palette.raised),
-    popupMenuTheme: const PopupMenuThemeData(color: Palette.raised),
-    snackBarTheme: const SnackBarThemeData(
+    dialogTheme: DialogThemeData(backgroundColor: c.raised),
+    popupMenuTheme: PopupMenuThemeData(color: c.raised),
+    snackBarTheme: SnackBarThemeData(
       behavior: SnackBarBehavior.floating,
-      backgroundColor: Palette.ink,
-      contentTextStyle: TextStyle(color: Palette.bandInk),
+      backgroundColor: c.ink,
+      contentTextStyle: TextStyle(color: c.background),
     ),
-    listTileTheme: const ListTileThemeData(iconColor: Palette.muted, textColor: Palette.ink),
+    listTileTheme: ListTileThemeData(iconColor: c.muted, textColor: c.ink),
   );
 }

@@ -22,8 +22,14 @@ class NestlingApp extends StatelessWidget {
   const NestlingApp({super.key});
 
   @override
-  Widget build(BuildContext context) =>
-      MaterialApp(title: 'Nestling', debugShowCheckedModeBanner: false, theme: buildTheme(), home: const Root());
+  Widget build(BuildContext context) => MaterialApp(
+    title: 'Nestling',
+    debugShowCheckedModeBanner: false,
+    theme: buildTheme(AppColors.light),
+    darkTheme: buildTheme(AppColors.dark),
+    themeMode: context.select<AppState, ThemeMode>((s) => s.themeMode),
+    home: const Root(),
+  );
 }
 
 /// Picks sign-in, onboarding or the main app.

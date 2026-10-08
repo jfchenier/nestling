@@ -16,11 +16,14 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 ## Decisions already made (don't revisit without asking)
 
 - Order of work: **server API first**, then a **web app (PWA)**, then a **native mobile app**.
-- Client: **Flutter**, one codebase for web (served by the server) and Android. Nara-like look
-  (from JF's Nara screenshots, without copying their artwork): dark navy theme, serif display font
-  (Libre Caslon Text, bundled), one pastel band color per activity (`app/lib/theme.dart`), home =
-  stack of activity cards with a round blue "+", entry sheets with a colored header and
-  label/value rows. Icons are Material line icons over generated blobs (`BlobIcon`).
+- Client: **Flutter**, one codebase for web (served by the server) and Android. Layout inspired by
+  Nara (activity cards, sheets with a colored header and label/value rows) but with Nestling's
+  **own palette** ("nursery garden": oat neutrals, eucalyptus accent, earthy pastels per activity;
+  explicitly **no baby pink / baby blue**, nothing that copies Nara's colors). **Light + dark
+  themes** (system or user choice). Serif display font Libre Caslon Text (bundled). Icons are
+  Material line icons over generated blobs (`BlobIcon`), no copied artwork.
+- Colors: always via `context.pal` (`AppColors` theme extension) and `Kind.on(pal)` for text/marks;
+  never hard-code a color in a screen.
 - Server in **Rust**: axum 0.8, sqlx 0.8 (SQLite, runtime queries — no `query!` macros, so no
   DATABASE_URL needed at build time), tokio. Single binary + one SQLite file.
 - Hosting: **home server / NAS via Docker** (`docker compose up -d --build`).
@@ -95,9 +98,10 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - [x] Trends (7/14/30 days): averages + daily charts.
 - [x] Sign-in, onboarding, family invites, child switcher, settings, Nara import screen.
 - [x] Live updates via `/families/{id}/stream`; installable PWA (manifest, icons).
-- [x] Restyled after JF's Nara screenshots (dark theme, activity cards, Nara-style sheets and timer).
-- [ ] Light mode (the theme is dark-only for now; colors live in `Palette`).
-- [ ] Build and test the Android APK on a phone (`flutter build apk`); pick the final application id.
+- [x] Layout after JF's Nara screenshots; original palette; light + dark themes.
+- [x] GitHub Actions: CI (`ci.yml`) and tag-triggered APK release (`release.yml`) — not run yet.
+- [ ] Push to the new GitHub repo; add the signing-key secrets; tag `v0.1.0`; install the APK.
+- [ ] Pick the final application id (now `org.nestling.nestling`) before the first public release.
 
 ### 4. Native mobile app (Android first, same Flutter codebase)
 - [ ] Offline logging + `/sync`, home-screen widgets, ongoing notification for running timers.

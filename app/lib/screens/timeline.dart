@@ -135,12 +135,12 @@ class _TimelineScreenState extends State<TimelineScreen> {
                         child: Center(child: CircularProgressIndicator()),
                       )
                     else if (_events.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.all(48),
+                      Padding(
+                        padding: const EdgeInsets.all(48),
                         child: Text(
                           'Nothing here yet.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Palette.muted),
+                          style: TextStyle(color: context.pal.muted),
                         ),
                       ),
                   ],

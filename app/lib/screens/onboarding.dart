@@ -46,7 +46,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               if (family == null) ...[
                 Text(
                   'Start a family to track your baby, or join one with an invite code from your partner.',
-                  style: t.bodyLarge?.copyWith(color: Palette.muted),
+                  style: t.bodyLarge?.copyWith(color: context.pal.muted),
                 ),
                 const SectionTitle('Start a family'),
                 TextField(
@@ -78,7 +78,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   child: const Text('Join family'),
                 ),
               ] else ...[
-                Text('Now add your little one to ${family.name}.', style: t.bodyLarge?.copyWith(color: Palette.muted)),
+                Text('Now add your little one to ${family.name}.', style: t.bodyLarge?.copyWith(color: context.pal.muted)),
                 const SizedBox(height: 24),
                 FilledButton.icon(
                   icon: const Icon(Icons.add),

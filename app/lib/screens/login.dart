@@ -58,7 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text(
                   _register ? 'Create your account' : 'Welcome back',
                   textAlign: TextAlign.center,
-                  style: t.bodyLarge?.copyWith(color: Palette.muted),
+                  style: t.bodyLarge?.copyWith(color: context.pal.muted),
                 ),
                 const SizedBox(height: 32),
                 if (_showServer) ...[
@@ -109,7 +109,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 FilledButton(
                   onPressed: _busy ? null : _submit,
                   child: _busy
-                      ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white))
+                      ? SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2.5, color: context.pal.onAccent),
+                        )
                       : Text(_register ? 'Create account' : 'Sign in'),
                 ),
                 const SizedBox(height: 8),
@@ -120,7 +124,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (!_showServer)
                   TextButton(
                     onPressed: () => setState(() => _showServer = true),
-                    child: Text('Server: ${_server.text}', style: const TextStyle(color: Palette.muted)),
+                    child: Text('Server: ${_server.text}', style: TextStyle(color: context.pal.muted)),
                   ),
               ],
             ),

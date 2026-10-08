@@ -105,7 +105,7 @@ class HomeScreen extends StatelessWidget {
                     onPressed: () => showEventForm(context, type: 'note'),
                     icon: const Icon(Icons.edit_note_rounded),
                     label: const Text('Add a note'),
-                    style: OutlinedButton.styleFrom(side: const BorderSide(color: Palette.line, width: 1.5)),
+                    style: OutlinedButton.styleFrom(side: BorderSide(color: context.pal.line, width: 1.5)),
                   ),
                 ),
               ],
@@ -184,7 +184,7 @@ class _Header extends StatelessWidget {
                   Flexible(
                     child: Text(
                       DateFormat('EEE, MMM d').format(DateTime.now()),
-                      style: const TextStyle(color: Palette.muted, fontSize: 14),
+                      style: TextStyle(color: context.pal.muted, fontSize: 14),
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
@@ -194,12 +194,12 @@ class _Header extends StatelessWidget {
                     child: Container(
                       width: 8,
                       height: 8,
-                      decoration: BoxDecoration(color: live ? const Color(0xFF7BC68F) : Palette.line, shape: BoxShape.circle),
+                      decoration: BoxDecoration(color: live ? Color(0xFF7BC68F) : context.pal.line, shape: BoxShape.circle),
                     ),
                   ),
                 ],
               ),
-              if (child.age != null) Text(child.age!, style: const TextStyle(color: Palette.muted, fontSize: 13)),
+              if (child.age != null) Text(child.age!, style: TextStyle(color: context.pal.muted, fontSize: 13)),
             ],
           ),
         ),
@@ -229,17 +229,17 @@ class _Header extends StatelessWidget {
                   leading: ChildAvatar(child: ch, size: 44),
                   title: Text(ch.name, style: serifStyle(20)),
                   subtitle: Text([?ch.age, if (s.families.length > 1) f.name].join(' · ')),
-                  trailing: ch.id == s.childId ? const Icon(Icons.check_rounded, color: Palette.accentLight) : null,
+                  trailing: ch.id == s.childId ? Icon(Icons.check_rounded, color: context.pal.accent) : null,
                   onTap: () {
                     Navigator.pop(c);
                     s.selectChild(ch.id);
                   },
                 ),
             ListTile(
-              leading: const CircleAvatar(
+              leading: CircleAvatar(
                 radius: 22,
-                backgroundColor: Palette.surface,
-                child: Icon(Icons.add, color: Palette.ink),
+                backgroundColor: context.pal.surface,
+                child: Icon(Icons.add, color: context.pal.ink),
               ),
               title: const Text('Add a baby'),
               onTap: () {
@@ -272,9 +272,9 @@ class _SquareButton extends StatelessWidget {
         height: 34,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Palette.muted.withValues(alpha: 0.6)),
+          border: Border.all(color: context.pal.muted.withValues(alpha: 0.6)),
         ),
-        child: Icon(icon, size: 20, color: Palette.ink),
+        child: Icon(icon, size: 20, color: context.pal.ink),
       ),
     ),
   );
@@ -296,13 +296,17 @@ class ChildAvatar extends StatelessWidget {
       width: size,
       height: size,
       padding: EdgeInsets.all(size * 0.06),
-      decoration: BoxDecoration(color: Palette.ink, shape: BoxShape.circle),
+      decoration: BoxDecoration(
+        color: context.pal.surface,
+        shape: BoxShape.circle,
+        border: Border.all(color: context.pal.line),
+      ),
       child: Container(
         alignment: Alignment.center,
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         child: Text(
           child.name.isEmpty ? '?' : child.name.characters.first.toUpperCase(),
-          style: serifStyle(size * 0.46, color: Palette.bandInk),
+          style: serifStyle(size * 0.46, color: context.pal.bandInk),
         ),
       ),
     );
@@ -323,14 +327,14 @@ class _TodayStrip extends StatelessWidget {
         children: [
           Text(value, style: serifStyle(24)),
           const SizedBox(height: 2),
-          Text(label, style: const TextStyle(color: Palette.muted, fontSize: 12)),
+          Text(label, style: TextStyle(color: context.pal.muted, fontSize: 12)),
         ],
       ),
     );
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
       padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: BoxDecoration(color: const Color(0xFF243552), borderRadius: BorderRadius.circular(14)),
+      decoration: BoxDecoration(color: context.pal.accentSoft, borderRadius: BorderRadius.circular(14)),
       child: Row(
         children: [
           stat('${feed['count'] ?? 0}', 'feeds today'),
@@ -359,63 +363,57 @@ class _ActivityCard extends StatelessWidget {
   final VoidCallback? onHistory;
   final String historyLabel;
 
-  static const _band = 50.0;
-
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 18),
-    child: Stack(
-      clipBehavior: Clip.none,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                height: _band,
-                color: kind.color,
-                padding: const EdgeInsets.only(left: 16),
-                alignment: Alignment.centerLeft,
-                child: Text(title, style: serifStyle(26, color: Palette.bandInk)),
+  Widget build(BuildContext context) {
+    final c = context.pal;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: c.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: c.isDark ? null : Border.all(color: c.line),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Pastel header band with the title and a small round + on the right.
+            Container(
+              color: kind.color,
+              padding: const EdgeInsets.fromLTRB(16, 8, 10, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(title, style: serifStyle(24, color: c.bandInk)),
+                  ),
+                  PlusButton(onTap: onAdd, size: 38, tooltip: 'Add ${title.toLowerCase()}'),
+                ],
               ),
-              Container(
-                color: Palette.surface,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    child,
-                    if (onHistory != null)
-                      InkWell(
-                        onTap: onHistory,
-                        child: Container(
-                          decoration: const BoxDecoration(
-                            border: Border(top: BorderSide(color: Palette.line)),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          child: Row(
-                            children: [
-                              Text(historyLabel, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                              const Spacer(),
-                              const Icon(Icons.chevron_right_rounded, color: Palette.muted),
-                            ],
-                          ),
-                        ),
-                      ),
-                  ],
+            ),
+            child,
+            if (onHistory != null)
+              InkWell(
+                onTap: onHistory,
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border(top: BorderSide(color: c.line)),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+                  child: Row(
+                    children: [
+                      Text(historyLabel, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                      const Spacer(),
+                      Icon(Icons.chevron_right_rounded, color: c.muted),
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
-        Positioned(
-          right: 14,
-          top: _band - 23,
-          child: PlusButton(onTap: onAdd, tooltip: 'Add ${title.toLowerCase()}'),
-        ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 /// Blob icon · title/subtitle · big serif value on the right.
@@ -432,7 +430,7 @@ class _LastRow extends StatelessWidget {
   Widget build(BuildContext context) => InkWell(
     onTap: onTap,
     child: Padding(
-      padding: const EdgeInsets.fromLTRB(16, 28, 16, 18),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 18),
       child: Row(
         children: [
           BlobIcon(kind, size: 62),
@@ -444,7 +442,7 @@ class _LastRow extends StatelessWidget {
                 Text(title, style: serifStyle(20), maxLines: 2, overflow: TextOverflow.ellipsis),
                 if (subtitle != null) ...[
                   const SizedBox(height: 4),
-                  Text(subtitle!, style: const TextStyle(fontSize: 14, color: Palette.ink)),
+                  Text(subtitle!, style: TextStyle(fontSize: 14, color: context.pal.ink)),
                 ],
               ],
             ),
@@ -457,7 +455,7 @@ class _LastRow extends StatelessWidget {
                   fit: BoxFit.scaleDown,
                   child: Text(value!, style: serifStyle(40, height: 1.1)),
                 ),
-                if (caption != null) Text(caption!, style: serifStyle(15, color: Palette.muted)),
+                if (caption != null) Text(caption!, style: serifStyle(15, color: context.pal.muted)),
               ],
             ),
         ],
@@ -688,12 +686,12 @@ class _ListRow extends StatelessWidget {
               children: [
                 Text(title, style: serifStyle(19)),
                 const SizedBox(height: 2),
-                Text(subtitle, style: const TextStyle(fontSize: 13, color: Palette.ink)),
+                Text(subtitle, style: TextStyle(fontSize: 13, color: context.pal.ink)),
               ],
             ),
           ),
           if (trailing != null) Text(trailing!, style: const TextStyle(fontSize: 16)),
-          const Icon(Icons.chevron_right_rounded, color: Palette.muted),
+          Icon(Icons.chevron_right_rounded, color: context.pal.muted),
         ],
       ),
     ),

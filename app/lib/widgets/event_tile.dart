@@ -24,14 +24,14 @@ class EventTile extends StatelessWidget {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: BlobIcon(k, size: 46),
       title: Text(title, style: serifStyle(19)),
-      subtitle: sub.isEmpty ? null : Text(sub, style: const TextStyle(color: Palette.muted)),
+      subtitle: sub.isEmpty ? null : Text(sub, style: TextStyle(color: context.pal.muted)),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(timeOfDay(event.start), style: const TextStyle(fontWeight: FontWeight.w600)),
           if (event.end != null && event.type != 'feed')
-            Text('→ ${timeOfDay(event.end!)}', style: const TextStyle(color: Palette.muted, fontSize: 12)),
+            Text('→ ${timeOfDay(event.end!)}', style: TextStyle(color: context.pal.muted, fontSize: 12)),
         ],
       ),
       onTap: () => showEventForm(context, event: event).then((_) => onChanged?.call()),

@@ -13,7 +13,7 @@ Future<void> showEventForm(BuildContext context, {String? type, String? method, 
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
-  backgroundColor: Palette.background,
+  backgroundColor: context.pal.background,
   builder: (_) => EventForm(type: event?.type ?? type!, method: event?['method'] ?? method, event: event),
 );
 
@@ -226,7 +226,7 @@ class _EventFormState extends State<EventForm> {
                         onPressed: _delete,
                         icon: const Icon(Icons.delete_outline),
                         label: const Text('Delete entry'),
-                        style: TextButton.styleFrom(foregroundColor: Palette.danger),
+                        style: TextButton.styleFrom(foregroundColor: context.pal.danger),
                       ),
                     ),
                   ),
@@ -245,7 +245,7 @@ class _EventFormState extends State<EventForm> {
       value == null ? placeholder : '${dayLabel(value)}   ${DateFormat.jm().format(value)}',
       style: TextStyle(
         fontSize: 17,
-        color: value == null ? Palette.accentLight : Palette.ink,
+        color: value == null ? context.pal.accent : context.pal.ink,
         fontWeight: value == null ? FontWeight.w600 : null,
       ),
     ),
@@ -337,7 +337,7 @@ class _EventFormState extends State<EventForm> {
             label: 'Total Time',
             child: Text(
               _end != null && _end!.isAfter(_start) ? duration(_end!.difference(_start).inSeconds) : '—',
-              style: const TextStyle(fontSize: 17, color: Palette.muted),
+              style: TextStyle(fontSize: 17, color: context.pal.muted),
             ),
           ),
           _chipsRow<String>(
@@ -351,8 +351,8 @@ class _EventFormState extends State<EventForm> {
         return [
           _timeRow('Time', _start, (v) => setState(() => _start = v)),
           Container(
-            decoration: const BoxDecoration(
-              border: Border(bottom: BorderSide(color: Palette.line)),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: context.pal.line)),
             ),
             padding: const EdgeInsets.symmetric(vertical: 36),
             child: Row(
@@ -446,7 +446,7 @@ class _EventFormState extends State<EventForm> {
               children: [
                 for (final a in const ['tummy_time', 'bath', 'outdoor', 'play', 'read', 'nail_trim', 'vitamin'])
                   ChoiceChip(
-                    label: Text(cap(a), style: TextStyle(color: _activityKind.text == a ? Palette.bandInk : Palette.ink)),
+                    label: Text(cap(a), style: TextStyle(color: _activityKind.text == a ? context.pal.bandInk : context.pal.ink)),
                     selected: _activityKind.text == a,
                     selectedColor: kind.color,
                     showCheckmark: false,
@@ -497,8 +497,8 @@ class _EventFormState extends State<EventForm> {
         padding: const EdgeInsets.symmetric(vertical: 8),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: selected ? Palette.accentLight : Colors.transparent, width: 1.5),
-          color: selected ? Palette.accent.withValues(alpha: 0.25) : null,
+          border: Border.all(color: selected ? context.pal.accent : Colors.transparent, width: 1.5),
+          color: selected ? context.pal.accent.withValues(alpha: 0.25) : null,
         ),
         child: Column(
           children: [
@@ -519,7 +519,7 @@ class _EventFormState extends State<EventForm> {
               option(
                 cap(t),
                 _consistency == t,
-                CustomPaint(painter: TexturePainter(t, const Color(0xFFE3DACB))),
+                CustomPaint(painter: TexturePainter(t, context.pal.isDark ? const Color(0xFFE3DACB) : const Color(0xFFA8987F))),
                 () => setState(() => _consistency = _consistency == t ? null : t),
               ),
           ],

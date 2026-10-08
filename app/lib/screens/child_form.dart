@@ -93,7 +93,7 @@ class _ChildFormState extends State<_ChildForm> {
           if (widget.child != null) ...[
             const SizedBox(height: 8),
             TextButton(
-              style: TextButton.styleFrom(foregroundColor: Palette.danger),
+              style: TextButton.styleFrom(foregroundColor: context.pal.danger),
               onPressed: () async {
                 if (!await confirm(context, 'Delete ${widget.child!.name}?', 'This deletes the baby and everything logged for them.')) {
                   return;
@@ -219,6 +219,6 @@ class TimezoneField extends StatelessWidget {
       for (final z in {...timezones, value}) DropdownMenuItem(value: z, child: Text(z.replaceAll('_', ' '))),
     ],
     onChanged: (v) => v == null ? null : onChanged(v),
-    dropdownColor: Palette.surface,
+    dropdownColor: context.pal.surface,
   );
 }

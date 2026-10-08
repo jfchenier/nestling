@@ -5,10 +5,17 @@ The Nestling client: one Flutter codebase for the **web app** (served by the Nes
 
 ## Look
 
-Dark navy theme with a serif display font and one pastel color per activity, in the spirit of
-Nara Baby. The font is [Libre Caslon Text](https://github.com/google/fonts/tree/main/ofl/librecaslontext)
-(SIL Open Font License, `assets/fonts/OFL.txt`), bundled so the app works offline. Colors and type
-are in `lib/theme.dart`; the blob-backed icons and form rows are in `lib/widgets/common.dart`.
+Nestling's own "nursery garden" palette: warm oat neutrals, a eucalyptus-green accent and one soft,
+earthy pastel per activity — apricot (feeds), honey (bottle), butter (pump), sage (diapers), dusk
+lilac (sleep), seafoam (routine), marigold (firsts), oat (growth), moss (health). No baby pink or
+baby blue. **Light and dark themes**: follows the system, or pick one under Family → Settings →
+Appearance (saved on the device).
+
+Titles use [Libre Caslon Text](https://github.com/google/fonts/tree/main/ofl/librecaslontext)
+(SIL Open Font License, `assets/fonts/OFL.txt`), bundled so the app works offline. Colors live in
+`lib/theme.dart` (`AppColors.light` / `AppColors.dark`, read in widgets with `context.pal`; each
+`Kind` has a pastel and a deep tone for light backgrounds). Blob icons and form rows are in
+`lib/widgets/common.dart`.
 
 ## Screens
 
@@ -56,6 +63,39 @@ flutter build web --release --no-web-resources-cdn
 (e.g. on a home network). The Docker image builds and serves it automatically. It's installable as a
 PWA ("Add to Home screen" / "Install app").
 
+## Releases (GitHub Actions)
+
+- `.github/workflows/ci.yml` — on every push/PR: `cargo test` + `clippy`, `flutter analyze`,
+  `flutter test`, web build.
+- `.github/workflows/release.yml` — push a tag to publish a GitHub Release with the APK, the web
+  app zip and checksums:
+
+  ```bash
+  git tag v0.2.0 && git push origin v0.2.0
+  ```
+
+  The version comes from the tag (`0.2.0`), the build number from the run number. Tags with a `-`
+  (`v0.2.0-beta.1`) are marked as pre-releases. "Run workflow" on the Actions tab builds an APK as a
+  downloadable artifact without releasing.
+
+**Signing key (do this once).** Android only installs an update if it's signed with the same key
+as the installed app, so give CI a permanent key:
+
+```bash
+keytool -genkeypair -v -keystore nestling-upload.jks -alias upload \
+  -keyalg RSA -keysize 4096 -validity 10000
+base64 -w0 nestling-upload.jks > nestling-upload.jks.b64   # macOS: base64 -i nestling-upload.jks
+```
+
+Add repository secrets (Settings → Secrets and variables → Actions): `ANDROID_KEYSTORE_BASE64`
+(contents of the `.b64` file), `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` (`upload`),
+`ANDROID_KEY_PASSWORD`. Keep the `.jks` and passwords somewhere safe (password manager) — losing
+them means users must uninstall to get updates. Without the secrets CI signs with a throwaway
+debug key and warns.
+
+To sign local release builds with the same key, create `android/key.properties` (git-ignored):
+`storeFile=/path/to/nestling-upload.jks`, `storePassword=…`, `keyAlias=upload`, `keyPassword=…`.
+
 ## Android app
 
 Needs the Android SDK (install Android Studio, or the command-line tools, then `flutter doctor`).
@@ -68,9 +108,8 @@ flutter build appbundle         # .aab for the Play Store
 
 Notes:
 
-- The release build is signed with the debug key so it can be sideloaded. For the Play Store, create
-  an upload key and set up signing in `android/app/build.gradle.kts`
-  (see <https://docs.flutter.dev/deployment/android#signing-the-app>).
+- Release builds use `android/key.properties` when present (see "Signing key" above), otherwise the
+  debug key.
 - The application id is `org.nestling.nestling` (`android/app/build.gradle.kts`). Change it **before**
   publishing to a store; it can't change afterwards.
 - Plain `http://` servers on the home network are allowed (`usesCleartextTraffic`). Use HTTPS when

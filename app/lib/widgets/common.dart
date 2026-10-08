@@ -47,11 +47,13 @@ int stableSeed(String s) => s.codeUnits.fold(7, (a, c) => (a * 31 + c) & 0x7ffff
 
 /// Line icon drawn over a pastel blob, slightly offset — a hand-drawn feel.
 class BlobIcon extends StatelessWidget {
-  const BlobIcon(this.kind, {super.key, this.size = 56, this.icon, this.lineColor = Palette.ink});
+  const BlobIcon(this.kind, {super.key, this.size = 56, this.icon, this.lineColor});
   final Kind kind;
   final double size;
   final IconData? icon;
-  final Color lineColor;
+
+  /// Line color; defaults to the theme's text color.
+  final Color? lineColor;
 
   @override
   Widget build(BuildContext context) => SizedBox(
@@ -73,14 +75,14 @@ class BlobIcon extends StatelessWidget {
             top: dy * size * 0.025,
             width: size * 0.84,
             height: size * 0.84,
-            child: Icon(icon ?? kind.icon, size: size * 0.62, color: Palette.background),
+            child: Icon(icon ?? kind.icon, size: size * 0.62, color: context.pal.background),
           ),
         Positioned(
           left: 0,
           top: 0,
           width: size * 0.84,
           height: size * 0.84,
-          child: Icon(icon ?? kind.icon, size: size * 0.62, color: lineColor),
+          child: Icon(icon ?? kind.icon, size: size * 0.62, color: lineColor ?? context.pal.ink),
         ),
       ],
     ),
@@ -108,17 +110,17 @@ class PlusButton extends StatelessWidget {
   Widget build(BuildContext context) => Tooltip(
     message: tooltip ?? 'Add',
     child: Material(
-      color: Palette.accent,
+      color: context.pal.accent,
       shape: const CircleBorder(),
       elevation: 3,
-      shadowColor: Colors.black54,
+      shadowColor: Colors.black26,
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: onTap,
         child: SizedBox(
           width: size,
           height: size,
-          child: Icon(Icons.add_rounded, color: Colors.white, size: size * 0.6),
+          child: Icon(Icons.add_rounded, color: context.pal.onAccent, size: size * 0.6),
         ),
       ),
     ),
@@ -142,7 +144,7 @@ class SheetHeader extends StatelessWidget {
       children: [
         IconButton(
           icon: const Icon(Icons.close_rounded, size: 28),
-          color: Palette.bandInk,
+          color: context.pal.bandInk,
           tooltip: 'Close',
           onPressed: onClose ?? () => Navigator.maybePop(context),
         ),
@@ -150,7 +152,7 @@ class SheetHeader extends StatelessWidget {
           child: Text(
             title,
             textAlign: TextAlign.center,
-            style: serifStyle(32, color: Palette.bandInk),
+            style: serifStyle(32, color: context.pal.bandInk),
           ),
         ),
         SizedBox(
@@ -158,8 +160,8 @@ class SheetHeader extends StatelessWidget {
           child: TextButton(
             onPressed: onSave,
             style: TextButton.styleFrom(
-              foregroundColor: Palette.bandInk,
-              disabledForegroundColor: Palette.bandInk.withValues(alpha: 0.35),
+              foregroundColor: context.pal.bandInk,
+              disabledForegroundColor: context.pal.bandInk.withValues(alpha: 0.35),
               textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
             ),
             child: Text(saveLabel),
@@ -185,8 +187,8 @@ class FormRow extends StatelessWidget {
   Widget build(BuildContext context) => InkWell(
     onTap: onTap,
     child: Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Palette.line)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: context.pal.line)),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       child: Column(
@@ -199,7 +201,7 @@ class FormRow extends StatelessWidget {
               Expanded(
                 child: Align(
                   alignment: Alignment.centerRight,
-                  child: child ?? Text(value ?? '', style: const TextStyle(fontSize: 17, color: Palette.ink)),
+                  child: child ?? Text(value ?? '', style: TextStyle(fontSize: 17, color: context.pal.ink)),
                 ),
               ),
             ],
@@ -258,13 +260,13 @@ class CircleToggle extends StatelessWidget {
       height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: selected ? Palette.accent : Colors.transparent,
+        color: selected ? context.pal.accent : Colors.transparent,
         shape: BoxShape.circle,
-        border: Border.all(color: Palette.accent, width: 1.5),
+        border: Border.all(color: context.pal.accent, width: 1.5),
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: selected ? Colors.white : Palette.accentLight),
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: selected ? context.pal.onAccent : context.pal.accent),
       ),
     ),
   );
@@ -280,13 +282,13 @@ class PillButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final c = color ?? Palette.ink;
+    final c = color ?? context.pal.ink;
     return OutlinedButton(
       onPressed: onTap,
       style: OutlinedButton.styleFrom(
         backgroundColor: active ? c : Colors.transparent,
-        foregroundColor: active ? Palette.bandInk : Palette.ink,
-        side: BorderSide(color: active ? c : Palette.ink, width: 1.5),
+        foregroundColor: active ? context.pal.bandInk : context.pal.ink,
+        side: BorderSide(color: active ? c : context.pal.ink, width: 1.5),
         padding: const EdgeInsets.symmetric(horizontal: 28),
         minimumSize: const Size(140, 54),
       ),
@@ -429,7 +431,7 @@ Future<bool> confirm(BuildContext context, String title, String message, {String
         TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
         TextButton(
           onPressed: () => Navigator.pop(c, true),
-          style: TextButton.styleFrom(foregroundColor: Palette.danger),
+          style: TextButton.styleFrom(foregroundColor: context.pal.danger),
           child: Text(action),
         ),
       ],
@@ -453,9 +455,9 @@ class ChoiceChips<T> extends StatelessWidget {
     children: [
       for (final e in options.entries)
         ChoiceChip(
-          label: Text(e.value, style: TextStyle(color: value == e.key && color != null ? Palette.bandInk : Palette.ink)),
+          label: Text(e.value, style: TextStyle(color: value == e.key && color != null ? context.pal.bandInk : context.pal.ink)),
           selected: value == e.key,
-          selectedColor: color ?? Palette.accent,
+          selectedColor: color ?? context.pal.accent,
           showCheckmark: false,
           onSelected: (on) => onChanged(on ? e.key : null),
         ),

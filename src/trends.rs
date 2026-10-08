@@ -211,7 +211,7 @@ pub fn compute(events: &[TrendEvent], tz: Tz, from: NaiveDate, days: u32, now: i
     let complete: Vec<&DayStats> = out.iter().filter(|d| d.complete).collect();
     let basis: Vec<&DayStats> = if complete.is_empty() { out.iter().collect() } else { complete };
     let n = basis.len().max(1) as f64;
-    let avg = |f: &dyn Fn(&DayStats) -> f64| (basis.iter().map(|d| f(*d)).sum::<f64>() / n * 10.0).round() / 10.0;
+    let avg = |f: &dyn Fn(&DayStats) -> f64| (basis.iter().map(|d| f(d)).sum::<f64>() / n * 10.0).round() / 10.0;
 
     let (r0, r1) = range_ms(tz, from, days);
     let mut feed_starts: Vec<i64> = events

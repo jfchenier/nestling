@@ -26,9 +26,9 @@ class FamilyScreen extends StatelessWidget {
           children: [
             Card(
               child: ListTile(
-                leading: const CircleAvatar(
-                  backgroundColor: Palette.raised,
-                  child: Icon(Icons.home_rounded, color: Palette.accentLight),
+                leading: CircleAvatar(
+                  backgroundColor: context.pal.raised,
+                  child: Icon(Icons.home_rounded, color: context.pal.accent),
                 ),
                 title: Text(f.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                 subtitle: Text('${f.members.length} caregiver${f.members.length == 1 ? '' : 's'} · ${f.timezone.replaceAll('_', ' ')}'),
@@ -49,9 +49,9 @@ class FamilyScreen extends StatelessWidget {
                       onTap: () => showChildForm(context, familyId: f.id, child: c),
                     ),
                   ListTile(
-                    leading: const CircleAvatar(
-                      backgroundColor: Palette.line,
-                      child: Icon(Icons.add, color: Palette.ink),
+                    leading: CircleAvatar(
+                      backgroundColor: context.pal.line,
+                      child: Icon(Icons.add, color: context.pal.ink),
                     ),
                     title: const Text('Add a baby'),
                     onTap: () => showChildForm(context, familyId: f.id),
@@ -66,10 +66,10 @@ class FamilyScreen extends StatelessWidget {
                   for (final m in f.members)
                     ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: Palette.raised,
+                        backgroundColor: context.pal.raised,
                         child: Text(
                           m.name.isEmpty ? '?' : m.name.characters.first.toUpperCase(),
-                          style: const TextStyle(color: Palette.accentLight, fontWeight: FontWeight.w700),
+                          style: TextStyle(color: context.pal.accent, fontWeight: FontWeight.w700),
                         ),
                       ),
                       title: Text(m.userId == me.id ? '${m.name} (you)' : m.name),
@@ -79,9 +79,9 @@ class FamilyScreen extends StatelessWidget {
                           : null,
                     ),
                   ListTile(
-                    leading: const CircleAvatar(
-                      backgroundColor: Palette.line,
-                      child: Icon(Icons.person_add_alt_1_outlined, color: Palette.ink),
+                    leading: CircleAvatar(
+                      backgroundColor: context.pal.line,
+                      child: Icon(Icons.person_add_alt_1_outlined, color: context.pal.ink),
                     ),
                     title: const Text('Invite a caregiver'),
                     subtitle: const Text('Partner, grandparent, nanny…'),
@@ -99,6 +99,22 @@ class FamilyScreen extends StatelessWidget {
                     subtitle: Text(s.units.imperial ? 'oz, lb, in, °F' : 'mL, kg, cm, °C'),
                     value: s.units.imperial,
                     onChanged: (v) => guard(context, () => s.setUnits(v)),
+                  ),
+                  ListTile(
+                    title: const Text('Appearance'),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: SegmentedButton<ThemeMode>(
+                        segments: const [
+                          ButtonSegment(value: ThemeMode.system, label: Text('System'), icon: Icon(Icons.brightness_auto_outlined)),
+                          ButtonSegment(value: ThemeMode.light, label: Text('Light'), icon: Icon(Icons.light_mode_outlined)),
+                          ButtonSegment(value: ThemeMode.dark, label: Text('Dark'), icon: Icon(Icons.dark_mode_outlined)),
+                        ],
+                        selected: {s.themeMode},
+                        showSelectedIcon: false,
+                        onSelectionChanged: (v) => s.setThemeMode(v.first),
+                      ),
+                    ),
                   ),
                   ListTile(
                     leading: const Icon(Icons.public),
@@ -133,8 +149,8 @@ class FamilyScreen extends StatelessWidget {
                   ListTile(leading: const Icon(Icons.person_outline), title: Text(me.name), subtitle: Text(me.email)),
                   ListTile(leading: const Icon(Icons.dns_outlined), title: const Text('Server'), subtitle: Text(s.server)),
                   ListTile(
-                    leading: const Icon(Icons.logout, color: Palette.danger),
-                    title: const Text('Sign out', style: TextStyle(color: Palette.danger)),
+                    leading: Icon(Icons.logout, color: context.pal.danger),
+                    title: Text('Sign out', style: TextStyle(color: context.pal.danger)),
                     onTap: s.signOut,
                   ),
                 ],
@@ -143,7 +159,7 @@ class FamilyScreen extends StatelessWidget {
             if (f.isOwner) ...[
               const SizedBox(height: 16),
               TextButton(
-                style: TextButton.styleFrom(foregroundColor: Palette.danger),
+                style: TextButton.styleFrom(foregroundColor: context.pal.danger),
                 onPressed: () async {
                   if (!await confirm(
                     context,
@@ -182,7 +198,7 @@ class FamilyScreen extends StatelessWidget {
             const SizedBox(height: 20),
             SelectableText(code, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700, letterSpacing: 4)),
             const SizedBox(height: 8),
-            Text('Server: ${s.server}', style: const TextStyle(color: Palette.muted)),
+            Text('Server: ${s.server}', style: TextStyle(color: context.pal.muted)),
           ],
         ),
         actions: [
@@ -278,7 +294,7 @@ class FamilyScreen extends StatelessWidget {
             const SizedBox(height: 12),
             Text(
               'Summary sensor: ${s.server}/api/v1/children/${s.childId}/summary',
-              style: const TextStyle(color: Palette.muted, fontSize: 12),
+              style: TextStyle(color: context.pal.muted, fontSize: 12),
             ),
           ],
         ),
@@ -336,7 +352,7 @@ class _NaraImportScreenState extends State<NaraImportScreen> {
             Text(
               'Sign in with your Nara account to copy your history into ${child?.name ?? 'this family'}. '
               'Your Nara password is used once and never stored. Running it again updates instead of duplicating.',
-              style: t.bodyMedium?.copyWith(color: Palette.muted, height: 1.5),
+              style: t.bodyMedium?.copyWith(color: context.pal.muted, height: 1.5),
             ),
             const SizedBox(height: 20),
             TextField(
@@ -407,7 +423,7 @@ class _Result extends StatelessWidget {
               const SizedBox(height: 8),
               Text(
                 'Skipped: ${skipped.entries.map((e) => '${e.key} (${e.value})').join(', ')}',
-                style: const TextStyle(color: Palette.muted),
+                style: TextStyle(color: context.pal.muted),
               ),
             ],
           ],

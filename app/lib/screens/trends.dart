@@ -68,7 +68,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
               else ...[
                 SectionTitle(
                   'Daily averages',
-                  trailing: Text('${avg['days'] ?? 0} full days', style: const TextStyle(color: Palette.muted, fontSize: 12)),
+                  trailing: Text('${avg['days'] ?? 0} full days', style: TextStyle(color: context.pal.muted, fontSize: 12)),
                 ),
                 _AverageGrid(
                   items: [
@@ -115,7 +115,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                     (toDouble(d['feed']['solids_count']) ?? 0),
                   ],
                   label: (v) => v.toStringAsFixed(0),
-                  colors: [Kind.breast.color, Color.lerp(Kind.bottle.color, Palette.surface, 0.35)!, Kind.solids.color],
+                  colors: [Kind.breast.on(context.pal), Kind.bottle.color, Kind.solids.deepTone],
                 ),
                 if (days.any((d) => (toDouble(d['feed']['bottle_ml']) ?? 0) > 0)) ...[
                   SectionTitle('Bottle (${u.volumeUnit})'),
@@ -183,17 +183,17 @@ class _AverageGrid extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Icon(k.icon, size: 16, color: k.deep),
+                          Icon(k.icon, size: 16, color: k.on(context.pal)),
                           const SizedBox(width: 6),
                           Text(
                             title,
-                            style: TextStyle(color: k.deep, fontWeight: FontWeight.w700, fontSize: 13),
+                            style: TextStyle(color: k.on(context.pal), fontWeight: FontWeight.w700, fontSize: 13),
                           ),
                         ],
                       ),
                       const SizedBox(height: 8),
                       Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-                      Text(sub, style: const TextStyle(color: Palette.muted, fontSize: 12)),
+                      Text(sub, style: TextStyle(color: context.pal.muted, fontSize: 12)),
                     ],
                   ),
                 ),
@@ -215,8 +215,8 @@ class _Chart extends StatelessWidget {
   final List<String>? legend;
   final List<Color>? colors;
 
-  List<Color> get _colors =>
-      colors ?? [kind.color, Color.lerp(kind.color, Palette.surface, 0.55)!, Color.lerp(kind.color, Palette.surface, 0.75)!];
+  List<Color> _colorsFor(AppColors c) =>
+      colors ?? [kind.on(c), Color.lerp(kind.on(c), c.surface, 0.55)!, Color.lerp(kind.on(c), c.surface, 0.75)!];
 
   @override
   Widget build(BuildContext context) {
@@ -242,7 +242,7 @@ class _Chart extends StatelessWidget {
                   borderData: FlBorderData(show: false),
                   gridData: FlGridData(
                     drawVerticalLine: false,
-                    getDrawingHorizontalLine: (_) => const FlLine(color: Palette.line, strokeWidth: 1),
+                    getDrawingHorizontalLine: (_) => FlLine(color: context.pal.line, strokeWidth: 1),
                   ),
                   titlesData: FlTitlesData(
                     topTitles: const AxisTitles(),
@@ -253,7 +253,7 @@ class _Chart extends StatelessWidget {
                         reservedSize: 36,
                         getTitlesWidget: (v, meta) => v == meta.max
                             ? const SizedBox.shrink()
-                            : Text(label(v), style: const TextStyle(fontSize: 10, color: Palette.muted)),
+                            : Text(label(v), style: TextStyle(fontSize: 10, color: context.pal.muted)),
                       ),
                     ),
                     bottomTitles: AxisTitles(
@@ -274,7 +274,7 @@ class _Chart extends StatelessWidget {
                             padding: const EdgeInsets.only(top: 6),
                             child: Text(
                               days.length > 7 ? DateFormat.Md().format(date) : DateFormat.E().format(date),
-                              style: const TextStyle(fontSize: 10, color: Palette.muted),
+                              style: TextStyle(fontSize: 10, color: context.pal.muted),
                             ),
                           );
                         },
@@ -283,10 +283,10 @@ class _Chart extends StatelessWidget {
                   ),
                   barTouchData: BarTouchData(
                     touchTooltipData: BarTouchTooltipData(
-                      getTooltipColor: (_) => Palette.ink,
+                      getTooltipColor: (_) => context.pal.ink,
                       getTooltipItem: (group, _, rod, _) => BarTooltipItem(
                         '${DateFormat.MMMd().format(DateTime.parse(days[group.x]['date']))}\n${label(rod.toY)}',
-                        const TextStyle(color: Palette.bandInk, fontWeight: FontWeight.w600, fontSize: 12),
+                        TextStyle(color: context.pal.bandInk, fontWeight: FontWeight.w600, fontSize: 12),
                       ),
                     ),
                   ),
@@ -298,13 +298,13 @@ class _Chart extends StatelessWidget {
                           BarChartRodData(
                             toY: totals[i],
                             width: barWidth,
-                            color: _colors.first,
+                            color: _colorsFor(context.pal).first,
                             borderRadius: BorderRadius.vertical(top: Radius.circular(barWidth / 2.5)),
                             rodStackItems: v.length < 2
                                 ? []
                                 : [
                                     for (var j = 0, from = 0.0; j < v.length; from += v[j], j++)
-                                      BarChartRodStackItem(from, from + v[j], _colors[j % _colors.length]),
+                                      BarChartRodStackItem(from, from + v[j], _colorsFor(context.pal)[j % _colorsFor(context.pal).length]),
                                   ],
                           ),
                         ],
@@ -326,10 +326,13 @@ class _Chart extends StatelessWidget {
                           Container(
                             width: 10,
                             height: 10,
-                            decoration: BoxDecoration(color: _colors[j % _colors.length], shape: BoxShape.circle),
+                            decoration: BoxDecoration(
+                              color: _colorsFor(context.pal)[j % _colorsFor(context.pal).length],
+                              shape: BoxShape.circle,
+                            ),
                           ),
                           const SizedBox(width: 6),
-                          Text(name, style: const TextStyle(fontSize: 12, color: Palette.muted)),
+                          Text(name, style: TextStyle(fontSize: 12, color: context.pal.muted)),
                         ],
                       ),
                   ],

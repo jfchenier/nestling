@@ -163,8 +163,8 @@ class _TimerScreenState extends State<TimerScreen> {
                   padding: const EdgeInsets.only(bottom: 32),
                   children: [
                     Container(
-                      decoration: const BoxDecoration(
-                        border: Border(bottom: BorderSide(color: Palette.line)),
+                      decoration: BoxDecoration(
+                        border: Border(bottom: BorderSide(color: context.pal.line)),
                       ),
                       padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
                       child: switch (widget.kind) {
@@ -185,7 +185,7 @@ class _TimerScreenState extends State<TimerScreen> {
                       label: 'Total Time',
                       child: Text(
                         duration(t?.elapsed ?? 0, showSeconds: true),
-                        style: TextStyle(fontSize: 17, color: t == null ? Palette.muted : Palette.ink),
+                        style: TextStyle(fontSize: 17, color: t == null ? context.pal.muted : context.pal.ink),
                       ),
                     ),
                     if (widget.kind == 'sleep')
@@ -227,7 +227,7 @@ class _TimerScreenState extends State<TimerScreen> {
                             onPressed: _busy ? null : () => _discard(t),
                             icon: const Icon(Icons.delete_outline),
                             label: const Text('Discard timer'),
-                            style: TextButton.styleFrom(foregroundColor: Palette.danger),
+                            style: TextButton.styleFrom(foregroundColor: context.pal.danger),
                           ),
                         ),
                       ),
@@ -280,12 +280,12 @@ class _TimerScreenState extends State<TimerScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text(clock(seconds), style: serifStyle(52, height: 1, color: active ? kind.color : Palette.ink)),
+                  Text(clock(seconds), style: serifStyle(52, height: 1, color: active ? kind.on(context.pal) : context.pal.ink)),
                   if (t == null)
                     IconButton(
                       onPressed: _manual,
                       tooltip: 'Enter minutes',
-                      icon: const Icon(Icons.edit_outlined, color: Palette.ink),
+                      icon: Icon(Icons.edit_outlined, color: context.pal.ink),
                     ),
                 ],
               ),
@@ -323,13 +323,13 @@ class _TimerScreenState extends State<TimerScreen> {
         ],
         BlobIcon(kind, size: 84),
         const SizedBox(height: 12),
-        Text(clock(t?.elapsed ?? 0), style: serifStyle(64, height: 1, color: running ? kind.color : Palette.ink)),
+        Text(clock(t?.elapsed ?? 0), style: serifStyle(64, height: 1, color: running ? kind.on(context.pal) : context.pal.ink)),
         const SizedBox(height: 6),
         Text(
           t == null
               ? (widget.kind == 'sleep' ? 'Tap start when baby falls asleep' : 'Tap start when you begin')
               : (running ? 'Running' : 'Paused'),
-          style: const TextStyle(color: Palette.muted),
+          style: TextStyle(color: context.pal.muted),
         ),
         const SizedBox(height: 22),
         PillButton(
