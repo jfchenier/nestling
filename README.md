@@ -12,14 +12,18 @@ between caregivers, daily trends, and a one-shot importer for your Nara history.
 - **Nara import.** Pull everything from your Nara account (or an export) and keep it.
 - **Small.** One binary + one SQLite file. Runs happily on a NAS or next to Home Assistant.
 
-The web app and native app will be built on top of this API.
+The app (web + Android, built with Flutter) lives in [`app/`](app/README.md). The Docker image builds the
+web app and serves it at `http://<your-server>:8080/`.
 
 ## Run it
 
 ```bash
 docker compose up -d --build
-# API at http://<your-server>:8080/api/v1, health check at /health
+# Web app at http://<your-server>:8080/, API at /api/v1, health check at /health
 ```
+
+For the Android app, build the APK from [`app/`](app/README.md#android-app) and enter the server address
+on the sign-in screen.
 
 Data lives in `nestling.db` inside the `nestling-data` Docker volume. To back it up:
 `docker compose stop && docker run --rm -v nestling_nestling-data:/data -v "$PWD":/backup debian cp /data/nestling.db /backup/`.
@@ -91,10 +95,13 @@ today's totals), and `POST /children/{id}/events` or the timer endpoints from sc
 ```bash
 cargo test          # unit + end-to-end API tests (in-memory SQLite)
 cargo run
+
+cd app && flutter test && flutter build web --release --no-web-resources-cdn
+NESTLING_WEB_DIR=app/build/web cargo run   # server + web app on :8080
 ```
 
 Layout: `src/model.rs` (event types and validation), `src/routes/` (HTTP handlers),
-`src/trends.rs` (statistics), `src/nara.rs` (Nara conversion), `migrations/` (schema).
+`src/trends.rs` (statistics), `src/nara.rs` (Nara conversion), `migrations/` (schema), `app/` (Flutter client).
 
 ## Credits
 

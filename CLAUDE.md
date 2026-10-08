@@ -6,14 +6,18 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 
 ## Status (2026-10-08)
 
-- The whole server was written in a cloud session that **could not reach crates.io**, so it has
-  **never been compiled or tested**. First job: `cargo build`, `cargo test`, fix compile errors
-  and failing tests. Expect a handful of small type/borrow errors.
-- Code was hand-reviewed; the likely-fragile spots are listed under "Watch out for".
+- Server: builds with no warnings, `cargo test` green (11 tests), smoke-tested live (curl tour,
+  access control, SSE, sync, DST). Not yet run in Docker on the home server; Nara import not yet
+  tried against the real account.
+- App (`app/`, Flutter): web build tested end-to-end in headless Chromium against the real server
+  (sign-in, onboarding, invite/join, timers, forms, timeline, trends, live updates, imperial units).
+  Android project is set up but **no APK has been built yet** (the cloud session had no Android SDK).
 
 ## Decisions already made (don't revisit without asking)
 
 - Order of work: **server API first**, then a **web app (PWA)**, then a **native mobile app**.
+- Client: **Flutter**, one codebase for web (served by the server) and Android. Nara-like look:
+  cream background, one pastel per activity (`app/lib/theme.dart`), big round buttons.
 - Server in **Rust**: axum 0.8, sqlx 0.8 (SQLite, runtime queries — no `query!` macros, so no
   DATABASE_URL needed at build time), tokio. Single binary + one SQLite file.
 - Hosting: **home server / NAS via Docker** (`docker compose up -d --build`).
@@ -36,6 +40,8 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - `src/nara.rs` — Nara Firebase login/fetch + `convert()` of tracks. Quantities are
   `Num / 10^Exp` in `Unit` (same as the wrapper's trends.py).
 - `migrations/0001_init.sql`, `tests/api.rs` (end-to-end with in-memory SQLite), `docs/API.md`.
+- `app/` — Flutter client; see `app/README.md` for its layout. `AppState` (`app/lib/state.dart`)
+  holds the session and home data and refreshes on SSE `change` events.
 
 ## Watch out for
 
@@ -58,8 +64,8 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 ## Roadmap (what's left)
 
 ### 1. Make the server work (next)
-- [ ] `cargo build` + `cargo test` green; `cargo clippy` clean.
-- [ ] Run in Docker on the home server; smoke-test with the curl tour in README.md.
+- [x] `cargo build` + `cargo test` green; `cargo clippy` has one cosmetic warning (trends.rs:214).
+- [ ] Run in Docker on the home server (Dockerfile now also builds the Flutter web app — untested).
 - [ ] Nara import **dry run** on the real account to verify the assumptions above.
 
 ### 2. Known server gaps
@@ -73,20 +79,22 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - [ ] **Security basics:** rate-limit login/register; password reset without email (e.g. owner
       generates a reset code, or a CLI command on the server).
 - [ ] **Data export:** download everything as CSV/JSON (today: copy the SQLite file).
+- [ ] Some times come back as epoch ms instead of RFC 3339 (invite `expires_at`, family
+      `created_at`, `/me/tokens` dates). Pause→resume leaves a zero-length timer segment.
 - [ ] **OpenAPI spec** so the web and native clients can generate their API code.
 - [ ] Optional: reminders ("no feed in 3 h"), photos on milestones, Home Assistant integration
       (`/children/{id}/summary` already works as a REST sensor).
 - Note: SSE behind a reverse proxy needs response buffering disabled.
 
-### 3. Web app (PWA), served by the server via `NESTLING_WEB_DIR`
-- [ ] Nara-like home: big feed/sleep/diaper buttons with "time since", live timers
-      (switch side/pause/stop), today's totals.
-- [ ] Timeline with edit/delete; forms for every event type; metric/imperial display.
-- [ ] Trends charts (1/7/14+ days).
-- [ ] Sign-in, family invites, child switcher, settings, Nara import screen.
-- [ ] Live updates via `/families/{id}/stream`; installable (manifest + service worker).
+### 3. App (Flutter, `app/`) — web served by the server via `NESTLING_WEB_DIR`
+- [x] Nara-like home: big buttons, "time since" cards, live timers, today's totals, latest entries.
+- [x] Timeline with edit/delete; forms for every event type; metric/imperial display.
+- [x] Trends (7/14/30 days): averages + daily charts.
+- [x] Sign-in, onboarding, family invites, child switcher, settings, Nara import screen.
+- [x] Live updates via `/families/{id}/stream`; installable PWA (manifest, icons).
+- [ ] Compare against real Nara screenshots and adjust the look (no Play Store access in the cloud session).
+- [ ] Build and test the Android APK on a phone (`flutter build apk`); pick the final application id.
 
-### 4. Native mobile app
-- [ ] React Native or Flutter (undecided), same API.
-- [ ] Adds over the PWA: offline logging + `/sync`, home-screen widgets, lock-screen live timer.
-- [ ] Distribution: app stores vs TestFlight vs sideloading (undecided).
+### 4. Native mobile app (Android first, same Flutter codebase)
+- [ ] Offline logging + `/sync`, home-screen widgets, ongoing notification for running timers.
+- [ ] Distribution: Play Store vs sideloading (undecided).
