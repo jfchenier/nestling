@@ -46,65 +46,27 @@ cargo run --release
 
 Put it behind HTTPS (Caddy, Traefik, Nginx Proxy Manager, Tailscale…) before using it outside your home network.
 
-## Quick tour
+### Deploy with Portainer (prebuilt image)
 
-```bash
-API=http://localhost:8080/api/v1
+Every push to `main` publishes `ghcr.io/jfchenier/nestling:latest` (`.github/workflows/docker.yml`;
+version tags add `:0.2.0`-style tags). In Portainer: **Stacks → Add stack → Web editor**, paste
+[`deploy/portainer-stack.yml`](deploy/portainer-stack.yml) (port 8383 → 8080, data in the
+`nestling-data` volume) and deploy. The image is private along with the repo: either make the
+package public (GitHub → your profile → Packages → nestling → Package settings → Change visibility;
+the code stays private) or add ghcr.io under Portainer **Registries** with a GitHub token that has
+`read:packages`. To update: **Pull and redeploy** the stack.
 
-# 1. Create an account (returns a token)
-TOKEN=$(curl -s $API/auth/register -H 'content-type: application/json' \
-  -d '{"email":"me@example.com","password":"a long password","name":"JF"}' | jq -r .token)
-AUTH="authorization: Bearer $TOKEN"
+Nginx Proxy Manager: proxy host `nestling.example.com` → `http://<server>:8383`, SSL on. Under
+**Advanced**, add the lines below so live updates (Server-Sent Events) aren't buffered. The server sends
+a keep-alive every 15 s, so Cloudflare's idle timeout doesn't cut the stream.
 
-# 2. Family + baby
-FAMILY=$(curl -s $API/families -H "$AUTH" -H 'content-type: application/json' \
-  -d '{"name":"Home","timezone":"America/New_York"}' | jq -r .id)
-BABY=$(curl -s $API/families/$FAMILY/children -H "$AUTH" -H 'content-type: application/json' \
-  -d '{"name":"Baby","birth_date":"2026-06-01"}' | jq -r .id)
-
-# 3. Log things
-curl -s $API/children/$BABY/events -H "$AUTH" -H 'content-type: application/json' \
-  -d '{"type":"diaper","wet":true,"dirty":true,"color":"yellow"}'
-curl -s $API/children/$BABY/events -H "$AUTH" -H 'content-type: application/json' \
-  -d '{"type":"feed","method":"bottle","amount_ml":120,"milk":"formula","start":"2026-10-08T14:30"}'
-
-# 4. Live breastfeeding timer
-TIMER=$(curl -s $API/children/$BABY/timers -H "$AUTH" -H 'content-type: application/json' \
-  -d '{"kind":"breastfeed","side":"left"}' | jq -r .id)
-curl -s -X POST $API/timers/$TIMER/switch -H "$AUTH"   # now on the right
-curl -s -X POST $API/timers/$TIMER/stop -H "$AUTH"     # saved as a feed event
-
-# 5. Invite your partner (they POST /invites/<code>/accept after registering)
-curl -s -X POST $API/families/$FAMILY/invites -H "$AUTH"
-
-# 6. Bring your Nara history over
-curl -s $API/families/$FAMILY/import/nara -H "$AUTH" -H 'content-type: application/json' \
-  -d '{"email":"nara-login@example.com","password":"...","dry_run":true}'
+```nginx
+location /api/v1/families/ {
+    proxy_pass http://<server>:8383;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    proxy_buffering off;
+    proxy_cache off;
+    proxy_read_timeout 1h;
+}
 ```
-
-Full reference: [docs/API.md](docs/API.md).
-
-## Home Assistant
-
-Create a long-lived token with `POST /api/v1/me/tokens {"name":"Home Assistant"}` and use
-`GET /children/{id}/summary` as a REST sensor (time since last feed, diaper, sleep; running timers;
-today's totals), and `POST /children/{id}/events` or the timer endpoints from scripts.
-
-## Development
-
-```bash
-cargo test          # unit + end-to-end API tests (in-memory SQLite)
-cargo run
-
-cd app && flutter test && flutter build web --release --no-web-resources-cdn
-NESTLING_WEB_DIR=app/build/web cargo run   # server + web app on :8080
-```
-
-Layout: `src/model.rs` (event types and validation), `src/routes/` (HTTP handlers),
-`src/trends.rs` (statistics), `src/nara.rs` (Nara conversion), `migrations/` (schema), `app/` (Flutter client).
-
-## Credits
-
-The Nara importer is based on the reverse-engineering work in
-[jfchenier/nara-baby-tracker-api](https://github.com/jfchenier/nara-baby-tracker-api).
-Not affiliated with Nara Baby.
