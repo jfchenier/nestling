@@ -3,10 +3,18 @@
 The Nestling client: one Flutter codebase for the **web app** (served by the Nestling server) and the
 **Android app**. It talks to the server's JSON API (`/api/v1`, see [`../docs/API.md`](../docs/API.md)).
 
+## Look
+
+Dark navy theme with a serif display font and one pastel color per activity, in the spirit of
+Nara Baby. The font is [Libre Caslon Text](https://github.com/google/fonts/tree/main/ofl/librecaslontext)
+(SIL Open Font License, `assets/fonts/OFL.txt`), bundled so the app works offline. Colors and type
+are in `lib/theme.dart`; the blob-backed icons and form rows are in `lib/widgets/common.dart`.
+
 ## Screens
 
-- **Home** — baby's name and age, running timers, time since the last feed / sleep / diaper
-  (with "Next: Left/Right" for nursing), big round buttons for every activity, today's totals, latest entries.
+- **Home** — a card per activity (Feed, Pump, Diaper, Sleep, Routine, Firsts, Growth, Health): the
+  latest entry, a big value on the right ("next side", "dirty", "1h 06m"…), a round **+** to log
+  another and "View history". Running timers show live in their card. Today's totals on top.
 - **Timers** — nursing (tap L/R to start, switch sides, pause), sleep (with location) and pump
   (left/right/both, asks for amounts at the end). Shared live with every caregiver; "Ended earlier…" trims the end.
 - **Forms** — nursing (manual), bottle, solids, sleep, diaper (wet/dirty/dry, color, consistency, rash,

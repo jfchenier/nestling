@@ -34,6 +34,9 @@ class AppState extends ChangeNotifier {
   List<TimerModel> timers = [];
   List<Event> recent = [];
 
+  /// Latest growth / health / activity / milestone entries (home cards).
+  List<Event> others = [];
+
   /// Bumped on every change so screens with their own data (timeline, trends) can reload.
   int revision = 0;
   bool loading = false;
@@ -80,6 +83,7 @@ class AppState extends ChangeNotifier {
     summary = null;
     timers = [];
     recent = [];
+    others = [];
     notifyListeners();
   }
 
@@ -122,15 +126,18 @@ class AppState extends ChangeNotifier {
       summary = null;
       timers = [];
       recent = [];
+      others = [];
     } else {
       final since = DateTime.now().subtract(const Duration(hours: 24));
       final results = await Future.wait([
         a.get('/children/$id/summary'),
         a.get('/children/$id/events', {'from': formatTime(since), 'limit': '200'}),
+        a.get('/children/$id/events', {'type': 'growth,health,activity,milestone', 'limit': '100'}),
       ]);
       summary = results[0];
       timers = [for (final t in (summary!['timers'] as List)) TimerModel(t)];
       recent = [for (final e in (results[1]['events'] as List)) Event(e)];
+      others = [for (final e in (results[2]['events'] as List)) Event(e)];
     }
     revision++;
     if (notify) notifyListeners();

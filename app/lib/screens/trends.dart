@@ -115,7 +115,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                     (toDouble(d['feed']['solids_count']) ?? 0),
                   ],
                   label: (v) => v.toStringAsFixed(0),
-                  colors: [Kind.breast.deep, Kind.bottle.deep, Kind.solids.deep],
+                  colors: [Kind.breast.color, Color.lerp(Kind.bottle.color, Palette.surface, 0.35)!, Kind.solids.color],
                 ),
                 if (days.any((d) => (toDouble(d['feed']['bottle_ml']) ?? 0) > 0)) ...[
                   SectionTitle('Bottle (${u.volumeUnit})'),
@@ -215,7 +215,8 @@ class _Chart extends StatelessWidget {
   final List<String>? legend;
   final List<Color>? colors;
 
-  List<Color> get _colors => colors ?? [kind.deep, Color.lerp(kind.color, kind.deep, 0.35)!, kind.color];
+  List<Color> get _colors =>
+      colors ?? [kind.color, Color.lerp(kind.color, Palette.surface, 0.55)!, Color.lerp(kind.color, Palette.surface, 0.75)!];
 
   @override
   Widget build(BuildContext context) {
@@ -285,7 +286,7 @@ class _Chart extends StatelessWidget {
                       getTooltipColor: (_) => Palette.ink,
                       getTooltipItem: (group, _, rod, _) => BarTooltipItem(
                         '${DateFormat.MMMd().format(DateTime.parse(days[group.x]['date']))}\n${label(rod.toY)}',
-                        const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
+                        const TextStyle(color: Palette.bandInk, fontWeight: FontWeight.w600, fontSize: 12),
                       ),
                     ),
                   ),

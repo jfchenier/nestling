@@ -25,3 +25,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icon.png
+  fonts:
+    - family: Caslon
+      fonts:
+        - asset: assets/fonts/LibreCaslonText.ttf

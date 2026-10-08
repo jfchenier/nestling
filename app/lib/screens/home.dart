@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../format.dart';
@@ -6,62 +7,107 @@ import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
-import '../widgets/event_tile.dart';
 import 'child_form.dart';
 import 'event_form.dart';
+import 'timeline.dart';
 import 'timer_screen.dart';
 
+/// Dashboard: one card per activity with the latest entry and a round + to log another.
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     final s = context.watch<AppState>();
-    final child = s.child!;
-    final today = s.summary?['today'] as Map<String, dynamic>?;
-    final todays = s.recent.where((e) {
-      final now = DateTime.now();
-      return e.start.isAfter(DateTime(now.year, now.month, now.day));
-    }).toList();
+    Event? last(String type) {
+      final v = s.summary?['last']?[type];
+      return v is Map<String, dynamic> ? Event(v) : null;
+    }
+
+    TimerModel? timer(String kind) => s.timers.where((t) => t.kind == kind).firstOrNull;
+    Event? latest(String type) => s.others.where((e) => e.type == type).firstOrNull;
+    void history(String filter) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => TimelineScreen(initialFilter: filter)));
+    final u = s.units;
+
     return Scaffold(
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: s.refreshChild,
           child: Constrained(
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
-                _Header(child: child, live: s.live),
-                if (s.timers.isNotEmpty) ...[const SizedBox(height: 16), for (final t in s.timers) _TimerCard(timer: t)],
-                const SizedBox(height: 16),
-                const _SinceRow(),
-                const SectionTitle('Track'),
-                const _ActionGrid(),
-                if (today != null) ...[const SectionTitle('Today'), _TodayTotals(today: today, units: s.units)],
-                SectionTitle(
-                  'Latest',
-                  trailing: Text('${todays.length} today', style: const TextStyle(color: Palette.muted)),
+                _Header(child: s.child!, live: s.live),
+                const SizedBox(height: 20),
+                if (s.summary?['today'] is Map) _TodayStrip(today: s.summary!['today'], units: u),
+                _FeedCard(last: last('feed'), timer: timer('breastfeed'), onHistory: () => history('feed')),
+                _TimedCard(
+                  kind: Kind.pump,
+                  title: 'Pump',
+                  timerKind: 'pump',
+                  timer: timer('pump'),
+                  last: last('pump'),
+                  lastTitle: 'Last pump',
+                  empty: 'Track a pumping session',
+                  value: (e) => describe(e, u).$2.split(' · ').first,
+                  caption: (_) => 'pumped',
+                  onHistory: () => history('pump'),
                 ),
-                if (s.recent.isEmpty)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 24),
-                    child: Text(
-                      'Nothing logged in the last 24 hours.\nTap a button above to start.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Palette.muted, height: 1.5),
-                    ),
-                  )
-                else
-                  Card(
-                    child: Column(
-                      children: [
-                        for (final (i, e) in s.recent.take(12).indexed) ...[
-                          if (i > 0) const Divider(height: 1, indent: 72, color: Palette.line),
-                          EventTile(event: e),
-                        ],
-                      ],
-                    ),
+                _ActivityCard(
+                  kind: Kind.diaper,
+                  title: 'Diaper',
+                  onAdd: () => showEventForm(context, type: 'diaper'),
+                  onHistory: last('diaper') == null ? null : () => history('diaper'),
+                  child: _diaper(context, last('diaper')),
+                ),
+                _TimedCard(
+                  kind: Kind.sleep,
+                  title: 'Sleep',
+                  timerKind: 'sleep',
+                  timer: timer('sleep'),
+                  last: last('sleep'),
+                  lastTitle: 'Woke up',
+                  since: (e) => e.end ?? e.start,
+                  empty: 'Track naps and nights',
+                  value: (e) => duration(e.durationSeconds),
+                  caption: (_) => 'slept',
+                  onHistory: () => history('sleep'),
+                ),
+                _simpleCard(
+                  context,
+                  kind: Kind.activity,
+                  title: 'Routine',
+                  event: latest('activity'),
+                  empty: 'Tummy time, baths, outings…',
+                  type: 'activity',
+                  label: (e) => cap(e['kind'] as String? ?? 'Activity'),
+                  onHistory: () => history('activity,milestone,note'),
+                ),
+                _simpleCard(
+                  context,
+                  kind: Kind.milestone,
+                  title: 'Firsts',
+                  event: latest('milestone'),
+                  empty: 'Track memorable moments',
+                  type: 'milestone',
+                  label: (e) => (e['name'] as String?) ?? 'Milestone',
+                  onHistory: () => history('activity,milestone,note'),
+                ),
+                _GrowthCard(events: s.others.where((e) => e.type == 'growth').toList(), units: u, onHistory: () => history('growth')),
+                _HealthCard(
+                  events: s.others.where((e) => e.type == 'health').take(2).toList(),
+                  units: u,
+                  onHistory: () => history('health'),
+                ),
+                const SizedBox(height: 8),
+                Center(
+                  child: OutlinedButton.icon(
+                    onPressed: () => showEventForm(context, type: 'note'),
+                    icon: const Icon(Icons.edit_note_rounded),
+                    label: const Text('Add a note'),
+                    style: OutlinedButton.styleFrom(side: const BorderSide(color: Palette.line, width: 1.5)),
                   ),
+                ),
               ],
             ),
           ),
@@ -69,6 +115,47 @@ class HomeScreen extends StatelessWidget {
       ),
     );
   }
+
+  Widget _diaper(BuildContext context, Event? e) {
+    if (e == null) return const _LastRow(kind: Kind.diaper, title: 'Track a diaper change');
+    final value = e['dirty'] == true
+        ? 'dirty'
+        : e['wet'] == true
+        ? 'wet'
+        : 'dry';
+    return _LastRow(
+      kind: Kind.diaper,
+      title: 'Last change',
+      subtitle: ago(DateTime.now().difference(e.start).inSeconds),
+      value: value,
+      caption: e['wet'] == true && e['dirty'] == true ? '+ wet' : null,
+      onTap: () => showEventForm(context, event: e),
+    );
+  }
+
+  Widget _simpleCard(
+    BuildContext context, {
+    required Kind kind,
+    required String title,
+    required Event? event,
+    required String empty,
+    required String type,
+    required String Function(Event) label,
+    required VoidCallback onHistory,
+  }) => _ActivityCard(
+    kind: kind,
+    title: title,
+    onAdd: () => showEventForm(context, type: type),
+    onHistory: event == null ? null : onHistory,
+    child: event == null
+        ? _LastRow(kind: kind, title: empty)
+        : _LastRow(
+            kind: kind,
+            title: label(event),
+            subtitle: ago(DateTime.now().difference(event.start).inSeconds),
+            onTap: () => showEventForm(context, event: event),
+          ),
+  );
 }
 
 class _Header extends StatelessWidget {
@@ -77,46 +164,55 @@ class _Header extends StatelessWidget {
   final bool live;
 
   @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: () => _switchChild(context),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          children: [
-            ChildAvatar(child: child, size: 56),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) => Row(
+    children: [
+      GestureDetector(
+        onTap: () => _switchChild(context),
+        child: ChildAvatar(child: child, size: 66),
+      ),
+      const SizedBox(width: 14),
+      Expanded(
+        child: GestureDetector(
+          onTap: () => _switchChild(context),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(child.name, style: serifStyle(34), overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 2),
+              Row(
                 children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(child.name, style: t.headlineSmall, overflow: TextOverflow.ellipsis),
-                      ),
-                      const Icon(Icons.expand_more_rounded, color: Palette.muted),
-                    ],
+                  Flexible(
+                    child: Text(
+                      DateFormat('EEE, MMM d').format(DateTime.now()),
+                      style: const TextStyle(color: Palette.muted, fontSize: 14),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
-                  if (child.age != null) Text(child.age!, style: t.bodyMedium?.copyWith(color: Palette.muted)),
+                  const SizedBox(width: 8),
+                  Tooltip(
+                    message: live ? 'Live — changes from other caregivers appear instantly' : 'Reconnecting…',
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(color: live ? const Color(0xFF7BC68F) : Palette.line, shape: BoxShape.circle),
+                    ),
+                  ),
                 ],
               ),
-            ),
-            Tooltip(
-              message: live ? 'Live — changes from other caregivers appear instantly' : 'Reconnecting…',
-              child: Container(
-                width: 10,
-                height: 10,
-                decoration: BoxDecoration(color: live ? const Color(0xFF5CB176) : Palette.line, shape: BoxShape.circle),
-              ),
-            ),
-          ],
+              if (child.age != null) Text(child.age!, style: const TextStyle(color: Palette.muted, fontSize: 13)),
+            ],
+          ),
         ),
       ),
-    );
-  }
+      _SquareButton(
+        icon: Icons.view_agenda_outlined,
+        tooltip: 'Timeline',
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TimelineScreen(initialFilter: null))),
+      ),
+      const SizedBox(width: 8),
+      _SquareButton(icon: Icons.more_horiz_rounded, tooltip: 'Switch baby', onTap: () => _switchChild(context)),
+    ],
+  );
 
   void _switchChild(BuildContext context) {
     final s = context.read<AppState>();
@@ -126,13 +222,14 @@ class _Header extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            const SizedBox(height: 12),
             for (final f in s.families)
               for (final ch in f.children)
                 ListTile(
-                  leading: ChildAvatar(child: ch, size: 40),
-                  title: Text(ch.name),
-                  subtitle: Text([if (ch.age != null) ch.age!, if (s.families.length > 1) f.name].join(' · ')),
-                  trailing: ch.id == s.childId ? const Icon(Icons.check_rounded) : null,
+                  leading: ChildAvatar(child: ch, size: 44),
+                  title: Text(ch.name, style: serifStyle(20)),
+                  subtitle: Text([?ch.age, if (s.families.length > 1) f.name].join(' · ')),
+                  trailing: ch.id == s.childId ? const Icon(Icons.check_rounded, color: Palette.accentLight) : null,
                   onTap: () {
                     Navigator.pop(c);
                     s.selectChild(ch.id);
@@ -140,7 +237,8 @@ class _Header extends StatelessWidget {
                 ),
             ListTile(
               leading: const CircleAvatar(
-                backgroundColor: Palette.line,
+                radius: 22,
+                backgroundColor: Palette.surface,
                 child: Icon(Icons.add, color: Palette.ink),
               ),
               title: const Text('Add a baby'),
@@ -157,6 +255,31 @@ class _Header extends StatelessWidget {
   }
 }
 
+class _SquareButton extends StatelessWidget {
+  const _SquareButton({required this.icon, required this.tooltip, required this.onTap});
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => Tooltip(
+    message: tooltip,
+    child: InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Container(
+        width: 46,
+        height: 34,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Palette.muted.withValues(alpha: 0.6)),
+        ),
+        child: Icon(icon, size: 20, color: Palette.ink),
+      ),
+    ),
+  );
+}
+
 class ChildAvatar extends StatelessWidget {
   const ChildAvatar({super.key, required this.child, this.size = 48});
   final Child child;
@@ -164,328 +287,455 @@ class ChildAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = switch (child.sex) {
-      'female' => (const Color(0xFFF9D5CC), const Color(0xFFC4604A)),
-      'male' => (const Color(0xFFD8DDF5), const Color(0xFF5162A8)),
-      _ => (const Color(0xFFD3EBDD), const Color(0xFF3E8A62)),
+    final color = switch (child.sex) {
+      'female' => Kind.pump.color,
+      'male' => Kind.sleep.color,
+      _ => Kind.growth.color,
     };
     return Container(
       width: size,
       height: size,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: colors.$1,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: 3),
-      ),
-      child: Text(
-        child.name.isEmpty ? '?' : child.name.characters.first.toUpperCase(),
-        style: TextStyle(fontSize: size * 0.42, fontWeight: FontWeight.w700, color: colors.$2),
-      ),
-    );
-  }
-}
-
-class _TimerCard extends StatelessWidget {
-  const _TimerCard({required this.timer});
-  final TimerModel timer;
-
-  @override
-  Widget build(BuildContext context) {
-    final k = switch (timer.kind) {
-      'sleep' => Kind.sleep,
-      'pump' => Kind.pump,
-      _ => Kind.breast,
-    };
-    final label = switch (timer.kind) {
-      'sleep' => 'Sleeping',
-      'pump' => 'Pumping',
-      _ => 'Nursing',
-    };
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Material(
-        color: k.color,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: () => TimerScreen.open(context, timer.kind),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Ticking(
-              builder: (_) => Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.7), shape: BoxShape.circle),
-                    child: Icon(k.icon, color: k.deep),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          timer.running ? label : '$label · paused',
-                          style: TextStyle(fontWeight: FontWeight.w700, color: k.deep),
-                        ),
-                        Text(
-                          [
-                            if (timer.side != null && timer.kind == 'breastfeed') '${timer.side == 'left' ? 'Left' : 'Right'} side',
-                            'since ${timeOfDay(timer.startedAt)}',
-                          ].join(' · '),
-                          style: const TextStyle(color: Palette.ink),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text(
-                    clock(timer.elapsed),
-                    style: TextStyle(
-                      fontSize: 26,
-                      fontWeight: FontWeight.w300,
-                      color: k.deep,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+      padding: EdgeInsets.all(size * 0.06),
+      decoration: BoxDecoration(color: Palette.ink, shape: BoxShape.circle),
+      child: Container(
+        alignment: Alignment.center,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        child: Text(
+          child.name.isEmpty ? '?' : child.name.characters.first.toUpperCase(),
+          style: serifStyle(size * 0.46, color: Palette.bandInk),
         ),
       ),
     );
   }
 }
 
-/// "Time since" cards for feed, sleep and diaper, like Nara's dashboard.
-class _SinceRow extends StatelessWidget {
-  const _SinceRow();
-
-  @override
-  Widget build(BuildContext context) {
-    final s = context.watch<AppState>();
-    Event? last(String type) {
-      final v = s.summary?['last']?[type];
-      return v is Map<String, dynamic> ? Event(v) : null;
-    }
-
-    final feed = last('feed'), sleep = last('sleep'), diaper = last('diaper');
-    final sleeping = s.timers.where((t) => t.kind == 'sleep').firstOrNull;
-    return Ticking(
-      builder: (context) {
-        final now = DateTime.now();
-        String? feedSub;
-        if (feed != null) {
-          final (title, detail) = describe(feed, s.units);
-          final end = feed.endSide;
-          feedSub = end != null ? 'Next: ${end == 'left' ? 'Right' : 'Left'}' : (detail.isEmpty ? title : detail);
-        }
-        return IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(
-                child: _SinceCard(
-                  kind: Kind.breast,
-                  title: 'Feed',
-                  value: feed == null ? null : now.difference(feed.start).inSeconds,
-                  sub: feedSub,
-                  onTap: () => showEventForm(context, type: 'feed', method: feed?['method'] ?? 'bottle'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _SinceCard(
-                  kind: Kind.sleep,
-                  title: sleeping != null ? 'Asleep' : 'Awake',
-                  value: sleeping != null
-                      ? sleeping.elapsed
-                      : sleep == null
-                      ? null
-                      : now.difference(sleep.end ?? sleep.start).inSeconds,
-                  sub: sleeping != null ? 'so far' : (sleep == null ? null : 'Last nap ${duration(sleep.durationSeconds)}'),
-                  ago: sleeping == null,
-                  onTap: () => TimerScreen.open(context, 'sleep'),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _SinceCard(
-                  kind: Kind.diaper,
-                  title: 'Diaper',
-                  value: diaper == null ? null : now.difference(diaper.start).inSeconds,
-                  sub: diaper == null ? null : describe(diaper, s.units).$2.split(' · ').first,
-                  onTap: () => showEventForm(context, type: 'diaper'),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _SinceCard extends StatelessWidget {
-  const _SinceCard({required this.kind, required this.title, required this.value, this.sub, this.ago = true, required this.onTap});
-  final Kind kind;
-  final String title;
-  final int? value;
-  final String? sub;
-  final bool ago;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    child: InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(kind.icon, size: 18, color: kind.deep),
-                const SizedBox(width: 6),
-                Text(
-                  title,
-                  style: TextStyle(fontWeight: FontWeight.w700, color: kind.deep, fontSize: 13),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Text(
-                value == null ? '—' : duration(value),
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700, color: Palette.ink),
-              ),
-            ),
-            Text(
-              value == null ? 'No entries yet' : (ago ? 'ago' : (sub ?? '')),
-              style: const TextStyle(color: Palette.muted, fontSize: 12),
-            ),
-            if (ago && sub != null && sub!.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                sub!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 12, color: Palette.ink),
-              ),
-            ],
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-/// Big round buttons, one per activity.
-class _ActionGrid extends StatelessWidget {
-  const _ActionGrid();
-
-  @override
-  Widget build(BuildContext context) {
-    final actions = <(Kind, VoidCallback)>[
-      (Kind.breast, () => TimerScreen.open(context, 'breastfeed')),
-      (Kind.bottle, () => showEventForm(context, type: 'feed', method: 'bottle')),
-      (Kind.sleep, () => TimerScreen.open(context, 'sleep')),
-      (Kind.diaper, () => showEventForm(context, type: 'diaper')),
-      (Kind.pump, () => TimerScreen.open(context, 'pump')),
-      (Kind.solids, () => showEventForm(context, type: 'feed', method: 'solids')),
-      (Kind.growth, () => showEventForm(context, type: 'growth')),
-      (Kind.health, () => showEventForm(context, type: 'health')),
-      (Kind.activity, () => showEventForm(context, type: 'activity')),
-      (Kind.milestone, () => showEventForm(context, type: 'milestone')),
-      (Kind.note, () => showEventForm(context, type: 'note')),
-    ];
-    return LayoutBuilder(
-      builder: (context, box) {
-        final perRow = box.maxWidth > 520 ? 6 : 4;
-        final w = box.maxWidth / perRow;
-        return Wrap(
-          runSpacing: 14,
-          children: [
-            for (final (k, onTap) in actions)
-              SizedBox(
-                width: w,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: onTap,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 6),
-                    child: Column(
-                      children: [
-                        Container(
-                          width: 62,
-                          height: 62,
-                          decoration: BoxDecoration(
-                            color: k.color,
-                            shape: BoxShape.circle,
-                            boxShadow: [BoxShadow(color: k.deep.withValues(alpha: 0.12), blurRadius: 8, offset: const Offset(0, 3))],
-                          ),
-                          child: Icon(k.icon, color: k.deep, size: 28),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(k.label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _TodayTotals extends StatelessWidget {
-  const _TodayTotals({required this.today, required this.units});
+class _TodayStrip extends StatelessWidget {
+  const _TodayStrip({required this.today, required this.units});
   final Map<String, dynamic> today;
   final Units units;
 
   @override
   Widget build(BuildContext context) {
     final feed = today['feed'] as Map? ?? {}, sleep = today['sleep'] as Map? ?? {};
-    final diaper = today['diaper'] as Map? ?? {}, pump = today['pump'] as Map? ?? {};
-    final bottleMl = toDouble(feed['bottle_ml']) ?? 0;
-    final pumped = toDouble(pump['total_ml']) ?? 0;
-    final tiles = <(Kind, String, String)>[
-      (
-        Kind.breast,
-        '${feed['count'] ?? 0}',
-        [
-          'feeds',
-          if ((toInt(feed['breast_seconds']) ?? 0) > 0) duration(toInt(feed['breast_seconds'])),
-          if (bottleMl > 0) units.volume(bottleMl),
-        ].join(' · '),
+    final diaper = today['diaper'] as Map? ?? {};
+    Widget stat(String value, String label) => Expanded(
+      child: Column(
+        children: [
+          Text(value, style: serifStyle(24)),
+          const SizedBox(height: 2),
+          Text(label, style: const TextStyle(color: Palette.muted, fontSize: 12)),
+        ],
       ),
-      (Kind.sleep, duration(toInt(sleep['total_seconds']) ?? 0), '${sleep['nap_count'] ?? 0} naps'),
-      (Kind.diaper, '${diaper['count'] ?? 0}', '${diaper['wet'] ?? 0} wet · ${diaper['dirty'] ?? 0} dirty'),
-      if (pumped > 0 || (pump['count'] ?? 0) > 0) (Kind.pump, units.volume(pumped), '${pump['count']} sessions'),
+    );
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: BoxDecoration(color: const Color(0xFF243552), borderRadius: BorderRadius.circular(14)),
+      child: Row(
+        children: [
+          stat('${feed['count'] ?? 0}', 'feeds today'),
+          stat(duration(toInt(sleep['total_seconds']) ?? 0), 'sleep today'),
+          stat('${diaper['count'] ?? 0}', 'diapers today'),
+        ],
+      ),
+    );
+  }
+}
+
+/// Card with a pastel header band, an overlapping round + and a dark body.
+class _ActivityCard extends StatelessWidget {
+  const _ActivityCard({
+    required this.kind,
+    required this.title,
+    required this.onAdd,
+    required this.child,
+    this.onHistory,
+    this.historyLabel = 'View history',
+  });
+  final Kind kind;
+  final String title;
+  final VoidCallback onAdd;
+  final Widget child;
+  final VoidCallback? onHistory;
+  final String historyLabel;
+
+  static const _band = 50.0;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 18),
+    child: Stack(
+      clipBehavior: Clip.none,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                height: _band,
+                color: kind.color,
+                padding: const EdgeInsets.only(left: 16),
+                alignment: Alignment.centerLeft,
+                child: Text(title, style: serifStyle(26, color: Palette.bandInk)),
+              ),
+              Container(
+                color: Palette.surface,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    child,
+                    if (onHistory != null)
+                      InkWell(
+                        onTap: onHistory,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            border: Border(top: BorderSide(color: Palette.line)),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          child: Row(
+                            children: [
+                              Text(historyLabel, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                              const Spacer(),
+                              const Icon(Icons.chevron_right_rounded, color: Palette.muted),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        Positioned(
+          right: 14,
+          top: _band - 23,
+          child: PlusButton(onTap: onAdd, tooltip: 'Add ${title.toLowerCase()}'),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Blob icon · title/subtitle · big serif value on the right.
+class _LastRow extends StatelessWidget {
+  const _LastRow({required this.kind, required this.title, this.subtitle, this.value, this.caption, this.onTap});
+  final Kind kind;
+  final String title;
+  final String? subtitle;
+  final String? value;
+  final String? caption;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(16, 28, 16, 18),
+      child: Row(
+        children: [
+          BlobIcon(kind, size: 62),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: serifStyle(20), maxLines: 2, overflow: TextOverflow.ellipsis),
+                if (subtitle != null) ...[
+                  const SizedBox(height: 4),
+                  Text(subtitle!, style: const TextStyle(fontSize: 14, color: Palette.ink)),
+                ],
+              ],
+            ),
+          ),
+          if (value != null)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(value!, style: serifStyle(40, height: 1.1)),
+                ),
+                if (caption != null) Text(caption!, style: serifStyle(15, color: Palette.muted)),
+              ],
+            ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _FeedCard extends StatelessWidget {
+  const _FeedCard({required this.last, required this.timer, required this.onHistory});
+  final Event? last;
+  final TimerModel? timer;
+  final VoidCallback onHistory;
+
+  @override
+  Widget build(BuildContext context) {
+    final u = context.select<AppState, Units>((s) => s.units);
+    Widget body;
+    final t = timer, e = last;
+    if (t != null) {
+      body = Ticking(
+        builder: (_) => _LastRow(
+          kind: Kind.breast,
+          title: t.running ? 'Nursing now' : 'Nursing paused',
+          subtitle: '${t.side == 'right' ? 'Right' : 'Left'} side · since ${timeOfDay(t.startedAt)}',
+          value: clock(t.elapsed),
+          caption: t.running ? 'running' : 'paused',
+          onTap: () => TimerScreen.open(context, 'breastfeed'),
+        ),
+      );
+    } else if (e == null) {
+      body = const _LastRow(kind: Kind.breast, title: 'Track a feeding');
+    } else {
+      final method = e['method'] as String?;
+      final end = e.endSide;
+      final (value, caption) = switch (method) {
+        'bottle' => (u.volume(toDouble(e['amount_ml'])), 'bottle'),
+        'solids' => ('solids', null),
+        _ when end != null => (end == 'left' ? 'right' : 'left', 'next side'),
+        _ => (null, null),
+      };
+      body = _LastRow(
+        kind: Kind.of('feed', method),
+        title: 'Last feeding',
+        subtitle: ago(DateTime.now().difference(e.start).inSeconds),
+        value: value,
+        caption: caption,
+        onTap: () => showEventForm(context, event: e),
+      );
+    }
+    return _ActivityCard(
+      kind: Kind.breast,
+      title: 'Feed',
+      onAdd: () => showFeedPicker(context),
+      onHistory: e == null ? null : onHistory,
+      child: body,
+    );
+  }
+}
+
+/// Pump and sleep: a running timer shows live; otherwise the last entry.
+class _TimedCard extends StatelessWidget {
+  const _TimedCard({
+    required this.kind,
+    required this.title,
+    required this.timerKind,
+    required this.timer,
+    required this.last,
+    required this.lastTitle,
+    required this.empty,
+    required this.value,
+    required this.caption,
+    required this.onHistory,
+    this.since,
+  });
+  final Kind kind;
+  final String title, timerKind, lastTitle, empty;
+  final TimerModel? timer;
+  final Event? last;
+  final String Function(Event) value;
+  final String? Function(Event) caption;
+  final DateTime Function(Event)? since;
+  final VoidCallback onHistory;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = timer, e = last;
+    final Widget body;
+    if (t != null) {
+      body = Ticking(
+        builder: (_) => _LastRow(
+          kind: kind,
+          title: timerKind == 'sleep' ? (t.running ? 'Sleeping now' : 'Sleep paused') : (t.running ? 'Pumping now' : 'Pumping paused'),
+          subtitle: 'since ${timeOfDay(t.startedAt)}',
+          value: clock(t.elapsed),
+          caption: t.running ? 'running' : 'paused',
+          onTap: () => TimerScreen.open(context, timerKind),
+        ),
+      );
+    } else if (e == null) {
+      body = _LastRow(kind: kind, title: empty, onTap: () => TimerScreen.open(context, timerKind));
+    } else {
+      final v = value(e);
+      body = _LastRow(
+        kind: kind,
+        title: lastTitle,
+        subtitle: ago(DateTime.now().difference(since?.call(e) ?? e.start).inSeconds),
+        value: v.isEmpty ? null : v,
+        caption: caption(e),
+        onTap: () => showEventForm(context, event: e),
+      );
+    }
+    return _ActivityCard(
+      kind: kind,
+      title: title,
+      onAdd: () => TimerScreen.open(context, timerKind),
+      onHistory: e == null ? null : onHistory,
+      child: body,
+    );
+  }
+}
+
+class _GrowthCard extends StatelessWidget {
+  const _GrowthCard({required this.events, required this.units, required this.onHistory});
+  final List<Event> events;
+  final Units units;
+  final VoidCallback onHistory;
+
+  @override
+  Widget build(BuildContext context) {
+    Event? latestWith(String field) => events.where((e) => e[field] != null).firstOrNull;
+    final rows = [
+      ('Weight', Icons.monitor_weight_outlined, latestWith('weight_g'), (Event e) => units.weight(toDouble(e['weight_g']))),
+      ('Height', Icons.height_rounded, latestWith('length_cm'), (Event e) => units.length(toDouble(e['length_cm']))),
+      ('Head size', Icons.face_outlined, latestWith('head_cm'), (Event e) => units.length(toDouble(e['head_cm']))),
     ];
-    return Card(
+    return _ActivityCard(
+      kind: Kind.growth,
+      title: 'Growth',
+      onAdd: () => showEventForm(context, type: 'growth'),
+      onHistory: events.isEmpty ? null : onHistory,
+      historyLabel: 'Show all',
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.only(top: 18),
         child: Column(
           children: [
-            for (final (k, big, small) in tiles)
-              ListTile(
-                leading: KindBadge(k, size: 38),
-                title: Text(big, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18)),
-                subtitle: Text(small),
-                dense: true,
+            for (final (i, (label, icon, e, fmt)) in rows.indexed) ...[
+              if (i > 0) const Divider(indent: 16, endIndent: 16),
+              _ListRow(
+                kind: Kind.growth,
+                icon: icon,
+                title: label,
+                subtitle: e == null ? 'Not measured yet' : DateFormat.yMMMd().format(e.start),
+                trailing: e == null ? null : fmt(e),
+                onTap: e == null ? () => showEventForm(context, type: 'growth') : () => showEventForm(context, event: e),
               ),
+            ],
           ],
         ),
       ),
     );
   }
+}
+
+class _HealthCard extends StatelessWidget {
+  const _HealthCard({required this.events, required this.units, required this.onHistory});
+  final List<Event> events;
+  final Units units;
+  final VoidCallback onHistory;
+
+  @override
+  Widget build(BuildContext context) => _ActivityCard(
+    kind: Kind.health,
+    title: 'Health',
+    onAdd: () => showEventForm(context, type: 'health'),
+    onHistory: events.isEmpty ? null : onHistory,
+    historyLabel: 'Show all',
+    child: events.isEmpty
+        ? const _LastRow(kind: Kind.health, title: 'Medicine, temperature, vaccines…')
+        : Padding(
+            padding: const EdgeInsets.only(top: 18),
+            child: Column(
+              children: [
+                for (final (i, e) in events.indexed) ...[
+                  if (i > 0) const Divider(indent: 16, endIndent: 16),
+                  () {
+                    final (title, detail) = describe(e, units);
+                    return _ListRow(
+                      kind: Kind.health,
+                      icon: switch (e['kind']) {
+                        'temperature' => Icons.thermostat_rounded,
+                        'vaccine' => Icons.vaccines_outlined,
+                        'appointment' => Icons.event_outlined,
+                        _ => Icons.medication_outlined,
+                      },
+                      title: title,
+                      subtitle: [if (detail.isNotEmpty) detail, DateFormat.MMMd().format(e.start)].join('\n'),
+                      onTap: () => showEventForm(context, event: e),
+                    );
+                  }(),
+                ],
+              ],
+            ),
+          ),
+  );
+}
+
+class _ListRow extends StatelessWidget {
+  const _ListRow({required this.kind, required this.icon, required this.title, required this.subtitle, this.trailing, this.onTap});
+  final Kind kind;
+  final IconData icon;
+  final String title, subtitle;
+  final String? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          BlobIcon(kind, size: 46, icon: icon),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: serifStyle(19)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: const TextStyle(fontSize: 13, color: Palette.ink)),
+              ],
+            ),
+          ),
+          if (trailing != null) Text(trailing!, style: const TextStyle(fontSize: 16)),
+          const Icon(Icons.chevron_right_rounded, color: Palette.muted),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Bottom sheet listing the kinds of feed (the Feed card's +).
+void showFeedPicker(BuildContext context) {
+  final options = <(Kind, String, VoidCallback)>[
+    (Kind.breast, 'Breastfeed', () => TimerScreen.open(context, 'breastfeed')),
+    (Kind.bottle, 'Bottle feed', () => showEventForm(context, type: 'feed', method: 'bottle')),
+    (Kind.solids, 'Solids', () => showEventForm(context, type: 'feed', method: 'solids')),
+    (Kind.combo, 'Combo feed', () => showEventForm(context, type: 'feed', method: 'combo')),
+  ];
+  showModalBottomSheet(
+    context: context,
+    builder: (c) => SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final (kind, label, onTap) in options)
+              InkWell(
+                onTap: () {
+                  Navigator.pop(c);
+                  onTap();
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                  child: Row(
+                    children: [
+                      BlobIcon(kind, size: 64),
+                      const SizedBox(width: 28),
+                      Text(label, style: serifStyle(28)),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
 }

@@ -67,6 +67,7 @@ String ago(int? seconds) {
   if (seconds == null) return '—';
   if (seconds < 60) return 'just now';
   if (seconds >= 86400 * 2) return '${seconds ~/ 86400} days ago';
+  if (seconds >= 86400) return 'Yesterday';
   return '${duration(seconds)} ago';
 }
 

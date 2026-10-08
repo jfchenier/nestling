@@ -34,17 +34,40 @@ void main() {
 
   test('nursing end side and description', () {
     final e = Event({
-      'id': '1', 'child_id': 'c', 'type': 'feed', 'method': 'breast', 'start': '2026-10-08T14:30:00-04:00',
-      'left_seconds': 600, 'right_seconds': 300, 'start_side': 'left',
+      'id': '1',
+      'child_id': 'c',
+      'type': 'feed',
+      'method': 'breast',
+      'start': '2026-10-08T14:30:00-04:00',
+      'left_seconds': 600,
+      'right_seconds': 300,
+      'start_side': 'left',
     });
     expect(e.endSide, 'right');
     expect(describe(e, const Units(false)), ('Nursing', 'L 10m · R 5m · ended R'));
-    final diaper = Event({'id': '2', 'child_id': 'c', 'type': 'diaper', 'start': '2026-10-08T14:30:00Z', 'wet': true, 'dirty': true, 'color': 'yellow'});
+    final diaper = Event({
+      'id': '2',
+      'child_id': 'c',
+      'type': 'diaper',
+      'start': '2026-10-08T14:30:00Z',
+      'wet': true,
+      'dirty': true,
+      'color': 'yellow',
+    });
     expect(describe(diaper, const Units(false)).$2, 'Wet + dirty · Yellow');
   });
 
   test('timers tick locally from when they were received', () {
-    final t = TimerModel({'id': 't', 'child_id': 'c', 'kind': 'pump', 'running': true, 'side': 'both', 'elapsed_seconds': 60, 'left_seconds': 60, 'right_seconds': 60});
+    final t = TimerModel({
+      'id': 't',
+      'child_id': 'c',
+      'kind': 'pump',
+      'running': true,
+      'side': 'both',
+      'elapsed_seconds': 60,
+      'left_seconds': 60,
+      'right_seconds': 60,
+    });
     expect(t.elapsed, 60);
     expect(t.left, 60);
     expect(t.right, 60);

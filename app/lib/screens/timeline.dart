@@ -10,7 +10,10 @@ import '../widgets/event_tile.dart';
 
 /// Everything logged for the child, newest first, grouped by day.
 class TimelineScreen extends StatefulWidget {
-  const TimelineScreen({super.key});
+  const TimelineScreen({super.key, this.initialFilter});
+
+  /// Type filter to open with (e.g. `feed`), when opened from a home card.
+  final String? initialFilter;
 
   @override
   State<TimelineScreen> createState() => _TimelineScreenState();
@@ -31,7 +34,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
   List<Event> _events = [];
   String? _nextTo;
   bool _loading = false;
-  String? _filter;
+  late String? _filter = widget.initialFilter;
   (String?, int)? _loadedFor; // child id + revision
 
   @override

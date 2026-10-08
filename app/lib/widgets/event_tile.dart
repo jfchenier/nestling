@@ -22,8 +22,8 @@ class EventTile extends StatelessWidget {
     final sub = [if (detail.isNotEmpty) detail, if (event.note != null && event.note!.isNotEmpty) '“${event.note}”'].join('\n');
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      leading: KindBadge(k, size: 42),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      leading: BlobIcon(k, size: 46),
+      title: Text(title, style: serifStyle(19)),
       subtitle: sub.isEmpty ? null : Text(sub, style: const TextStyle(color: Palette.muted)),
       trailing: Column(
         mainAxisAlignment: MainAxisAlignment.center,

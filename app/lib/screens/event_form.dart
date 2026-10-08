@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
@@ -14,6 +13,7 @@ Future<void> showEventForm(BuildContext context, {String? type, String? method, 
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
+  backgroundColor: Palette.background,
   builder: (_) => EventForm(type: event?.type ?? type!, method: event?['method'] ?? method, event: event),
 );
 
@@ -43,7 +43,7 @@ class _EventFormState extends State<EventForm> {
   late final _right = _minutes(e?['right_seconds']);
   late String? _startSide = e?['start_side'];
   late final _amount = _num(e?['amount_ml'], u.volumeIn);
-  late String? _milk = e?['milk'] ?? (widget.method == 'bottle' ? 'formula' : null);
+  late String? _milk = e?['milk'] ?? (widget.method == 'bottle' || widget.method == 'combo' ? 'formula' : null);
   late final _formula = TextEditingController(text: e?['formula_name'] ?? '');
   late final _foods = TextEditingController(text: e?['foods'] ?? '');
   // sleep
@@ -86,6 +86,18 @@ class _EventFormState extends State<EventForm> {
   static String? _text(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
 
   Kind get kind => Kind.of(widget.type, _method);
+
+  String get _title => switch (widget.type) {
+    'feed' => switch (_method) {
+      'bottle' => 'Bottle Feed',
+      'solids' => 'Solids',
+      'combo' => 'Combo Feed',
+      _ => 'Breastfeed',
+    },
+    'health' => cap(_healthKind),
+    'milestone' => 'Baby First',
+    _ => kind.label,
+  };
 
   Map<String, dynamic> _body() {
     final body = <String, dynamic>{'type': widget.type, 'start': formatTime(_start), 'note': _text(_note)};
@@ -184,404 +196,351 @@ class _EventFormState extends State<EventForm> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final t = Theme.of(context).textTheme;
-    final k = kind;
-    return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-      child: Constrained(
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-          children: [
-            Row(
+  Widget build(BuildContext context) => Column(
+    children: [
+      SheetHeader(title: _title, color: kind.color, onSave: _busy ? null : _save),
+      Expanded(
+        child: Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+          child: Constrained(
+            child: ListView(
+              padding: const EdgeInsets.only(bottom: 32),
               children: [
-                KindBadge(k, size: 48),
-                const SizedBox(width: 14),
-                Expanded(child: Text(e == null ? k.label : 'Edit ${k.label.toLowerCase()}', style: t.titleLarge)),
-                if (e != null) IconButton(onPressed: _delete, icon: const Icon(Icons.delete_outline), color: Palette.danger),
-              ],
-            ),
-            const SizedBox(height: 20),
-            ..._fields(),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _note,
-              maxLines: null,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(labelText: widget.type == 'note' ? 'Note' : 'Note (optional)'),
-            ),
-            const SizedBox(height: 24),
-            FilledButton(
-              onPressed: _busy ? null : _save,
-              style: FilledButton.styleFrom(backgroundColor: k.deep),
-              child: Text(e == null ? 'Save' : 'Save changes'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  List<Widget> _fields() {
-    const gap = SizedBox(height: 14);
-    final k = kind;
-    switch (widget.type) {
-      case 'feed':
-        return [
-          if (e == null || e!['method'] != 'combo')
-            SegmentedButton<String>(
-              segments: const [
-                ButtonSegment(value: 'breast', label: Text('Nursing')),
-                ButtonSegment(value: 'bottle', label: Text('Bottle')),
-                ButtonSegment(value: 'solids', label: Text('Solids')),
-              ],
-              selected: {_method == 'combo' ? 'breast' : _method},
-              onSelectionChanged: (v) => setState(() => _method = v.first),
-              showSelectedIcon: false,
-            ),
-          gap,
-          _TimeField(label: 'Started', value: _start, onChanged: (v) => setState(() => _start = v)),
-          gap,
-          if (_method == 'breast' || _method == 'combo') ...[
-            Row(
-              children: [
-                Expanded(child: _numField(_left, 'Left', 'min')),
-                const SizedBox(width: 12),
-                Expanded(child: _numField(_right, 'Right', 'min')),
-              ],
-            ),
-            gap,
-            _label('Started on'),
-            ChoiceChips<String>(
-              options: const {'left': 'Left', 'right': 'Right'},
-              value: _startSide,
-              color: k.color,
-              onChanged: (v) => setState(() => _startSide = v),
-            ),
-            gap,
-          ],
-          if (_method == 'bottle' || _method == 'combo') ...[
-            _numField(_amount, 'Amount', u.volumeUnit),
-            gap,
-            ChoiceChips<String>(
-              options: const {'formula': 'Formula', 'breast_milk': 'Breast milk', 'mixed': 'Mixed'},
-              value: _milk,
-              color: k.color,
-              onChanged: (v) => setState(() => _milk = v),
-            ),
-            if (_milk != 'breast_milk') ...[
-              gap,
-              TextField(
-                controller: _formula,
-                decoration: const InputDecoration(labelText: 'Formula brand (optional)'),
-              ),
-            ],
-          ],
-          if (_method == 'solids')
-            TextField(
-              controller: _foods,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'Foods', hintText: 'Avocado, banana…'),
-            ),
-        ];
-      case 'sleep':
-        return [
-          _TimeField(label: 'Fell asleep', value: _start, onChanged: (v) => setState(() => _start = v)),
-          gap,
-          _TimeField(label: 'Woke up', value: _end, placeholder: 'Set wake-up time', onChanged: (v) => setState(() => _end = v)),
-          if (_end != null && _end!.isAfter(_start))
-            Padding(
-              padding: const EdgeInsets.only(top: 8, left: 4),
-              child: Text('Slept ${duration(_end!.difference(_start).inSeconds)}', style: const TextStyle(color: Palette.muted)),
-            ),
-          gap,
-          _label('Where'),
-          ChoiceChips<String>(
-            options: const {'crib': 'Crib', 'bassinet': 'Bassinet', 'bed': 'Bed', 'arms': 'Arms', 'stroller': 'Stroller', 'car': 'Car'},
-            value: _location,
-            color: k.color,
-            onChanged: (v) => setState(() => _location = v),
-          ),
-        ];
-      case 'diaper':
-        return [
-          _TimeField(label: 'Time', value: _start, onChanged: (v) => setState(() => _start = v)),
-          gap,
-          Row(
-            children: [
-              _bigToggle(
-                'Wet',
-                Icons.water_drop_outlined,
-                _wet,
-                () => setState(() {
-                  _wet = !_wet;
-                  if (_wet) _dry = false;
-                }),
-              ),
-              const SizedBox(width: 10),
-              _bigToggle(
-                'Dirty',
-                Icons.circle,
-                _dirty,
-                () => setState(() {
-                  _dirty = !_dirty;
-                  if (_dirty) _dry = false;
-                }),
-              ),
-              const SizedBox(width: 10),
-              _bigToggle(
-                'Dry',
-                Icons.check_circle_outline,
-                _dry,
-                () => setState(() {
-                  _dry = !_dry;
-                  if (_dry) _wet = _dirty = false;
-                }),
-              ),
-            ],
-          ),
-          if (_dirty) ...[
-            gap,
-            _label('Color'),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                for (final c in const {
-                  'yellow': Color(0xFFE8C547),
-                  'green': Color(0xFF8BA644),
-                  'brown': Color(0xFF8B5E3C),
-                  'black': Color(0xFF2B2B2B),
-                  'red': Color(0xFFC0392B),
-                  'gray': Color(0xFFB0B0B0),
-                }.entries)
-                  GestureDetector(
-                    onTap: () => setState(() => _color = _color == c.key ? null : c.key),
-                    child: Tooltip(
-                      message: cap(c.key),
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: c.value,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: _color == c.key ? Palette.ink : Colors.white, width: 3),
-                          boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 3)],
-                        ),
+                ..._fields(),
+                FormRow(
+                  label: widget.type == 'note' ? 'Note' : 'Notes',
+                  below: TextField(
+                    controller: _note,
+                    maxLines: null,
+                    minLines: widget.type == 'note' ? 4 : 1,
+                    autofocus: widget.type == 'note' && e == null,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: const InputDecoration(hintText: 'Add a note…'),
+                  ),
+                ),
+                if (e != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 24),
+                    child: Center(
+                      child: TextButton.icon(
+                        onPressed: _delete,
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('Delete entry'),
+                        style: TextButton.styleFrom(foregroundColor: Palette.danger),
                       ),
                     ),
                   ),
               ],
             ),
-            gap,
-            _label('Consistency'),
-            ChoiceChips<String>(
-              options: const {'runny': 'Runny', 'mushy': 'Mushy', 'mucousy': 'Mucousy', 'pebbles': 'Pebbles', 'solid': 'Solid'},
-              value: _consistency,
-              color: k.color,
-              onChanged: (v) => setState(() => _consistency = v),
-            ),
-          ],
-          gap,
-          Wrap(
-            spacing: 8,
-            children: [
-              FilterChip(label: const Text('Rash'), selected: _rash, selectedColor: k.color, onSelected: (v) => setState(() => _rash = v)),
-              FilterChip(
-                label: const Text('Blowout'),
-                selected: _blowout,
-                selectedColor: k.color,
-                onSelected: (v) => setState(() => _blowout = v),
-              ),
-            ],
           ),
+        ),
+      ),
+    ],
+  );
+
+  Widget _timeRow(String label, DateTime? value, ValueChanged<DateTime> set, {String placeholder = 'Add'}) => FormRow(
+    label: label,
+    onTap: () => pickDateTime(context, value ?? DateTime.now()).then((v) => v == null ? null : set(v)),
+    child: Text(
+      value == null ? placeholder : '${dayLabel(value)}   ${DateFormat.jm().format(value)}',
+      style: TextStyle(
+        fontSize: 17,
+        color: value == null ? Palette.accentLight : Palette.ink,
+        fontWeight: value == null ? FontWeight.w600 : null,
+      ),
+    ),
+  );
+
+  Widget _numRow(String label, TextEditingController c, String? unit) => FormRow(
+    label: label,
+    child: InlineNumber(controller: c, unit: unit),
+  );
+
+  Widget _textRow(String label, TextEditingController c, {String hint = ''}) => FormRow(
+    label: label,
+    child: SizedBox(
+      width: 200,
+      child: TextField(
+        controller: c,
+        textAlign: TextAlign.right,
+        textCapitalization: TextCapitalization.sentences,
+        style: const TextStyle(fontSize: 17),
+        onChanged: (_) => setState(() {}),
+        decoration: InputDecoration(
+          hintText: hint,
+          filled: false,
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+        ),
+      ),
+    ),
+  );
+
+  Widget _chipsRow<T>(String label, Map<T, String> options, T? value, ValueChanged<T?> onChanged) => FormRow(
+    label: label,
+    below: ChoiceChips<T>(options: options, value: value, color: kind.color, onChanged: onChanged),
+  );
+
+  Widget _switchRow(String label, bool value, ValueChanged<bool> onChanged) => FormRow(
+    label: label,
+    onTap: () => onChanged(!value),
+    child: Switch(value: value, onChanged: onChanged),
+  );
+
+  List<Widget> _fields() {
+    switch (widget.type) {
+      case 'feed':
+        return [
+          if (_method != 'combo')
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'breast', label: Text('Breast')),
+                  ButtonSegment(value: 'bottle', label: Text('Bottle')),
+                  ButtonSegment(value: 'solids', label: Text('Solids')),
+                ],
+                selected: {_method},
+                onSelectionChanged: (v) => setState(() {
+                  _method = v.first;
+                  if (_method == 'bottle') _milk ??= 'formula';
+                }),
+                showSelectedIcon: false,
+              ),
+            ),
+          _timeRow('Start Time', _start, (v) => setState(() => _start = v)),
+          if (_method == 'breast' || _method == 'combo') ...[
+            _numRow('Left', _left, 'min'),
+            _numRow('Right', _right, 'min'),
+            _chipsRow<String>('Started on', const {'left': 'Left', 'right': 'Right'}, _startSide, (v) => setState(() => _startSide = v)),
+          ],
+          if (_method == 'bottle' || _method == 'combo') ...[
+            _numRow('Amount', _amount, u.volumeUnit),
+            _chipsRow<String>(
+              'Milk',
+              const {'formula': 'Formula', 'breast_milk': 'Breast milk', 'mixed': 'Mixed'},
+              _milk,
+              (v) => setState(() => _milk = v),
+            ),
+            if (_milk != 'breast_milk') _textRow('Formula', _formula, hint: 'Brand (optional)'),
+          ],
+          if (_method == 'solids') _textRow('Foods', _foods, hint: 'Avocado, banana…'),
+        ];
+      case 'sleep':
+        return [
+          _timeRow('Fell asleep', _start, (v) => setState(() => _start = v)),
+          _timeRow('Woke up', _end, (v) => setState(() => _end = v)),
+          FormRow(
+            label: 'Total Time',
+            child: Text(
+              _end != null && _end!.isAfter(_start) ? duration(_end!.difference(_start).inSeconds) : '—',
+              style: const TextStyle(fontSize: 17, color: Palette.muted),
+            ),
+          ),
+          _chipsRow<String>(
+            'Where',
+            const {'crib': 'Crib', 'bassinet': 'Bassinet', 'bed': 'Bed', 'arms': 'Arms', 'stroller': 'Stroller', 'car': 'Car'},
+            _location,
+            (v) => setState(() => _location = v),
+          ),
+        ];
+      case 'diaper':
+        return [
+          _timeRow('Time', _start, (v) => setState(() => _start = v)),
+          Container(
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Palette.line)),
+            ),
+            padding: const EdgeInsets.symmetric(vertical: 36),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircleToggle(
+                  label: 'wet',
+                  selected: _wet,
+                  onTap: () => setState(() {
+                    _wet = !_wet;
+                    if (_wet) _dry = false;
+                  }),
+                ),
+                const SizedBox(width: 20),
+                CircleToggle(
+                  label: 'dirty',
+                  selected: _dirty,
+                  onTap: () => setState(() {
+                    _dirty = !_dirty;
+                    if (_dirty) _dry = false;
+                  }),
+                ),
+                const SizedBox(width: 20),
+                CircleToggle(
+                  label: 'dry',
+                  selected: _dry,
+                  onTap: () => setState(() {
+                    _dry = !_dry;
+                    if (_dry) _wet = _dirty = false;
+                  }),
+                ),
+              ],
+            ),
+          ),
+          if (_dirty) FormRow(label: 'Texture & Color', below: _textureAndColor()),
+          _switchRow('Blowout', _blowout, (v) => setState(() => _blowout = v)),
+          _switchRow('Diaper Rash', _rash, (v) => setState(() => _rash = v)),
         ];
       case 'pump':
         return [
-          _TimeField(label: 'Started', value: _start, onChanged: (v) => setState(() => _start = v)),
-          gap,
-          Row(
-            children: [
-              Expanded(child: _numField(_leftMl, 'Left', u.volumeUnit)),
-              const SizedBox(width: 12),
-              Expanded(child: _numField(_rightMl, 'Right', u.volumeUnit)),
-            ],
-          ),
-          gap,
-          _numField(_pumpMinutes, 'Duration', 'min'),
+          _timeRow('Start Time', _start, (v) => setState(() => _start = v)),
+          _numRow('Left', _leftMl, u.volumeUnit),
+          _numRow('Right', _rightMl, u.volumeUnit),
+          _numRow('Duration', _pumpMinutes, 'min'),
         ];
       case 'growth':
         return [
-          _TimeField(label: 'Measured', value: _start, onChanged: (v) => setState(() => _start = v)),
-          gap,
-          _numField(_weight, 'Weight', u.weightUnit),
-          gap,
-          Row(
-            children: [
-              Expanded(child: _numField(_length, 'Length', u.lengthUnit)),
-              const SizedBox(width: 12),
-              Expanded(child: _numField(_head, 'Head', u.lengthUnit)),
-            ],
-          ),
+          _timeRow('Measured', _start, (v) => setState(() => _start = v)),
+          _numRow('Weight', _weight, u.weightUnit),
+          _numRow('Height', _length, u.lengthUnit),
+          _numRow('Head Size', _head, u.lengthUnit),
         ];
       case 'health':
         return [
-          ChoiceChips<String>(
-            options: const {
+          _chipsRow<String>(
+            'Type',
+            const {
               'medicine': 'Medicine',
               'temperature': 'Temperature',
               'vaccine': 'Vaccine',
               'symptom': 'Symptom',
               'appointment': 'Appointment',
             },
-            value: _healthKind,
-            color: k.color,
-            onChanged: (v) => setState(() => _healthKind = v ?? _healthKind),
+            _healthKind,
+            (v) => setState(() => _healthKind = v ?? _healthKind),
           ),
-          gap,
-          _TimeField(label: 'Time', value: _start, onChanged: (v) => setState(() => _start = v)),
-          gap,
+          _timeRow('Time', _start, (v) => setState(() => _start = v)),
           if (_healthKind == 'temperature')
-            _numField(_temp, 'Temperature', u.tempUnit)
+            _numRow('Temperature', _temp, u.tempUnit)
           else ...[
-            TextField(
-              controller: _name,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: InputDecoration(
-                labelText: switch (_healthKind) {
-                  'medicine' => 'Medicine',
-                  'vaccine' => 'Vaccine',
-                  'appointment' => 'Doctor / clinic',
-                  _ => 'Symptom',
-                },
-              ),
+            _textRow(
+              switch (_healthKind) {
+                'medicine' => 'Medicine',
+                'vaccine' => 'Vaccine',
+                'appointment' => 'Doctor',
+                _ => 'Symptom',
+              },
+              _name,
+              hint: _healthKind == 'medicine' ? 'Vitamin D…' : '',
             ),
-            if (_healthKind == 'medicine') ...[
-              gap,
-              Row(
-                children: [
-                  Expanded(child: _numField(_dose, 'Dose', null)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextField(
-                      controller: _doseUnit,
-                      decoration: const InputDecoration(labelText: 'Unit'),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            if (_healthKind == 'medicine') ...[_numRow('Dose', _dose, null), _textRow('Unit', _doseUnit)],
           ],
         ];
       case 'activity':
         return [
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              for (final a in const ['bath', 'tummy_time', 'outdoor', 'play', 'read', 'nail_trim', 'vitamin'])
-                ChoiceChip(
-                  label: Text(cap(a)),
-                  selected: _activityKind.text == a,
-                  selectedColor: k.color,
-                  showCheckmark: false,
-                  onSelected: (_) => setState(() => _activityKind.text = a),
-                ),
-            ],
-          ),
-          gap,
-          TextField(
-            controller: _activityKind,
-            decoration: const InputDecoration(labelText: 'Activity'),
-            onChanged: (_) => setState(() {}),
-          ),
-          gap,
-          _TimeField(label: 'Started', value: _start, onChanged: (v) => setState(() => _start = v)),
-          gap,
-          _numField(_activityMinutes, 'Duration', 'min'),
-        ];
-      case 'milestone':
-        return [
-          TextField(
-            controller: _name,
-            textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(labelText: 'Milestone', hintText: 'First smile, rolled over…'),
-          ),
-          gap,
-          _TimeField(label: 'When', value: _start, onChanged: (v) => setState(() => _start = v)),
-        ];
-      default:
-        return [_TimeField(label: 'Time', value: _start, onChanged: (v) => setState(() => _start = v))];
-    }
-  }
-
-  Widget _label(String text) => Padding(
-    padding: const EdgeInsets.only(left: 4, bottom: 8),
-    child: Text(
-      text,
-      style: const TextStyle(color: Palette.muted, fontWeight: FontWeight.w600),
-    ),
-  );
-
-  Widget _numField(TextEditingController c, String label, String? unit) => TextField(
-    controller: c,
-    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-    decoration: InputDecoration(labelText: label, suffixText: unit),
-  );
-
-  Widget _bigToggle(String label, IconData icon, bool on, VoidCallback onTap) {
-    final k = kind;
-    return Expanded(
-      child: Material(
-        color: on ? k.color : Palette.surface,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: on ? k.deep : Palette.line, width: on ? 2 : 1),
-        ),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(18),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: Column(
+          FormRow(
+            label: 'Activity',
+            below: Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Icon(icon, color: on ? k.deep : Palette.muted),
-                const SizedBox(height: 6),
-                Text(
-                  label,
-                  style: TextStyle(fontWeight: FontWeight.w600, color: on ? k.deep : Palette.ink),
-                ),
+                for (final a in const ['tummy_time', 'bath', 'outdoor', 'play', 'read', 'nail_trim', 'vitamin'])
+                  ChoiceChip(
+                    label: Text(cap(a), style: TextStyle(color: _activityKind.text == a ? Palette.bandInk : Palette.ink)),
+                    selected: _activityKind.text == a,
+                    selectedColor: kind.color,
+                    showCheckmark: false,
+                    onSelected: (_) => setState(() => _activityKind.text = a),
+                  ),
               ],
             ),
           ),
+          _textRow('Other', _activityKind, hint: 'Type an activity'),
+          _timeRow('Start Time', _start, (v) => setState(() => _start = v)),
+          _numRow('Duration', _activityMinutes, 'min'),
+        ];
+      case 'milestone':
+        return [
+          FormRow(
+            label: 'What happened?',
+            below: TextField(
+              controller: _name,
+              autofocus: e == null,
+              textCapitalization: TextCapitalization.sentences,
+              decoration: const InputDecoration(hintText: 'First smile, rolled over…'),
+            ),
+          ),
+          _timeRow('When', _start, (v) => setState(() => _start = v)),
+        ];
+      default:
+        return [_timeRow('Time', _start, (v) => setState(() => _start = v))];
+    }
+  }
+
+  Widget _textureAndColor() {
+    const textures = ['runny', 'mucousy', 'mushy', 'solid', 'pebbles'];
+    const colors = {
+      'black': Color(0xFF4A2A12),
+      'green': Color(0xFF7FA33A),
+      'yellow': Color(0xFFE6BF4A),
+      'brown': Color(0xFF7A4E1E),
+      'red': Color(0xFFCF4535),
+      'gray': Color(0xFFD5D5D5),
+    };
+    // Six swatches per row on a phone; the tile width follows the sheet width.
+    final tile = ((MediaQuery.sizeOf(context).width.clamp(0, 640) - 40) / 6).floorToDouble().clamp(52.0, 80.0);
+    Widget option(String label, bool selected, Widget art, VoidCallback onTap) => InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        width: tile,
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: selected ? Palette.accentLight : Colors.transparent, width: 1.5),
+          color: selected ? Palette.accent.withValues(alpha: 0.25) : null,
+        ),
+        child: Column(
+          children: [
+            SizedBox(width: tile * 0.62, height: tile * 0.62, child: art),
+            const SizedBox(height: 6),
+            Text(label, style: const TextStyle(fontSize: 12)),
+          ],
         ),
       ),
     );
+    return Column(
+      children: [
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          runSpacing: 4,
+          children: [
+            for (final t in textures)
+              option(
+                cap(t),
+                _consistency == t,
+                CustomPaint(painter: TexturePainter(t, const Color(0xFFE3DACB))),
+                () => setState(() => _consistency = _consistency == t ? null : t),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          runSpacing: 4,
+          children: [
+            for (final c in colors.entries)
+              option(
+                cap(c.key),
+                _color == c.key,
+                CustomPaint(painter: BlobPainter(c.value, stableSeed(c.key), wobble: 0.16)),
+                () => setState(() => _color = _color == c.key ? null : c.key),
+              ),
+          ],
+        ),
+      ],
+    );
   }
-}
-
-/// Tappable date + time field.
-class _TimeField extends StatelessWidget {
-  const _TimeField({required this.label, required this.value, required this.onChanged, this.placeholder});
-  final String label;
-  final DateTime? value;
-  final ValueChanged<DateTime> onChanged;
-  final String? placeholder;
-
-  @override
-  Widget build(BuildContext context) => InkWell(
-    borderRadius: BorderRadius.circular(14),
-    onTap: () => pickDateTime(context, value ?? DateTime.now()).then((v) => v == null ? null : onChanged(v)),
-    child: InputDecorator(
-      decoration: InputDecoration(labelText: label, suffixIcon: const Icon(Icons.schedule_rounded)),
-      child: Text(
-        value == null ? (placeholder ?? '') : '${dayLabel(value!)}, ${DateFormat.jm().format(value!)}',
-        style: TextStyle(color: value == null ? Palette.muted : Palette.ink),
-      ),
-    ),
-  );
 }
 
 Future<DateTime?> pickDateTime(BuildContext context, DateTime initial) async {

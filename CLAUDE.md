@@ -16,8 +16,11 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 ## Decisions already made (don't revisit without asking)
 
 - Order of work: **server API first**, then a **web app (PWA)**, then a **native mobile app**.
-- Client: **Flutter**, one codebase for web (served by the server) and Android. Nara-like look:
-  cream background, one pastel per activity (`app/lib/theme.dart`), big round buttons.
+- Client: **Flutter**, one codebase for web (served by the server) and Android. Nara-like look
+  (from JF's Nara screenshots, without copying their artwork): dark navy theme, serif display font
+  (Libre Caslon Text, bundled), one pastel band color per activity (`app/lib/theme.dart`), home =
+  stack of activity cards with a round blue "+", entry sheets with a colored header and
+  label/value rows. Icons are Material line icons over generated blobs (`BlobIcon`).
 - Server in **Rust**: axum 0.8, sqlx 0.8 (SQLite, runtime queries — no `query!` macros, so no
   DATABASE_URL needed at build time), tokio. Single binary + one SQLite file.
 - Hosting: **home server / NAS via Docker** (`docker compose up -d --build`).
@@ -92,7 +95,8 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - [x] Trends (7/14/30 days): averages + daily charts.
 - [x] Sign-in, onboarding, family invites, child switcher, settings, Nara import screen.
 - [x] Live updates via `/families/{id}/stream`; installable PWA (manifest, icons).
-- [ ] Compare against real Nara screenshots and adjust the look (no Play Store access in the cloud session).
+- [x] Restyled after JF's Nara screenshots (dark theme, activity cards, Nara-style sheets and timer).
+- [ ] Light mode (the theme is dark-only for now; colors live in `Palette`).
 - [ ] Build and test the Android APK on a phone (`flutter build apk`); pick the final application id.
 
 ### 4. Native mobile app (Android first, same Flutter codebase)

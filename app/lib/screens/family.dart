@@ -27,8 +27,8 @@ class FamilyScreen extends StatelessWidget {
             Card(
               child: ListTile(
                 leading: const CircleAvatar(
-                  backgroundColor: Color(0xFFE6ECF3),
-                  child: Icon(Icons.home_rounded, color: Palette.accent),
+                  backgroundColor: Palette.raised,
+                  child: Icon(Icons.home_rounded, color: Palette.accentLight),
                 ),
                 title: Text(f.name, style: const TextStyle(fontWeight: FontWeight.w700)),
                 subtitle: Text('${f.members.length} caregiver${f.members.length == 1 ? '' : 's'} · ${f.timezone.replaceAll('_', ' ')}'),
@@ -66,10 +66,10 @@ class FamilyScreen extends StatelessWidget {
                   for (final m in f.members)
                     ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: const Color(0xFFE6ECF3),
+                        backgroundColor: Palette.raised,
                         child: Text(
                           m.name.isEmpty ? '?' : m.name.characters.first.toUpperCase(),
-                          style: const TextStyle(color: Palette.accent, fontWeight: FontWeight.w700),
+                          style: const TextStyle(color: Palette.accentLight, fontWeight: FontWeight.w700),
                         ),
                       ),
                       title: Text(m.userId == me.id ? '${m.name} (you)' : m.name),
