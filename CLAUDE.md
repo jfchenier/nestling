@@ -107,6 +107,7 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - [x] Nara-like home: big buttons, "time since" cards, live timers, today's totals, latest entries.
 - [x] Timeline with edit/delete; forms for every event type; metric/imperial display.
 - [x] Trends (7/14/30 days): averages + daily charts.
+- [x] Calendar tab: week grid (days × 00–24), a bar per entry, filters, tap to edit.
 - [x] Sign-in, onboarding, family invites, child switcher, settings, Nara import screen.
 - [x] Live updates via `/families/{id}/stream`; installable PWA (manifest, icons).
 - [x] Layout after JF's Nara screenshots; original palette; light + dark themes.

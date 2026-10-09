@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'screens/calendar.dart';
 import 'screens/family.dart';
 import 'screens/home.dart';
 import 'screens/login.dart';
@@ -74,13 +75,14 @@ class _ShellState extends State<Shell> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    body: IndexedStack(index: _tab, children: const [HomeScreen(), TimelineScreen(), TrendsScreen(), FamilyScreen()]),
+    body: IndexedStack(index: _tab, children: const [HomeScreen(), TimelineScreen(), CalendarScreen(), TrendsScreen(), FamilyScreen()]),
     bottomNavigationBar: NavigationBar(
       selectedIndex: _tab,
       onDestinationSelected: (i) => setState(() => _tab = i),
       destinations: const [
         NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
         NavigationDestination(icon: Icon(Icons.view_agenda_outlined), selectedIcon: Icon(Icons.view_agenda_rounded), label: 'Timeline'),
+        NavigationDestination(icon: Icon(Icons.calendar_month_outlined), selectedIcon: Icon(Icons.calendar_month_rounded), label: 'Calendar'),
         NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights_rounded), label: 'Trends'),
         NavigationDestination(icon: Icon(Icons.people_outline_rounded), selectedIcon: Icon(Icons.people_rounded), label: 'Family'),
       ],

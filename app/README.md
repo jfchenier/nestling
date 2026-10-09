@@ -35,6 +35,9 @@ activity color. Colors live in
   blowout), pump, growth, health (medicine, temperature, vaccine, symptom, appointment), activity,
   milestone, note. Tap any entry to edit or delete it.
 - **Timeline** — everything, grouped by day, filter by type, infinite scroll.
+- **Calendar** — a week at a glance (like Nara's History): one column per day, 00–24 top to
+  bottom, night hours shaded, a colored bar per entry as tall as its duration, a line at the
+  current time. Filter by activity, arrows or swipe for other weeks, tap a bar to edit it.
 - **Trends** — 7/14/30-day averages (feeds, feed interval, sleep, wake window, naps, diapers, bottle,
   nursing, pumping) and daily charts.
 - **Family** — babies, caregivers, invite codes, join a family, units (metric/imperial), time zone,
@@ -133,6 +136,6 @@ lib/
   models.dart          Me, Family, Child, Event, TimerModel
   format.dart          units (metric/imperial), durations, event descriptions
   theme.dart           colors, per-activity look (Kind), Material theme
-  screens/             home, timer, event form, timeline, trends, family (+ Nara import), login, onboarding
+  screens/             home, timer, event form, timeline, calendar, trends, family (+ Nara import), login, onboarding
   widgets/             shared bits (badges, ticking rebuilds, chips, event row)
 ```
