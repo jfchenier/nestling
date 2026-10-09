@@ -8,6 +8,7 @@ import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import 'growth_chart.dart';
 
 /// Daily totals and averages from `/children/{id}/trends`.
 class TrendsScreen extends StatefulWidget {
@@ -59,6 +60,16 @@ class _TrendsScreenState extends State<TrendsScreen> {
                 selected: {_days},
                 showSelectedIcon: false,
                 onSelectionChanged: (v) => setState(() => _days = v.first),
+              ),
+              const SizedBox(height: 12),
+              Card(
+                child: ListTile(
+                  leading: Icon(Icons.show_chart_rounded, color: Kind.growth.on(context.pal)),
+                  title: const Text('Growth charts'),
+                  subtitle: const Text('Weight, length and head size on the WHO percentile curves'),
+                  trailing: const Icon(Icons.chevron_right_rounded),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GrowthChartScreen())),
+                ),
               ),
               if (data == null)
                 const Padding(

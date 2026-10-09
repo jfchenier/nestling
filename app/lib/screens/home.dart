@@ -11,6 +11,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import 'child_form.dart';
 import 'event_form.dart';
+import 'growth_chart.dart';
 import 'timeline.dart';
 import 'timer_screen.dart';
 
@@ -153,7 +154,12 @@ class HomeScreen extends StatelessWidget {
       title: title,
       data: data,
       onLog: running != null ? () => open(running.kind) : log,
-      onHistory: () => history(filter),
+      onHistory: filter == 'growth'
+          ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GrowthChartScreen()))
+          : () => history(filter),
+      // Growth's header icon opens the growth charts (its history is listed there too).
+      historyIcon: filter == 'growth' ? Icons.show_chart_rounded : Icons.history_rounded,
+      historyLabel: filter == 'growth' ? 'Growth charts' : '$title history',
     );
     return [
       card(Kind.breast, 'Feed', feedCard, () => showFeedPicker(context), 'feed', nursing),
@@ -230,7 +236,15 @@ class _CardGrid extends StatelessWidget {
 
 /// White rounded card with a pastel header strip (name + small +) and the latest entry.
 class _ActivityCard extends StatelessWidget {
-  const _ActivityCard({required this.kind, required this.title, required this.data, required this.onLog, required this.onHistory});
+  const _ActivityCard({
+    required this.kind,
+    required this.title,
+    required this.data,
+    required this.onLog,
+    required this.onHistory,
+    this.historyIcon = Icons.history_rounded,
+    required this.historyLabel,
+  });
   final Kind kind;
   final String title;
   final _CardData data;
@@ -238,6 +252,8 @@ class _ActivityCard extends StatelessWidget {
   /// Tap anywhere on the card: log one (or open the running timer).
   final VoidCallback onLog;
   final VoidCallback onHistory;
+  final IconData historyIcon;
+  final String historyLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -276,9 +292,9 @@ class _ActivityCard extends StatelessWidget {
                       ),
                       IconButton(
                         onPressed: onHistory,
-                        tooltip: '$title history',
+                        tooltip: historyLabel,
                         visualDensity: VisualDensity.compact,
-                        icon: Icon(Icons.history_rounded, color: c.bandInk, size: 22),
+                        icon: Icon(historyIcon, color: c.bandInk, size: 22),
                       ),
                     ],
                   ),

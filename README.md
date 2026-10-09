@@ -30,6 +30,8 @@ One codebase ([`app/`](app/README.md)) for the browser and Android.
 - **Timeline** of everything, grouped by day and filterable; tap any entry to edit it.
 - **Calendar** with a column per day and a bar per entry: scroll back through weeks to see sleep
   and feeding patterns.
+- **Growth charts**: weight, length and head size on the WHO percentile curves (birth to 24
+  months), with each measurement's percentile.
 - **Trends** over 7, 14 or 30 days: feeds per day, feed interval, sleep and naps, wake windows,
   diapers, bottle and pumping volumes, with daily charts.
 - **Family sharing.** Several babies (each with a profile picture) and caregivers per family;
