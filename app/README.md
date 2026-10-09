@@ -36,6 +36,22 @@ activity color. Colors live in
   (checked every 10 s), and the server settles conflicts (newest change wins, deletions are final).
   Online with nothing queued, every request goes to the server as before. Family settings,
   invites, imports and accounts need the server. The web app can't reload without the server.
+- **Without a server** ("Use without a server" on the sign-in screen) — for families with no home
+  server: everything is saved on the phone (`LocalApi`, the same local engine as offline mode, plus
+  families, babies and photos). Phones pair with a QR code (Family → Pair a phone; the other phone
+  picks "Join with a pairing code") and then sync over the home Wi-Fi whenever both apps are open:
+  each phone sends the family as a snapshot, the newest change of each entry wins, deletions travel
+  along, and two timers started apart keep the earlier start (`lib/local/merge.dart`,
+  `lib/local/peer_sync.dart`). Everything between phones is encrypted with the family key from the
+  QR code (AES-256-GCM). Phones find each other with a UDP announcement (port 47816) or their last
+  address, and listen on port 47815. Phones that were apart catch up when they meet again. Google
+  Drive keeps a daily backup in the app's private Drive folder (Family → Back up to Google Drive;
+  "Restore from Google Drive" when setting up a new phone). Family → Import from Nara reads Nara's
+  CSV export on the phone (`lib/local/nara_csv.dart`, a port of the server's `src/nara_csv.rs`;
+  event ids come from the family and Nara's id, so importing again updates and paired phones
+  agree). Not available without a server: signing in to Nara for an import, CSV export, invites by
+  code, API tokens, live updates across town. Pairing and Drive need
+  the Android app; the web app can run serverless alone (saved in the browser).
 - **Times** use a 24-hour clock; date/time rows have separate day and time pills. Durations
   past 24 h read in days ("41d 11h").
 - **Forms** — a sheet with the activity's icon and title, label/value rows and a big Save button
@@ -169,3 +185,18 @@ lib/
   screens/             home, timer, event form, timeline, calendar, trends, family (+ history import), users, login, onboarding
   widgets/             shared bits (badges, ticking rebuilds, chips, event row)
 ```
+
+## Google Drive backup (serverless mode): one-time setup
+
+The backup signs in with Google, so the Android build needs an OAuth client of your own:
+
+1. In the [Google Cloud console](https://console.cloud.google.com/), create a project, enable the
+   **Google Drive API**, and set up the OAuth consent screen (External; add the
+   `.../auth/drive.appdata` scope; while in "Testing", add your caregivers' Google accounts as test users).
+2. Create an OAuth client of type **Android**: package `org.nestling.nestling`, and the SHA-1 of the
+   key that signs the APK (`keytool -list -v -keystore <your keystore>`).
+3. Create an OAuth client of type **Web application** (no settings needed) and copy its client id.
+4. Build with it: `flutter build apk --dart-define=GOOGLE_SERVER_CLIENT_ID=<web client id>`
+   (in CI: a `GOOGLE_SERVER_CLIENT_ID` secret passed the same way).
+
+Without it, everything else works and the backup row says it isn't available.

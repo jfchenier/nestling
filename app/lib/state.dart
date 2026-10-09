@@ -5,9 +5,13 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api/api.dart';
+import 'api/local_api.dart';
 import 'api/stream.dart';
 import 'api/sync_api.dart';
 import 'format.dart';
+import 'local/drive_backup.dart';
+import 'local/engine.dart';
+import 'local/peer_sync.dart';
 import 'local/store.dart';
 import 'models.dart';
 import 'timer_notifications.dart';
@@ -22,7 +26,9 @@ class AppState extends ChangeNotifier {
     server = _prefs.getString('server') ?? defaultServer();
     themeMode = ThemeMode.values.where((m) => m.name == _prefs.getString('theme')).firstOrNull ?? ThemeMode.system;
     final token = _prefs.getString('token');
-    if (server.isNotEmpty && token != null) {
+    if (_prefs.getString('mode') == 'serverless' && store.me != null) {
+      _useServerless();
+    } else if (server.isNotEmpty && token != null) {
       store.server ??= server;
       api = _syncApi(server, token);
     }
@@ -53,6 +59,36 @@ class AppState extends ChangeNotifier {
 
   /// A message for the user (e.g. an offline change the server didn't keep); shown once.
   String? notice;
+
+  // ---- serverless mode ----
+
+  /// No server: everything is kept on this phone and synced with paired phones.
+  bool get serverless => api is LocalApi;
+
+  /// Syncs paired phones over Wi-Fi (serverless mode).
+  PeerSync? peers;
+
+  /// Backups to the caregiver's Google Drive (serverless mode).
+  DriveBackup get drive => DriveBackup(store);
+
+  void _useServerless() {
+    final local = LocalApi(store);
+    peers = PeerSync(store)
+      ..onMerged = (() => load().catchError((_) {}))
+      ..onStatus = notifyListeners;
+    local.onChanged = () => peers?.changed();
+    api = local;
+  }
+
+  /// Starts serverless mode as [name]: a fresh copy on this phone, no account or server.
+  Future<void> startServerless(String name) async {
+    await store.clear();
+    store.me = {'id': LocalEngine.newId(), 'name': name.trim(), 'email': '', 'units': 'metric', 'is_admin': false};
+    await store.flush();
+    await _prefs.setString('mode', 'serverless');
+    _useServerless();
+    await load();
+  }
 
   SyncApi _syncApi(String server, String token) => SyncApi(server, token, store)
     ..onStatus = _syncStatus
@@ -165,6 +201,9 @@ class AppState extends ChangeNotifier {
       await api?.post('/auth/logout');
     } catch (_) {}
     api?.close();
+    await peers?.stop();
+    peers = null;
+    if (serverless) await _prefs.remove('mode');
     if (forget) await store.clear();
     _stopStream();
     TimerNotifications.sync(const [], null);
@@ -203,6 +242,10 @@ class AppState extends ChangeNotifier {
       await refreshChild(notify: false);
       // Push anything logged offline last time, and bring the local copy up to date.
       unawaited(a.sync());
+      if (serverless) {
+        unawaited(peers?.start());
+        unawaited(drive.backUpIfDue());
+      }
     } on ApiException catch (e) {
       if (e.unauthorized) {
         await signOut(forget: false);
@@ -283,7 +326,7 @@ class AppState extends ChangeNotifier {
   void _startStream() {
     _stopStream();
     final a = api, f = familyId;
-    if (a == null || f == null) return;
+    if (a == null || f == null || serverless) return;
     _stream = familyStream(a.server, a.token!, f).listen(
       (event) {
         if (event == 'ready') {

@@ -126,6 +126,20 @@ class LocalStore {
 
   /// Sync cursor per family (`GET /families/{id}/sync?since=`).
   final Map<String, int> cursors = {};
+
+  /// When each record was last changed on any device (epoch ms), keyed like [pending] plus
+  /// `c:<child id>`, `f:<family id>` and `p:<child id>` (photo). Decides merges between devices
+  /// in serverless mode (the newest change wins).
+  final Map<String, int> clocks = {};
+
+  /// Children deleted in serverless mode, kept so the deletion reaches the other phones.
+  final Map<String, Map<String, dynamic>> deletedChildren = {};
+
+  /// Profile pictures in serverless mode: child id → `{version, type, data (base64)}`.
+  final Map<String, Map<String, dynamic>> photos = {};
+
+  /// Serverless mode: settings of this device (pairing key, peers…), see `local/serverless.dart`.
+  Map<String, dynamic> serverless = {};
   int _seq = 0;
 
   Timer? _saveTimer;
@@ -178,7 +192,10 @@ class LocalStore {
   // ---- local changes ----
 
   void markChanged(String key) {
-    pending[key] = Pending(nowMs(), ++_seq);
+    final now = nowMs();
+    pending[key] = Pending(now, ++_seq);
+    // Strictly increasing, so a change right after a merge still wins.
+    clocks[key] = math.max(now, (clocks[key] ?? 0) + 1);
     save();
   }
 
@@ -249,6 +266,10 @@ class LocalStore {
     timers.clear();
     pending.clear();
     cursors.clear();
+    clocks.clear();
+    deletedChildren.clear();
+    photos.clear();
+    serverless = {};
     _saveTimer?.cancel();
     await _persist.delete(_key);
   }
@@ -281,6 +302,10 @@ class LocalStore {
     'pending': {for (final MapEntry(:key, :value) in pending.entries) key: [value.changedAt, value.seq]},
     'cursors': cursors,
     'seq': _seq,
+    'clocks': clocks,
+    'deleted_children': deletedChildren,
+    'photos': photos,
+    'serverless': serverless,
   };
 
   void _fromJson(Map<String, dynamic> j) {
@@ -298,5 +323,9 @@ class LocalStore {
     (j['pending'] as Map? ?? {}).forEach((k, v) => pending[k] = Pending(v[0], v[1]));
     (j['cursors'] as Map? ?? {}).forEach((k, v) => cursors[k] = v);
     _seq = j['seq'] ?? 0;
+    (j['clocks'] as Map? ?? {}).forEach((k, v) => clocks[k] = v);
+    (j['deleted_children'] as Map? ?? {}).forEach((k, v) => deletedChildren[k] = v);
+    (j['photos'] as Map? ?? {}).forEach((k, v) => photos[k] = v);
+    serverless = j['serverless'] ?? {};
   }
 }

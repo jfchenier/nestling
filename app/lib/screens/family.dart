@@ -4,12 +4,14 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../local/drive_backup.dart';
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'child_form.dart';
 import 'home.dart' show ChildAvatar;
+import 'pairing.dart';
 import 'users.dart';
 
 /// Family, caregivers, babies, settings and Nara import.
@@ -76,19 +78,21 @@ class FamilyScreen extends StatelessWidget {
                         ),
                       ),
                       title: Text(m.userId == me.id ? '${m.name} (you)' : m.name),
-                      subtitle: Text('${m.email} · ${m.role}'),
-                      trailing: (f.isOwner && m.userId != me.id)
+                      subtitle: Text(m.email.isEmpty ? m.role : '${m.email} · ${m.role}'),
+                      trailing: (f.isOwner && m.userId != me.id && !s.serverless)
                           ? IconButton(icon: const Icon(Icons.person_remove_outlined), onPressed: () => _remove(context, f, m))
                           : null,
                     ),
                   ListTile(
                     leading: CircleAvatar(
                       backgroundColor: context.pal.line,
-                      child: Icon(Icons.person_add_alt_1_outlined, color: context.pal.ink),
+                      child: Icon(s.serverless ? Icons.qr_code_rounded : Icons.person_add_alt_1_outlined, color: context.pal.ink),
                     ),
-                    title: const Text('Invite a caregiver'),
-                    subtitle: const Text('Partner, grandparent, nanny…'),
-                    onTap: () => _invite(context, f),
+                    title: Text(s.serverless ? 'Pair a phone' : 'Invite a caregiver'),
+                    subtitle: Text(s.serverless ? 'Your partner\'s phone syncs with this one over Wi-Fi' : 'Partner, grandparent, nanny…'),
+                    onTap: () => s.serverless
+                        ? Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PairScreen()))
+                        : _invite(context, f),
                   ),
                 ],
               ),
@@ -125,24 +129,25 @@ class FamilyScreen extends StatelessWidget {
                     subtitle: Text(f.timezone.replaceAll('_', ' ')),
                     onTap: () => _editFamily(context, f),
                   ),
+                  if (s.serverless) DriveBackupTile(drive: s.drive),
                   ListTile(
                     leading: const Icon(Icons.cloud_download_outlined),
                     title: const Text('Import from Nara'),
                     subtitle: const Text('Bring over your Nara Baby history'),
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NaraImportScreen())),
                   ),
-                  ListTile(
+                  if (!s.serverless) ListTile(
                     leading: const Icon(Icons.file_download_outlined),
                     title: const Text('Export data'),
                     subtitle: const Text('Everything for this family as a CSV file'),
                     onTap: () => _export(context, f),
                   ),
-                  ListTile(
+                  if (!s.serverless) ListTile(
                     leading: const Icon(Icons.group_add_outlined),
                     title: const Text('Join another family'),
                     onTap: () => _join(context),
                   ),
-                  ListTile(
+                  if (!s.serverless) ListTile(
                     leading: const Icon(Icons.key_outlined),
                     title: const Text('API token'),
                     subtitle: const Text('For Home Assistant or scripts'),
@@ -155,9 +160,13 @@ class FamilyScreen extends StatelessWidget {
             Card(
               child: Column(
                 children: [
-                  ListTile(leading: const Icon(Icons.person_outline), title: Text(me.name), subtitle: Text(me.email)),
-                  ListTile(leading: const Icon(Icons.dns_outlined), title: const Text('Server'), subtitle: Text(s.server)),
+                  ListTile(leading: const Icon(Icons.person_outline), title: Text(me.name), subtitle: me.email.isEmpty ? null : Text(me.email)),
                   ListTile(
+                    leading: Icon(s.serverless ? Icons.smartphone_rounded : Icons.dns_outlined),
+                    title: Text(s.serverless ? 'Without a server' : 'Server'),
+                    subtitle: Text(s.serverless ? 'Saved on this phone and the phones paired with it' : s.server),
+                  ),
+                  if (!s.serverless) ListTile(
                     leading: const Icon(Icons.password_rounded),
                     title: const Text('Change password'),
                     onTap: () => _changePassword(context),
@@ -171,8 +180,19 @@ class FamilyScreen extends StatelessWidget {
                     ),
                   ListTile(
                     leading: Icon(Icons.logout, color: context.pal.danger),
-                    title: Text('Sign out', style: TextStyle(color: context.pal.danger)),
+                    title: Text(s.serverless ? 'Remove from this phone' : 'Sign out', style: TextStyle(color: context.pal.danger)),
                     onTap: () async {
+                      if (s.serverless) {
+                        if (!await confirm(
+                          context,
+                          'Remove Nestling\'s data from this phone?',
+                          'Everything logged here is erased from this phone. Paired phones and your Google Drive backup keep their copy.',
+                          action: 'Remove',
+                        )) {
+                          return;
+                        }
+                        return s.signOut();
+                      }
                       final n = s.pendingChanges;
                       if (n > 0 &&
                           !await confirm(
@@ -189,7 +209,7 @@ class FamilyScreen extends StatelessWidget {
                 ],
               ),
             ),
-            if (f.isOwner) ...[
+            if (f.isOwner && !s.serverless) ...[
               const SizedBox(height: 16),
               TextButton(
                 style: TextButton.styleFrom(foregroundColor: context.pal.danger),
@@ -401,7 +421,8 @@ class _NaraImportScreenState extends State<NaraImportScreen> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final child = context.watch<AppState>().child;
+    final s = context.watch<AppState>();
+    final child = s.child;
     final muted = t.bodyMedium?.copyWith(color: context.pal.muted, height: 1.5);
     final canPreview = _source == _Source.csv ? _fileBytes != null : _email.text.isNotEmpty && _password.text.isNotEmpty;
     return Scaffold(
@@ -411,7 +432,8 @@ class _NaraImportScreenState extends State<NaraImportScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            SegmentedButton<_Source>(
+            // Signing in to Nara goes through the server; without one, the export file is the way.
+            if (!s.serverless) SegmentedButton<_Source>(
               segments: const [
                 ButtonSegment(value: _Source.csv, label: Text('Export file'), icon: Icon(Icons.description_outlined)),
                 ButtonSegment(value: _Source.account, label: Text('Nara account'), icon: Icon(Icons.login_rounded)),
@@ -423,7 +445,7 @@ class _NaraImportScreenState extends State<NaraImportScreen> {
                 _preview = _done = null;
               }),
             ),
-            const SizedBox(height: 20),
+            if (!s.serverless) const SizedBox(height: 20),
             if (_source == _Source.csv) ...[
               Text(
                 'Export your data from the Nara app (it gives you a .csv file), then pick that file here. '
@@ -619,4 +641,42 @@ Future<void> _export(BuildContext context, Family f) async {
   final name = 'nestling-${slug.isEmpty ? 'export' : slug}-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.csv';
   final saved = await guard(context, () => FilePicker.saveFile(fileName: name, bytes: bytes, mimeType: 'text/csv').then((_) => true));
   if (saved == true && context.mounted) showMessage(context, 'Exported $name');
+}
+
+/// Serverless mode: back up to (and see the last backup in) the caregiver's Google Drive.
+class DriveBackupTile extends StatefulWidget {
+  const DriveBackupTile({super.key, required this.drive});
+  final DriveBackup drive;
+
+  @override
+  State<DriveBackupTile> createState() => _DriveBackupTileState();
+}
+
+class _DriveBackupTileState extends State<DriveBackupTile> {
+  bool _busy = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = widget.drive, last = d.lastBackup;
+    return ListTile(
+      leading: const Icon(Icons.backup_outlined),
+      title: const Text('Back up to Google Drive'),
+      subtitle: Text(
+        !DriveBackup.available
+            ? 'Available in the Android app'
+            : last == null
+            ? 'Keeps a copy in your Google account, once a day'
+            : 'Last backup ${DateFormat('MMM d, HH:mm').format(last)} · ${d.account ?? ''}',
+      ),
+      trailing: _busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : null,
+      enabled: DriveBackup.available && !_busy,
+      onTap: () async {
+        setState(() => _busy = true);
+        final ok = await guard(this.context, () => d.backUp().then((_) => true));
+        if (!mounted) return;
+        setState(() => _busy = false);
+        if (ok == true) showMessage(this.context, 'Backed up to Google Drive');
+      },
+    );
+  }
 }
