@@ -73,6 +73,38 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _serverless() async {
+    final name = TextEditingController(text: _name.text);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('Use without a server'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Everything you log is saved on this phone. What\'s your name? Other caregivers see it.'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: name,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(labelText: 'Your name'),
+              onSubmitted: (_) => Navigator.pop(c, true),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Continue')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    if (name.text.trim().isEmpty) return showMessage(context, 'Enter your name');
+    await context.read<AppState>().startServerless(name.text);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
@@ -181,6 +213,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: () => setState(() => _showServer = true),
                     child: Text('Server: ${_server.text}', style: TextStyle(color: context.pal.muted)),
                   ),
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 12),
+                Text(
+                  'No home server? Nestling also works on its own: your data stays on your phone, and you can pair your '
+                  'partner\'s phone over Wi-Fi and back up to Google Drive.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: context.pal.muted, fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.smartphone_rounded),
+                  label: const Text('Use without a server'),
+                  onPressed: _busy ? null : _serverless,
+                ),
               ],
             ),
           ),

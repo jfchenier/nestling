@@ -87,10 +87,14 @@ jobs:
       - run: flutter test
 
       - name: Build APK
+        env:
+          # Optional: Google Drive backup in serverless mode (see app/README.md).
+          GOOGLE_SERVER_CLIENT_ID: ${{ secrets.GOOGLE_SERVER_CLIENT_ID }}
         run: |
           flutter build apk --release \
             --build-name="${{ steps.version.outputs.version }}" \
-            --build-number="${GITHUB_RUN_NUMBER}"
+            --build-number="${GITHUB_RUN_NUMBER}" \
+            --dart-define=GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID}"
           mkdir -p ../dist
           cp build/app/outputs/flutter-apk/app-release.apk "../dist/nestling-${{ steps.version.outputs.version }}.apk"
 

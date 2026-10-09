@@ -33,7 +33,7 @@ class HomeScreen extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
-                _Header(child: s.child!, live: s.live, offline: s.offline, pending: s.pendingChanges),
+                _Header(child: s.child!, sync: _syncStatus(s)),
                 const SizedBox(height: 16),
                 for (final t in s.timers) _TimerBanner(timer: t),
                 // Rolling last 24 hours (older servers: the calendar day).
@@ -434,14 +434,45 @@ class _TimerBanner extends StatelessWidget {
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.child, required this.live, required this.offline, required this.pending});
-  final Child child;
-  final bool live;
+/// How the header shows the connection: a dot (server: live or reconnecting), or an icon and a
+/// word (offline, syncing, serverless).
+typedef _Sync = ({bool live, IconData? icon, String? label, String tooltip});
 
-  /// The server can't be reached; [pending] changes wait to be synced.
-  final bool offline;
-  final int pending;
+_Sync _syncStatus(AppState s) {
+  if (s.serverless) {
+    final p = s.peers, last = p?.lastSync;
+    final n = p?.peers.length ?? 0;
+    return (
+      live: false,
+      icon: Icons.smartphone_rounded,
+      label: n == 0 ? 'on this phone' : 'synced ${last == null ? 'not yet' : ago(DateTime.now().difference(last).inSeconds)}',
+      tooltip: n == 0
+          ? 'Serverless: saved on this phone. Pair another phone in Family to share.'
+          : 'Serverless: syncs with $n paired phone${n == 1 ? '' : 's'} on the same Wi-Fi',
+    );
+  }
+  final pending = s.pendingChanges;
+  if (s.offline) {
+    return (
+      live: false,
+      icon: Icons.cloud_off_rounded,
+      label: pending > 0 ? 'offline · $pending to sync' : 'offline',
+      tooltip: 'Offline — keep logging; ${pending > 0 ? '$pending change${pending == 1 ? '' : 's'} will sync' : 'changes sync'} when the server is back',
+    );
+  }
+  if (pending > 0) return (live: false, icon: Icons.cloud_sync_rounded, label: 'syncing', tooltip: 'Syncing changes made offline…');
+  return (
+    live: s.live,
+    icon: null,
+    label: null,
+    tooltip: s.live ? 'Live — changes from other caregivers appear instantly' : 'Reconnecting…',
+  );
+}
+
+class _Header extends StatelessWidget {
+  const _Header({required this.child, required this.sync});
+  final Child child;
+  final _Sync sync;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -470,29 +501,20 @@ class _Header extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Tooltip(
-                    message: offline
-                        ? 'Offline — keep logging; ${pending > 0 ? '$pending change${pending == 1 ? '' : 's'} will sync' : 'changes sync'} when the server is back'
-                        : pending > 0
-                        ? 'Syncing changes made offline…'
-                        : live
-                        ? 'Live — changes from other caregivers appear instantly'
-                        : 'Reconnecting…',
-                    child: offline || pending > 0
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(offline ? Icons.cloud_off_rounded : Icons.cloud_sync_rounded, size: 14, color: context.pal.muted),
-                              const SizedBox(width: 4),
-                              Text(
-                                offline ? (pending > 0 ? 'offline · $pending to sync' : 'offline') : 'syncing',
-                                style: TextStyle(color: context.pal.muted, fontSize: 12),
-                              ),
-                            ],
-                          )
-                        : Container(
+                    message: sync.tooltip,
+                    child: sync.label == null
+                        ? Container(
                             width: 8,
                             height: 8,
-                            decoration: BoxDecoration(color: live ? Color(0xFF7BC68F) : context.pal.line, shape: BoxShape.circle),
+                            decoration: BoxDecoration(color: sync.live ? Color(0xFF7BC68F) : context.pal.line, shape: BoxShape.circle),
+                          )
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(sync.icon, size: 14, color: context.pal.muted),
+                              const SizedBox(width: 4),
+                              Text(sync.label!, style: TextStyle(color: context.pal.muted, fontSize: 12)),
+                            ],
                           ),
                   ),
                 ],

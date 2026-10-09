@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import '../models.dart';
@@ -13,6 +14,10 @@ class LocalEngine {
   LocalEngine(this.store);
   final LocalStore store;
 
+  /// Serverless mode: this device is the only copy, so families, children, photos and the
+  /// account settings are handled here too.
+  bool serverless = false;
+
   static final _routes = <(String, RegExp)>[
     ('GET', RegExp(r'^/me$')),
     ('GET', RegExp(r'^/families$')),
@@ -23,9 +28,20 @@ class LocalEngine {
     ('POST', RegExp(r'^/timers/([^/]+)/(pause|resume|switch|stop)$')),
   ];
 
+  static final _serverlessRoutes = <(String, RegExp)>[
+    ('PATCH', RegExp(r'^/me$')),
+    ('POST', RegExp(r'^/families$')),
+    ('GET|PATCH', RegExp(r'^/families/([^/]+)$')),
+    ('GET|POST', RegExp(r'^/families/([^/]+)/children$')),
+    ('PATCH|DELETE', RegExp(r'^/children/([^/]+)$')),
+    ('PUT|DELETE', RegExp(r'^/children/([^/]+)/photo$')),
+  ];
+
   /// Whether this request can be answered locally.
-  static bool handles(String method, String path) =>
-      _routes.any((r) => r.$1.split('|').contains(method) && r.$2.hasMatch(path));
+  static bool handles(String method, String path, {bool serverless = false}) => [
+    ..._routes,
+    if (serverless) ..._serverlessRoutes,
+  ].any((r) => r.$1.split('|').contains(method) && r.$2.hasMatch(path));
 
   static String newId() => uuidV7();
 
@@ -79,10 +95,179 @@ class LocalEngine {
       case ('POST', ['timers', final id, 'stop']):
         return stopTimer(id, b);
     }
+    if (serverless) {
+      switch ((method, seg)) {
+        case ('PATCH', ['me']):
+          return updateMe(b);
+        case ('POST', ['families']):
+          return createFamily(b);
+        case ('GET', ['families', final id]):
+          return _family(id);
+        case ('PATCH', ['families', final id]):
+          return updateFamily(id, b);
+        case ('GET', ['families', final id, 'children']):
+          return {'children': _family(id)['children']};
+        case ('POST', ['families', final id, 'children']):
+          return createChild(id, b);
+        case ('PATCH', ['children', final id]):
+          return updateChild(id, b);
+        case ('DELETE', ['children', final id]):
+          return deleteChild(id);
+        case ('PUT', ['children', final id, 'photo']):
+          return putPhoto(id, body as List<int>, query?['content_type'] ?? 'image/png');
+        case ('DELETE', ['children', final id, 'photo']):
+          return deletePhoto(id);
+      }
+    }
     throw notFound('endpoint');
   }
 
   Map<String, dynamic> _child(String id) => store.child(id) ?? (throw notFound('child'));
+
+  // ---- serverless: account, families, children ----
+
+  Map<String, dynamic> _family(String id) => store.families.where((f) => f['id'] == id).firstOrNull ?? (throw notFound('family'));
+
+  Map<String, dynamic> updateMe(Map<String, dynamic> req) {
+    final me = store.me ?? (throw notFound('account'));
+    if (req['units'] case final String units) {
+      if (units != 'metric' && units != 'imperial') throw badRequest("units must be 'metric' or 'imperial'");
+      me['units'] = units;
+    }
+    if (req['name'] case final String name when name.trim().isNotEmpty) {
+      me['name'] = name.trim();
+      for (final f in store.families) {
+        for (final m in (f['members'] as List? ?? [])) {
+          if (m['user_id'] == me['id']) m['name'] = me['name'];
+        }
+        store.markChanged('f:${f['id']}');
+      }
+    }
+    store.save();
+    return me;
+  }
+
+  void _checkTimezone(dynamic tz) {
+    if (tz != null && (tz is! String || tz.trim().isEmpty)) throw badRequest('timezone must be an IANA name');
+  }
+
+  Map<String, dynamic> createFamily(Map<String, dynamic> req) {
+    final name = (req['name'] as String? ?? '').trim();
+    if (name.isEmpty) throw badRequest('name is required');
+    _checkTimezone(req['timezone']);
+    final me = store.me ?? (throw notFound('account'));
+    final id = newId();
+    final family = <String, dynamic>{
+      'id': id,
+      'name': name,
+      'timezone': req['timezone'] ?? 'UTC',
+      'created_at': fmt(nowMs()),
+      'role': 'owner',
+      'members': [
+        {'user_id': me['id'], 'name': me['name'], 'email': me['email'] ?? '', 'role': 'owner'},
+      ],
+      'children': <dynamic>[],
+    };
+    store.families.add(family);
+    store.markChanged('f:$id');
+    return family;
+  }
+
+  Map<String, dynamic> updateFamily(String id, Map<String, dynamic> req) {
+    final f = _family(id);
+    if (req['name'] case final String name) {
+      if (name.trim().isEmpty) throw badRequest('name cannot be empty');
+      f['name'] = name.trim();
+    }
+    if (req.containsKey('timezone')) {
+      _checkTimezone(req['timezone']);
+      f['timezone'] = req['timezone'];
+    }
+    store.markChanged('f:$id');
+    return f;
+  }
+
+  static const _sexes = ['female', 'male', 'other'];
+
+  void _checkChild(Map<String, dynamic> req) {
+    if (req['sex'] != null && !_sexes.contains(req['sex'])) throw badRequest("sex must be 'female', 'male' or 'other'");
+    if (req['birth_date'] != null && (req['birth_date'] is! String || DateTime.tryParse(req['birth_date']) == null)) {
+      throw badRequest('birth_date must be a date (YYYY-MM-DD)');
+    }
+  }
+
+  Map<String, dynamic> createChild(String familyId, Map<String, dynamic> req) {
+    final f = _family(familyId);
+    final name = (req['name'] as String? ?? '').trim();
+    if (name.isEmpty) throw badRequest('name is required');
+    _checkChild(req);
+    final now = fmt(nowMs());
+    final child = <String, dynamic>{
+      'id': newId(),
+      'family_id': familyId,
+      'name': name,
+      'birth_date': req['birth_date'],
+      'sex': req['sex'],
+      'created_at': now,
+      'updated_at': now,
+      'photo_version': null,
+    };
+    (f['children'] as List).add(child);
+    store.markChanged('c:${child['id']}');
+    return child;
+  }
+
+  Map<String, dynamic> updateChild(String id, Map<String, dynamic> req) {
+    final c = _child(id);
+    _checkChild(req);
+    if (req['name'] case final String name) {
+      if (name.trim().isEmpty) throw badRequest('name cannot be empty');
+      c['name'] = name.trim();
+    }
+    for (final k in ['birth_date', 'sex']) {
+      if (req.containsKey(k)) c[k] = req[k];
+    }
+    c['updated_at'] = fmt(nowMs());
+    store.markChanged('c:$id');
+    return c;
+  }
+
+  dynamic deleteChild(String id) {
+    final c = _child(id);
+    for (final f in store.families) {
+      (f['children'] as List?)?.removeWhere((x) => x['id'] == id);
+    }
+    store.deletedChildren[id] = {'id': id, 'family_id': c['family_id'], 'deleted': true};
+    store.markChanged('c:$id');
+    return null;
+  }
+
+  Map<String, dynamic> putPhoto(String id, List<int> bytes, String contentType) {
+    final c = _child(id);
+    if (bytes.length > 5 * 1024 * 1024) throw badRequest('the photo is too large (5 MB at most)');
+    final version = nowMs();
+    store.photos[id] = {'version': version, 'type': contentType, 'data': base64Encode(bytes)};
+    c['photo_version'] = version;
+    store.markChanged('p:$id');
+    store.markChanged('c:$id');
+    return c;
+  }
+
+  dynamic deletePhoto(String id) {
+    final c = _child(id);
+    store.photos[id] = {'version': null};
+    c['photo_version'] = null;
+    store.markChanged('p:$id');
+    store.markChanged('c:$id');
+    return null;
+  }
+
+  /// A profile picture's bytes (serverless mode).
+  List<int> photoBytes(String childId) {
+    final data = store.photos[childId]?['data'];
+    if (data is! String) throw notFound('photo');
+    return base64Decode(data);
+  }
 
   // ---- events ----
 
