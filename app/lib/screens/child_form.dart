@@ -167,6 +167,11 @@ class _ChildFormState extends State<_ChildForm> {
                 labelText: widget.child == null ? 'Birth date (or due date) *' : 'Birth date (or due date)',
                 errorText: _birthMissing ? 'Choose a birth date (or due date)' : null,
                 suffixIcon: Icon(Icons.calendar_today_rounded, color: context.pal.muted),
+                // The same green outline as the Name field.
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: context.pal.accent, width: 1.5),
+                ),
               ),
               child: Text(_birth == null ? (widget.child == null ? 'Tap to choose' : 'Not set') : DateFormat.yMMMMd().format(_birth!)),
             ),
