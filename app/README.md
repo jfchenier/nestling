@@ -181,7 +181,7 @@ lib/
   main.dart            app, sign-in/onboarding/main switch, bottom navigation
   state.dart           AppState: session, families, selected child, home data, live stream
   api/api.dart         JSON client + errors
-  api/sync_api.dart    offline support: server when reachable, local copy + queued changes otherwise
+  api/sync_api.dart    logging applied locally first, sent in the background; queued while offline
   local/               the device's copy (store.dart), the server's rules in Dart (domain.dart:
                        validation, timer math, daily stats) and requests answered locally (engine.dart)
   api/stream*.dart     live updates (EventSource on web, streamed HTTP elsewhere)

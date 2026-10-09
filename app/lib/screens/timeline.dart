@@ -104,6 +104,9 @@ class _TimelineScreenState extends State<TimelineScreen> {
               foregroundColor: context.pal.onAccent,
               textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               padding: const EdgeInsets.symmetric(horizontal: 16),
+              // Smaller than the big Save buttons, so it sits centered in the top bar.
+              minimumSize: const Size(0, 42),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             onPressed: () => showSummary(context),
             icon: const Icon(Icons.bar_chart_rounded, size: 20),

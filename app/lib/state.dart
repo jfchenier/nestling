@@ -380,7 +380,8 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Runs an API call, then refreshes the home data. Returns the call's result.
+  /// Runs an API call, then refreshes the home data. Returns the call's result. Logging changes
+  /// apply to this device's copy at once and reach the server in the background (see [SyncApi]).
   Future<T> act<T>(Future<T> Function(Api api) call, {bool families = false}) async {
     final T result;
     try {
@@ -400,14 +401,7 @@ class AppState extends ChangeNotifier {
   }
 
   /// A clearer message for a change that lost to another caregiver's.
-  static ApiException _explain(ApiException e) {
-    final message = switch (e.message) {
-      'timer not found' => 'This timer was already stopped on another phone. The screen is up to date now.',
-      final m when m.contains('timer is already running') => 'Someone already started this timer. It\'s shown now.',
-      _ => e.message,
-    };
-    return ApiException(e.code, message, e.status);
-  }
+  static ApiException _explain(ApiException e) => ApiException(e.code, SyncApi.explain(e) ?? e.message, e.status);
 
   // ---- live updates ----
 
@@ -450,7 +444,7 @@ class AppState extends ChangeNotifier {
     _debounce = Timer(const Duration(milliseconds: 400), () async {
       final a = api;
       // With changes still queued, screens read the local copy: bring it up to date first.
-      if (a != null && a.pending > 0) await a.pullSoon(familyId);
+      if (a != null && a.store.pendingCount > 0) await a.pullSoon(familyId);
       await refreshChild().catchError((_) {});
     });
   }

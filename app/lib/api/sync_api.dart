@@ -5,14 +5,19 @@ import '../local/engine.dart';
 import '../local/store.dart';
 import 'api.dart';
 
-/// The API client with offline support.
+/// The API client: answers logging from this device's copy, with offline support.
 ///
-/// Online, with nothing waiting to sync, every request goes to the server exactly as before; the
-/// answers are also copied into the [LocalStore], and the family's changes are pulled in the
-/// background (`GET /families/{id}/sync`). When the server can't be reached, logging carries on
-/// against the local copy ([LocalEngine]) and every change is queued. Once the server answers
-/// again the queue is pushed (`POST /families/{id}/sync`), where conflicts are settled, then the
-/// latest data is pulled. While changes are queued, requests stay local so they apply in order.
+/// Online, a logging change (event or timer) is applied to the [LocalStore] right away, so the
+/// screen updates without waiting, and the same request is sent to the server in the background
+/// (in order, see [_drain]). If the server refuses it (e.g. the timer was already stopped on
+/// another phone), the local copy goes back to the server's and the user gets a notice. Other
+/// requests go to the server as before; answers are copied into the store, and the family's
+/// changes are pulled in the background (`GET /families/{id}/sync`).
+///
+/// When the server can't be reached, logging carries on against the local copy ([LocalEngine])
+/// and every change is queued. Once the server answers again the queue is pushed
+/// (`POST /families/{id}/sync`), where conflicts are settled, then the latest data is pulled.
+/// While changes are queued or on their way, reads stay local so they show them.
 class SyncApi extends Api {
   SyncApi(super.server, super.token, this.store, [super.client]) : engine = LocalEngine(store);
 
@@ -32,7 +37,13 @@ class SyncApi extends Api {
   /// Messages for the user about changes the server didn't take as they were.
   final List<String> notices = [];
 
-  int get pending => store.pendingCount;
+  /// Changes waiting for the server to be reachable (not the ones on their way right now).
+  int get pending => store.pending.keys.where((k) => !_inFlight.contains(k)).length;
+
+  /// Changes applied here while online, being sent to the server in order.
+  final List<_Outgoing> _outbox = [];
+  Set<String> get _inFlight => {for (final o in _outbox) ...o.keys.keys};
+  bool _sending = false;
 
   Timer? _retry;
   bool _syncing = false, _again = false;
@@ -48,6 +59,11 @@ class SyncApi extends Api {
     Duration timeout = const Duration(seconds: 30),
   }) async {
     final local = raw == null && store.hasData && LocalEngine.handles(method, path);
+    // Once the family's data is here (first pull done) and nothing older is waiting for a sync.
+    if (local && method != 'GET' && !offline && store.cursors.isNotEmpty && store.pending.keys.every(_inFlight.contains)) {
+      final res = _applyNow(method, path, query, body);
+      if (res != null) return res.$1;
+    }
     if (local && (offline || store.pendingCount > 0)) return _local(method, path, query, body);
     final sent = local ? _withIds(method, path, body) : body;
     try {
@@ -83,6 +99,100 @@ class SyncApi extends Api {
     }
     return res;
   }
+
+  /// Applies a write to the local copy and queues the same request for the server; null when the
+  /// local copy can't take it (an entry or timer it doesn't have, or out of date: 404 / 409), so
+  /// the server answers instead.
+  (dynamic,)? _applyNow(String method, String path, Map<String, String>? query, Object? body) {
+    final sent = _withIds(method, path, body);
+    final before = {for (final MapEntry(:key, :value) in store.pending.entries) key: value.seq};
+    final dynamic res;
+    try {
+      res = engine.handle(method, path, query: query, body: sent == null ? null : jsonDecode(jsonEncode(sent)));
+    } on ApiException catch (e) {
+      if ((e.status == 404 || e.status == 409) && _outbox.isEmpty) return null;
+      rethrow;
+    }
+    final keys = {
+      for (final MapEntry(:key, :value) in store.pending.entries)
+        if (before[key] != value.seq) key: value.seq,
+    };
+    _outbox.add(_Outgoing(method, path, query, sent, keys));
+    unawaited(_drain());
+    return (res,);
+  }
+
+  /// Sends the [_outbox] in order. Sent: the local changes are confirmed. Refused: the local copy
+  /// goes back to the server's, with a notice. Server unreachable: the changes stay queued and
+  /// go with the next sync.
+  Future<void> _drain() async {
+    if (_sending) return;
+    _sending = true;
+    var refused = false;
+    try {
+      while (_outbox.isNotEmpty) {
+        final o = _outbox.first;
+        try {
+          final res = await super.send(o.method, o.path, body: o.body, query: o.query, timeout: const Duration(seconds: 12));
+          _outbox.removeAt(0);
+          _confirm(o);
+          _mirror(o.method, o.path, res);
+        } on ApiException catch (e) {
+          if (!const [400, 403, 404, 409, 422].contains(e.status)) {
+            // Kept as pending changes: pushed by the next sync.
+            _outbox.clear();
+            if (unreachable(e)) _markOffline();
+            break;
+          }
+          _outbox.removeAt(0);
+          _confirm(o);
+          refused = true;
+          notices.add(explain(e) ?? 'A change couldn\'t be saved: ${e.message}');
+          await _restore(o);
+        }
+      }
+    } finally {
+      _sending = false;
+      onStatus?.call();
+      if (refused) onSynced?.call();
+    }
+  }
+
+  /// The server has this request's changes (or refused them): they aren't pending any more,
+  /// unless changed again since.
+  void _confirm(_Outgoing o) {
+    for (final MapEntry(:key, value: seq) in o.keys.entries) {
+      if (store.pending[key]?.seq == seq) store.pending.remove(key);
+    }
+    store.save();
+  }
+
+  /// Puts back the server's copy of what a refused request changed here.
+  Future<void> _restore(_Outgoing o) async {
+    await Future.wait([
+      for (final key in o.keys.keys)
+        if (!store.pending.containsKey(key))
+          () async {
+            final id = key.substring(2), event = key.startsWith('e:');
+            try {
+              final current = await super.send('GET', '/${event ? 'events' : 'timers'}/$id', timeout: const Duration(seconds: 12));
+              event ? store.putEvent(current) : store.putTimer(current);
+            } on ApiException catch (e) {
+              if (e.status != 404) return;
+              event ? store.events.remove(id) : store.timers.remove(id);
+            }
+          }(),
+    ]);
+    store.save();
+  }
+
+  /// A clearer message for a change that lost to another caregiver's (null: none).
+  static String? explain(ApiException e) => switch (e.message) {
+    'timer not found' => 'This timer was already stopped on another phone. The screen is up to date now.',
+    'event not found' => 'This entry was deleted on another phone.',
+    final m when m.contains('timer is already running') => 'Someone already started this timer. It\'s shown now.',
+    _ => null,
+  };
 
   /// Ids chosen here, so a request retried (or replayed from the queue) never logs twice.
   Object? _withIds(String method, String path, Object? body) {
@@ -190,8 +300,9 @@ class SyncApi extends Api {
   String _iso(int ms) => DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true).toIso8601String();
 
   Future<void> _push() async {
-    if (store.pending.isEmpty) return;
-    final snapshot = Map.of(store.pending);
+    // Changes on their way in the outbox are sent there.
+    final snapshot = Map.of(store.pending)..removeWhere((k, _) => _inFlight.contains(k));
+    if (snapshot.isEmpty) return;
     final batches = <String, ({List<Map<String, dynamic>> events, List<Map<String, dynamic>> timers})>{};
     for (final MapEntry(:key, value: p) in snapshot.entries) {
       final id = key.substring(2);
@@ -251,8 +362,8 @@ class SyncApi extends Api {
           }
           notices.add(
             r['status'] == 'conflict'
-                ? 'Something you changed offline was also changed on another device; the newer change was kept.'
-                : 'Something logged offline couldn\'t be saved: ${r['message']}',
+                ? 'Something you changed was also changed on another device; the newer change was kept.'
+                : 'Something you logged couldn\'t be saved: ${r['message']}',
           );
         }
       }
@@ -295,4 +406,14 @@ class SyncApi extends Api {
     _retry?.cancel();
     _retry = null;
   }
+}
+
+/// A request applied locally, on its way to the server, with the pending changes (key → seq) it
+/// made here.
+class _Outgoing {
+  _Outgoing(this.method, this.path, this.query, this.body, this.keys);
+  final String method, path;
+  final Map<String, String>? query;
+  final Object? body;
+  final Map<String, int> keys;
 }

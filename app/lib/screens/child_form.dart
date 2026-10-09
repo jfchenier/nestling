@@ -15,6 +15,8 @@ import 'home.dart' show ChildAvatar;
 Future<String?> showChildForm(BuildContext context, {required String familyId, Child? child}) => showModalBottomSheet<String>(
   context: context,
   isScrollControlled: true,
+  // Like the entry sheets, so the fields stand out from the sheet.
+  backgroundColor: context.pal.background,
   builder: (_) => _ChildForm(familyId: familyId, child: child),
 );
 
@@ -81,7 +83,7 @@ class _ChildFormState extends State<_ChildForm> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return Padding(
-      padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + MediaQuery.viewInsetsOf(context).bottom),
+      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.viewInsetsOf(context).bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -164,13 +166,19 @@ class _ChildFormState extends State<_ChildForm> {
               decoration: InputDecoration(
                 labelText: widget.child == null ? 'Birth date (or due date) *' : 'Birth date (or due date)',
                 errorText: _birthMissing ? 'Choose a birth date (or due date)' : null,
+                suffixIcon: Icon(Icons.calendar_today_rounded, color: context.pal.muted),
+                // The same green outline as the Name field.
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: context.pal.accent, width: 1.5),
+                ),
               ),
               child: Text(_birth == null ? (widget.child == null ? 'Tap to choose' : 'Not set') : DateFormat.yMMMMd().format(_birth!)),
             ),
           ),
           const SizedBox(height: 16),
           ChoiceChips<String>(
-            options: const {'female': 'Girl', 'male': 'Boy', 'other': 'Other'},
+            options: const {'female': 'Girl', 'male': 'Boy', 'other': 'Unknown'},
             value: _sex,
             onChanged: (v) => setState(() => _sex = v),
           ),

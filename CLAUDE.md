@@ -98,6 +98,9 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
       wins on the device's `changed_at`, deletions final, earlier timer start wins). The app keeps a
       local copy (`app/lib/local/`) and queues changes in `SyncApi` (`app/lib/api/sync_api.dart`).
       Its Dart ports of validation/timers/trends must follow any change to the Rust rules.
+      Online too, logging is applied to the local copy first (instant screen) and the same request
+      goes to the server in the background, in order (`SyncApi._drain`); a refused one (e.g. timer
+      already stopped on another phone) is undone from the server's copy, with a notice.
 - [x] **Nara child names:** the CSV import reads the Profile row (name, birth date, sex). The
       account import still creates "Baby" / "Baby N".
 - [x] **Nara CSV import** (`/import/nara-csv`, app: Family → Import from Nara → Export file); verified
