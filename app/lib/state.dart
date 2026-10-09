@@ -67,9 +67,24 @@ class AppState extends ChangeNotifier {
 
   // ---- session ----
 
-  Future<void> signIn(String server, String email, String password, {String? name, bool register = false}) async {
+  static String normalizeServer(String server) {
     server = server.trim().replaceAll(RegExp(r'/+$'), '');
-    if (!server.startsWith('http')) server = 'http://$server';
+    return server.startsWith('http') ? server : 'http://$server';
+  }
+
+  /// `{needs_setup, open_registration}` from a server (null if unreachable): a new server
+  /// starts with its admin account, after that only admins create accounts.
+  static Future<Map<String, dynamic>?> setupStatus(String server) async {
+    if (server.trim().isEmpty) return null;
+    try {
+      return await Api(normalizeServer(server)).get('/auth/setup') as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> signIn(String server, String email, String password, {String? name, bool register = false}) async {
+    server = normalizeServer(server);
     final a = Api(server);
     final res = register
         ? await a.post('/auth/register', {'email': email.trim(), 'password': password, 'name': name?.trim()})

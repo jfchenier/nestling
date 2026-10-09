@@ -33,6 +33,9 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
   DATABASE_URL needed at build time), tokio. Single binary + one SQLite file.
 - Hosting: **home server / NAS via Docker** (`docker compose up -d --build`).
 - Multi-tenant: any number of caregivers and children. Family = sharing unit; invites by short code.
+- Accounts: the first account on a server is the **admin**; sign-up is then closed
+  (`NESTLING_OPEN_REGISTRATION` default false) and admins create accounts (`/admin/users`, app:
+  Family → Users). Recovery CLI: `nestling set-password <email> <pw>`, `nestling make-admin <email>`.
 - v1 scope: feed, sleep, diaper, growth, health + Nara import. Pump/activity/milestone/note exist
   too so the Nara import loses nothing.
 - API should be **friendlier than Nara's**: metric units only (mL, g, cm, °C, seconds) — clients
@@ -93,8 +96,8 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
       account import still creates "Baby" / "Baby N".
 - [x] **Nara CSV import** (`/import/nara-csv`, app: Family → Import from Nara → Export file); verified
       on JF's real export (2,090 rows → 2,086 events, 4 empty medical rows skipped).
-- [ ] **Security basics:** rate-limit login/register; password reset without email (e.g. owner
-      generates a reset code, or a CLI command on the server).
+- [ ] **Security basics:** rate-limit login/register. (Password reset without email: done — admins
+      set a new password, or the `set-password` CLI.)
 - [ ] **Data export:** download everything as CSV/JSON (today: copy the SQLite file).
 - [ ] Some times come back as epoch ms instead of RFC 3339 (invite `expires_at`, family
       `created_at`, `/me/tokens` dates). Pause→resume leaves a zero-length timer segment.

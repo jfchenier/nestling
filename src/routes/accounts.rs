@@ -35,51 +35,70 @@ fn check_units(units: &str) -> AppResult<()> {
     Ok(())
 }
 
-async fn user_json(state: &AppState, user_id: &str) -> AppResult<Value> {
-    let (id, email, name, units): (String, String, String, String) =
-        sqlx::query_as("SELECT id, email, name, units FROM users WHERE id = ?")
+pub(crate) async fn user_json(state: &AppState, user_id: &str) -> AppResult<Value> {
+    let (id, email, name, units, is_admin): (String, String, String, String, bool) =
+        sqlx::query_as("SELECT id, email, name, units, is_admin FROM users WHERE id = ?")
             .bind(user_id)
             .fetch_one(&state.db)
             .await?;
-    Ok(json!({ "id": id, "email": email, "name": name, "units": units }))
+    Ok(json!({ "id": id, "email": email, "name": name, "units": units, "is_admin": is_admin }))
 }
 
-pub async fn register(State(state): State<AppState>, ApiJson(req): ApiJson<RegisterReq>) -> AppResult<(StatusCode, Json<Value>)> {
-    let email = req.email.trim().to_lowercase();
+/// Shared checks for a new account's email, password and name. Returns the normalized email.
+pub(crate) fn check_new_account(email: &str, password: &str, name: &str) -> AppResult<String> {
+    let email = email.trim().to_lowercase();
     if !email.contains('@') || email.len() < 3 {
         return bad("a valid email is required");
     }
-    if req.password.chars().count() < 8 {
+    if password.chars().count() < 8 {
         return bad("password must be at least 8 characters");
     }
-    if req.name.trim().is_empty() {
+    if name.trim().is_empty() {
         return bad("name is required");
     }
-    let units = req.units.unwrap_or_else(|| "metric".into());
-    check_units(&units)?;
+    Ok(email)
+}
 
-    let (user_count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users").fetch_one(&state.db).await?;
-    if user_count > 0 && !state.config.open_registration {
-        return Err(AppError::Forbidden("registration is closed on this server".into()));
-    }
+pub(crate) async fn insert_user(state: &AppState, email: &str, name: &str, password: &str, units: &str, is_admin: bool) -> AppResult<String> {
     let exists: Option<(String,)> = sqlx::query_as("SELECT id FROM users WHERE email = ?")
-        .bind(&email)
+        .bind(email)
         .fetch_optional(&state.db)
         .await?;
     if exists.is_some() {
         return Err(AppError::Conflict("an account with this email already exists".into()));
     }
-
     let id = new_id();
-    sqlx::query("INSERT INTO users (id, email, name, password_hash, units, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+    sqlx::query("INSERT INTO users (id, email, name, password_hash, units, created_at, is_admin) VALUES (?, ?, ?, ?, ?, ?, ?)")
         .bind(&id)
-        .bind(&email)
-        .bind(req.name.trim())
-        .bind(hash_password(&req.password)?)
-        .bind(&units)
+        .bind(email)
+        .bind(name.trim())
+        .bind(hash_password(password)?)
+        .bind(units)
         .bind(now_ms())
+        .bind(is_admin)
         .execute(&state.db)
         .await?;
+    Ok(id)
+}
+
+/// Public: whether the server still needs its first (admin) account, and whether anyone may sign up.
+pub async fn setup_status(State(state): State<AppState>) -> AppResult<Json<Value>> {
+    let (users,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users").fetch_one(&state.db).await?;
+    Ok(Json(json!({ "needs_setup": users == 0, "open_registration": users == 0 || state.config.open_registration })))
+}
+
+/// Sign up. The first account on a server is its admin; after that only admins create accounts
+/// (`/admin/users`), unless NESTLING_OPEN_REGISTRATION is on.
+pub async fn register(State(state): State<AppState>, ApiJson(req): ApiJson<RegisterReq>) -> AppResult<(StatusCode, Json<Value>)> {
+    let email = check_new_account(&req.email, &req.password, &req.name)?;
+    let units = req.units.unwrap_or_else(|| "metric".into());
+    check_units(&units)?;
+
+    let (user_count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users").fetch_one(&state.db).await?;
+    if user_count > 0 && !state.config.open_registration {
+        return Err(AppError::Forbidden("sign-up is closed on this server: ask its admin for an account".into()));
+    }
+    let id = insert_user(&state, &email, &req.name, &req.password, &units, user_count == 0).await?;
     let (_, token) = issue_token(&state.db, &id, "login", "session").await?;
     Ok((StatusCode::CREATED, Json(json!({ "token": token, "user": user_json(&state, &id).await? }))))
 }

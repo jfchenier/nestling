@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -23,11 +25,44 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _busy = false;
   late bool _showServer = _server.text.isEmpty;
 
+  /// From the server: a brand-new server first creates its admin account; after that the
+  /// "create an account" link only shows when the server allows sign-up.
+  bool _needsSetup = false, _openSignUp = false;
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkServer();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _checkServer() async {
+    final status = await AppState.setupStatus(_server.text);
+    if (!mounted) return;
+    setState(() {
+      _needsSetup = status?['needs_setup'] == true;
+      _openSignUp = status?['open_registration'] == true;
+      _register = _needsSetup || (_register && _openSignUp);
+    });
+  }
+
   Future<void> _submit() async {
     if (!_form.currentState!.validate()) return;
     setState(() => _busy = true);
     try {
-      await context.read<AppState>().signIn(_server.text, _email.text, _password.text, name: _name.text, register: _register);
+      await context.read<AppState>().signIn(
+        _server.text,
+        _email.text,
+        _password.text,
+        name: _name.text,
+        register: _register || _needsSetup,
+      );
     } on ApiException catch (e) {
       if (mounted) {
         setState(() => _showServer |= e.code == 'network');
@@ -56,7 +91,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 Text('Nestling', textAlign: TextAlign.center, style: t.headlineMedium),
                 const SizedBox(height: 6),
                 Text(
-                  _register ? 'Create your account' : 'Welcome back',
+                  _needsSetup
+                      ? 'New server: create the admin account.\nYou\'ll add the other caregivers afterwards.'
+                      : _register
+                      ? 'Create your account'
+                      : 'Welcome back',
                   textAlign: TextAlign.center,
                   style: t.bodyLarge?.copyWith(color: context.pal.muted),
                 ),
@@ -72,6 +111,10 @@ class _LoginScreenState extends State<LoginScreen> {
                       prefixIcon: Icon(Icons.dns_outlined),
                     ),
                     validator: (v) => (v ?? '').trim().isEmpty ? 'Enter your Nestling server address' : null,
+                    onChanged: (_) {
+                      _debounce?.cancel();
+                      _debounce = Timer(const Duration(milliseconds: 600), _checkServer);
+                    },
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -110,13 +153,29 @@ class _LoginScreenState extends State<LoginScreen> {
                   onPressed: _busy ? null : _submit,
                   child: _busy
                       ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: context.pal.onAccent))
-                      : Text(_register ? 'Create account' : 'Sign in'),
+                      : Text(
+                          _needsSetup
+                              ? 'Create admin account'
+                              : _register
+                              ? 'Create account'
+                              : 'Sign in',
+                        ),
                 ),
                 const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => setState(() => _register = !_register),
-                  child: Text(_register ? 'I already have an account' : 'New here? Create an account'),
-                ),
+                if (_openSignUp && !_needsSetup)
+                  TextButton(
+                    onPressed: () => setState(() => _register = !_register),
+                    child: Text(_register ? 'I already have an account' : 'New here? Create an account'),
+                  )
+                else if (!_needsSetup)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'No account yet? Ask whoever runs this Nestling server to create one for you.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: context.pal.muted, fontSize: 13),
+                    ),
+                  ),
                 if (!_showServer)
                   TextButton(
                     onPressed: () => setState(() => _showServer = true),

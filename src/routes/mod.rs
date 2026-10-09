@@ -5,10 +5,11 @@ pub mod families;
 pub mod import;
 pub mod insights;
 pub mod timers;
+pub mod admin;
 
 use axum::{
     extract::DefaultBodyLimit,
-    routing::{delete, get, post},
+    routing::{delete, get, patch, post},
     Json, Router,
 };
 use serde_json::json;
@@ -20,12 +21,15 @@ const IMPORT_LIMIT: usize = 64 * 1024 * 1024;
 pub fn api() -> Router<AppState> {
     Router::new()
         // Accounts
+        .route("/auth/setup", get(accounts::setup_status))
         .route("/auth/register", post(accounts::register))
         .route("/auth/login", post(accounts::login))
         .route("/auth/logout", post(accounts::logout))
         .route("/me", get(accounts::me).patch(accounts::update_me))
         .route("/me/tokens", get(accounts::list_tokens).post(accounts::create_token))
         .route("/me/tokens/{id}", delete(accounts::delete_token))
+        .route("/admin/users", get(admin::list_users).post(admin::create_user))
+        .route("/admin/users/{id}", patch(admin::update_user).delete(admin::delete_user))
         // Families & caregivers
         .route("/families", get(families::list).post(families::create))
         .route("/families/{id}", get(families::get).patch(families::update).delete(families::delete))

@@ -9,8 +9,6 @@ services:
     volumes:
       - nestling-data:/data
     environment:
-      # Set to "false" once you and your caregivers have created accounts, then redeploy.
-      NESTLING_OPEN_REGISTRATION: "true"
       RUST_LOG: "nestling=info,tower_http=info"
     restart: unless-stopped # plain Compose
     deploy: # Swarm

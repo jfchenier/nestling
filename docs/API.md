@@ -15,9 +15,14 @@ Base URL: `http://<server>:8080/api/v1`. JSON in, JSON out.
 
 | | | |
 |---|---|---|
-| `POST /auth/register` | `{email, password (8+), name, units?}` | → `201 {token, user}` |
+| `GET /auth/setup` | | public: `{needs_setup, open_registration}`; `needs_setup` while the server has no account |
+| `POST /auth/register` | `{email, password (8+), name, units?}` | → `201 {token, user}`. Only the first account (it becomes the admin), unless `NESTLING_OPEN_REGISTRATION` is on; otherwise `403` |
 | `POST /auth/login` | `{email, password}` | → `{token, user}` |
 | `POST /auth/logout` | | revokes the current token |
+| `GET /admin/users` | | admins: every account with `is_admin` and families |
+| `POST /admin/users` | `{email, name, password, is_admin?, family_id?}` | admins: create an account (optionally added to a family as caregiver) |
+| `PATCH /admin/users/{id}` | `{name?, is_admin?, password?}` | admins: a new password signs them out; the last admin can't be demoted |
+| `DELETE /admin/users/{id}` | | admins: not yourself; families and their data stay |
 | `GET /me` | | `{id, email, name, units, families: [{id, name, role}]}` |
 | `PATCH /me` | `{name?, units?, password?, current_password?}` | changing the password signs out other sessions |
 | `GET /me/tokens` | | sessions and API tokens |

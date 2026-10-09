@@ -16,8 +16,12 @@ struct Client {
 
 impl Client {
     async fn new() -> Self {
+        Self::with_registration(true).await
+    }
+
+    async fn with_registration(open_registration: bool) -> Self {
         let db = connect("sqlite::memory:", 1).await.unwrap();
-        let state = AppState::new(db, Config { open_registration: true, nara: NaraConfig::default() });
+        let state = AppState::new(db, Config { open_registration, nara: NaraConfig::default() });
         Client { app: app(state, None) }
     }
 
@@ -329,4 +333,74 @@ async fn nara_csv_import() {
     // Not a Nara export.
     let (s, _) = c.call_csv(&url, &t, "a,b\n1,2\n").await;
     assert_eq!(s, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
+async fn admin_creates_accounts() {
+    let c = Client::with_registration(false).await;
+    let (_, setup) = c.call(Method::GET, "/auth/setup", None, None).await;
+    assert_eq!(setup["needs_setup"], true);
+
+    // First account: the admin.
+    let admin = c.register("admin@example.com", "Admin").await;
+    let (_, me) = c.call(Method::GET, "/me", Some(&admin), None).await;
+    assert_eq!(me["is_admin"], true);
+    let (_, setup) = c.call(Method::GET, "/auth/setup", None, None).await;
+    assert_eq!(setup["needs_setup"], false);
+    assert_eq!(setup["open_registration"], false);
+
+    // Sign-up is now closed.
+    let (s, _) = c
+        .call(Method::POST, "/auth/register", None, Some(json!({ "email": "x@example.com", "password": "correct horse", "name": "X" })))
+        .await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+
+    // The admin creates a caregiver, straight into a family.
+    let (_, fam) = c.call(Method::POST, "/families", Some(&admin), Some(json!({ "name": "Home" }))).await;
+    let fid = fam["id"].as_str().unwrap();
+    let (s, u) = c
+        .call(
+            Method::POST,
+            "/admin/users",
+            Some(&admin),
+            Some(json!({ "email": "Partner@Example.com", "name": "Partner", "password": "temporary1", "family_id": fid })),
+        )
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{u}");
+    assert_eq!(u["is_admin"], false);
+    assert_eq!(u["email"], "partner@example.com");
+    let uid = u["id"].as_str().unwrap();
+    let (s, login) = c
+        .call(Method::POST, "/auth/login", None, Some(json!({ "email": "partner@example.com", "password": "temporary1" })))
+        .await;
+    assert_eq!(s, StatusCode::OK);
+    let partner = login["token"].as_str().unwrap().to_string();
+    let (_, me) = c.call(Method::GET, "/me", Some(&partner), None).await;
+    assert_eq!(me["families"][0]["id"], fid);
+
+    // Not an admin: no access to accounts.
+    let (s, _) = c.call(Method::GET, "/admin/users", Some(&partner), None).await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    let (_, list) = c.call(Method::GET, "/admin/users", Some(&admin), None).await;
+    assert_eq!(list["users"].as_array().unwrap().len(), 2);
+
+    // Password reset signs them out.
+    let (s, _) = c.call(Method::PATCH, &format!("/admin/users/{uid}"), Some(&admin), Some(json!({ "password": "brand new pw" }))).await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, _) = c.call(Method::GET, "/me", Some(&partner), None).await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED);
+
+    // Promote, then the last-admin and self-delete guards.
+    let (_, u) = c.call(Method::PATCH, &format!("/admin/users/{uid}"), Some(&admin), Some(json!({ "is_admin": true }))).await;
+    assert_eq!(u["is_admin"], true);
+    let (_, me) = c.call(Method::GET, "/me", Some(&admin), None).await;
+    let admin_id = me["id"].as_str().unwrap().to_string();
+    let (s, _) = c.call(Method::DELETE, &format!("/admin/users/{admin_id}"), Some(&admin), None).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let (s, _) = c.call(Method::PATCH, &format!("/admin/users/{uid}"), Some(&admin), Some(json!({ "is_admin": false }))).await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, _) = c.call(Method::PATCH, &format!("/admin/users/{admin_id}"), Some(&admin), Some(json!({ "is_admin": false }))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "last admin");
+    let (s, _) = c.call(Method::DELETE, &format!("/admin/users/{uid}"), Some(&admin), None).await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
 }

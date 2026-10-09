@@ -24,6 +24,7 @@ class Me {
   String get name => json['name'] ?? '';
   String get email => json['email'] ?? '';
   bool get imperial => json['units'] == 'imperial';
+  bool get isAdmin => json['is_admin'] == true;
 }
 
 class Member {

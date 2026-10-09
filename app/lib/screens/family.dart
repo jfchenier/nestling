@@ -10,6 +10,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import 'child_form.dart';
 import 'home.dart' show ChildAvatar;
+import 'users.dart';
 
 /// Family, caregivers, babies, settings and Nara import.
 class FamilyScreen extends StatelessWidget {
@@ -150,6 +151,18 @@ class FamilyScreen extends StatelessWidget {
                 children: [
                   ListTile(leading: const Icon(Icons.person_outline), title: Text(me.name), subtitle: Text(me.email)),
                   ListTile(leading: const Icon(Icons.dns_outlined), title: const Text('Server'), subtitle: Text(s.server)),
+                  ListTile(
+                    leading: const Icon(Icons.password_rounded),
+                    title: const Text('Change password'),
+                    onTap: () => _changePassword(context),
+                  ),
+                  if (me.isAdmin)
+                    ListTile(
+                      leading: const Icon(Icons.admin_panel_settings_outlined),
+                      title: const Text('Users'),
+                      subtitle: const Text('Create and manage accounts on this server'),
+                      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const UsersScreen())),
+                    ),
                   ListTile(
                     leading: Icon(Icons.logout, color: context.pal.danger),
                     title: Text('Sign out', style: TextStyle(color: context.pal.danger)),
@@ -533,4 +546,46 @@ class _Result extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Your own password (needs the current one; other devices are signed out).
+Future<void> _changePassword(BuildContext context) async {
+  final current = TextEditingController(), next = TextEditingController();
+  final form = GlobalKey<FormState>();
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (c) => AlertDialog(
+      title: Text('Change password', style: serifStyle(22)),
+      content: Form(
+        key: form,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(
+              controller: current,
+              obscureText: true,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Current password'),
+              validator: (v) => (v ?? '').isEmpty ? 'Enter your current password' : null,
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: next,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'New password', helperText: 'Other devices will be signed out'),
+              validator: (v) => (v ?? '').length < 8 ? 'At least 8 characters' : null,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
+        FilledButton(onPressed: () => form.currentState!.validate() ? Navigator.pop(c, true) : null, child: const Text('Save')),
+      ],
+    ),
+  );
+  if (ok != true || !context.mounted) return;
+  final s = context.read<AppState>();
+  final res = await guard(context, () => s.api!.patch('/me', {'password': next.text, 'current_password': current.text}));
+  if (res != null && context.mounted) showMessage(context, 'Password changed');
 }

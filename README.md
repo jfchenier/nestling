@@ -40,9 +40,23 @@ cargo run --release
 |---|---|---|
 | `NESTLING_DATABASE_URL` | `sqlite://nestling.db` (`sqlite:///data/nestling.db` in Docker) | SQLite file |
 | `NESTLING_BIND` | `0.0.0.0:8080` | Listen address |
-| `NESTLING_OPEN_REGISTRATION` | `true` | Allow new accounts. The first account can always be created. Turn off once everyone has joined. |
+| `NESTLING_OPEN_REGISTRATION` | `false` | Let anyone create an account. Off: the first account (the admin) is created from the sign-in screen, then admins add accounts under Family → Users. |
 | `NESTLING_WEB_DIR` | unset (`/web` in Docker) | Folder with the web app to serve at `/` |
 | `RUST_LOG` | `nestling=info,tower_http=info` | Log level |
+
+### Accounts
+
+A new server asks for its **admin account** on the sign-in screen (the first account). After
+that, sign-up is closed: admins add caregivers under **Family → Users** (optionally straight into
+their family), reset forgotten passwords and make other admins. Everyone can change their own
+password under Family → Account.
+
+Locked out? From the host:
+
+```bash
+docker exec <container> nestling set-password me@example.com 'a new password'
+docker exec <container> nestling make-admin me@example.com
+```
 
 Put it behind HTTPS (Caddy, Traefik, Nginx Proxy Manager, Tailscale…) before using it outside your home network.
 

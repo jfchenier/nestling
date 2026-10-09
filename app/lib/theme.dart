@@ -222,6 +222,7 @@ ThemeData buildTheme(AppColors c) {
         textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
       ),
     ),
+    floatingActionButtonTheme: FloatingActionButtonThemeData(backgroundColor: c.accent, foregroundColor: c.onAccent),
     textButtonTheme: TextButtonThemeData(style: TextButton.styleFrom(foregroundColor: c.accent)),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,

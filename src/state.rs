@@ -6,7 +6,8 @@ use tokio::sync::broadcast;
 
 #[derive(Debug, Clone)]
 pub struct Config {
-    /// Allow anyone to create an account. The first account can always be created.
+    /// Allow anyone to create an account. The first account (the admin) can always be created;
+    /// otherwise admins create accounts.
     pub open_registration: bool,
     pub nara: NaraConfig,
 }
