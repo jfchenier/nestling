@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../format.dart';
 import '../local/drive_backup.dart';
+import '../local/drive_relay.dart';
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
@@ -129,6 +131,7 @@ class FamilyScreen extends StatelessWidget {
                     subtitle: Text(f.timezone.replaceAll('_', ' ')),
                     onTap: () => _editFamily(context, f),
                   ),
+                  if (s.serverless) const DriveSyncTile(),
                   if (s.serverless) DriveBackupTile(drive: s.drive),
                   ListTile(
                     leading: const Icon(Icons.cloud_download_outlined),
@@ -677,6 +680,83 @@ class _DriveBackupTileState extends State<DriveBackupTile> {
         setState(() => _busy = false);
         if (ok == true) showMessage(this.context, 'Backed up to Google Drive');
       },
+    );
+  }
+}
+
+/// Serverless mode: sync through a shared Google Drive folder, so phones that aren't open at the
+/// same time (or on the same Wi-Fi) still catch up.
+class DriveSyncTile extends StatefulWidget {
+  const DriveSyncTile({super.key});
+
+  @override
+  State<DriveSyncTile> createState() => _DriveSyncTileState();
+}
+
+class _DriveSyncTileState extends State<DriveSyncTile> {
+  bool _busy = false;
+
+  Future<void> _turnOn(AppState s) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text('Sync through Google Drive', style: serifStyle(22)),
+        content: const Text(
+          'Your phones will leave each other their changes in a shared folder in Google Drive, so they catch up '
+          'even when they aren\'t open at the same time or on the same Wi-Fi.\n\n'
+          'Google will ask to let Nestling use your Drive. Everything in the folder is encrypted: only your '
+          'family\'s phones can read it. Turn it on on each phone.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Continue')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    setState(() => _busy = true);
+    final merged = await guard(context, () => s.relay!.enable(s.familyId!));
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (merged != null) {
+      await s.load();
+      if (mounted) showMessage(context, 'Drive sync is on');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<AppState>();
+    final r = s.relay;
+    final on = r?.on ?? false;
+    final last = r?.sync.lastSync, error = r?.sync.error;
+    final subtitle = !DriveRelay.available
+        ? 'Available in the Android app'
+        : !on
+        ? 'For phones that aren\'t open at the same time or on the same Wi-Fi'
+        : error != null
+        ? 'Couldn\'t sync last time. It will try again.'
+        : last == null
+        ? 'On · ${r?.account ?? ''}'
+        : 'Synced ${ago(DateTime.now().difference(last).inSeconds)} · ${r?.account ?? ''}';
+    return ListTile(
+      leading: const Icon(Icons.cloud_sync_outlined),
+      title: const Text('Sync through Google Drive'),
+      subtitle: Text(subtitle),
+      enabled: DriveRelay.available && !_busy && r != null,
+      onTap: on ? () => s.syncRelay() : null,
+      trailing: _busy
+          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+          : Switch(
+              value: on,
+              onChanged: !DriveRelay.available || r == null
+                  ? null
+                  : (v) async {
+                      if (v) return _turnOn(s);
+                      await r.disable();
+                      if (mounted) setState(() {});
+                    },
+            ),
     );
   }
 }

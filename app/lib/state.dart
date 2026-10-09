@@ -10,6 +10,7 @@ import 'api/stream.dart';
 import 'api/sync_api.dart';
 import 'format.dart';
 import 'local/drive_backup.dart';
+import 'local/drive_relay.dart';
 import 'local/engine.dart';
 import 'local/peer_sync.dart';
 import 'local/store.dart';
@@ -75,13 +76,62 @@ class AppState extends ChangeNotifier {
   /// Backups to the caregiver's Google Drive (serverless mode).
   DriveBackup get drive => DriveBackup(store);
 
+  /// Syncs through a shared Google Drive folder, for phones that aren't open at the same time
+  /// or on the same Wi-Fi (serverless mode).
+  DriveRelay? relay;
+  Timer? _relayTimer, _relayEvery;
+  bool _relayStarted = false;
+  AppLifecycleListener? _lifecycle;
+
   void _useServerless() {
     final local = LocalApi(store);
     peers = PeerSync(store)
       ..onMerged = (() => load().catchError((_) {}))
       ..onStatus = notifyListeners;
-    local.onChanged = () => peers?.changed();
+    relay = DriveRelay(store);
+    local.onChanged = () {
+      peers?.changed();
+      // Upload a little later, so a burst of changes goes up once.
+      _relayTimer?.cancel();
+      _relayTimer = Timer(const Duration(seconds: 30), syncRelay);
+    };
     api = local;
+    _relayEvery?.cancel();
+    _relayEvery = Timer.periodic(const Duration(minutes: 5), (_) => syncRelay());
+    _lifecycle?.dispose();
+    _lifecycle = AppLifecycleListener(
+      // Back in the app: catch up with the other phones right away.
+      onResume: () {
+        unawaited(peers?.syncAll());
+        syncRelay();
+      },
+      // Leaving the app: send what was logged before Android stops it.
+      onHide: () {
+        if (_relayTimer?.isActive ?? false) syncRelay();
+      },
+    );
+  }
+
+  /// Syncs through Google Drive if it is on for this phone (quietly; failures show in Family).
+  Future<void> syncRelay() async {
+    _relayTimer?.cancel();
+    final r = relay;
+    if (r == null || !r.on) return;
+    try {
+      if (await r.run()) await load();
+    } catch (_) {
+      // Kept in the relay's status (Family → Sync through Google Drive).
+    }
+    notifyListeners();
+  }
+
+  void _stopServerless() {
+    _relayTimer?.cancel();
+    _relayEvery?.cancel();
+    _lifecycle?.dispose();
+    _lifecycle = null;
+    _relayStarted = false;
+    relay = null;
   }
 
   /// Starts serverless mode as [name]: a fresh copy on this phone, no account or server.
@@ -211,6 +261,7 @@ class AppState extends ChangeNotifier {
     api?.close();
     await peers?.stop();
     peers = null;
+    _stopServerless();
     if (serverless) await _prefs.remove('mode');
     if (forget) await store.clear();
     _stopStream();
@@ -253,6 +304,10 @@ class AppState extends ChangeNotifier {
       if (serverless) {
         unawaited(peers?.start());
         unawaited(drive.backUpIfDue());
+        if (!_relayStarted) {
+          _relayStarted = true;
+          unawaited(syncRelay());
+        }
       }
     } on ApiException catch (e) {
       if (e.unauthorized) {

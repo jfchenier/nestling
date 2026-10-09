@@ -27,10 +27,15 @@ class FakeTransport implements PeerTransport {
     return preferredPort;
   }
 
+  /// Bytes sent and received, for checking that only changes travel.
+  int traffic = 0;
+
   @override
   Future<List<int>> post(String host, int port, List<int> body) async {
     final h = wifi.phones[host] ?? (throw StateError('unreachable'));
-    return h(body, this.host);
+    final answer = await h(body, this.host);
+    traffic += body.length + answer.length;
+    return answer;
   }
 
   @override
@@ -115,6 +120,55 @@ void main() {
     }
     await syncA.stop();
     await syncB.stop();
+  });
+
+  test('after the first sync only changes travel, also through a third phone', () async {
+    final wifi = FakeWifi();
+    final (storeA, a) = await phone('Mom');
+    final (storeB, b) = await phone('Dad');
+    final (storeC, _) = await phone('Grandma');
+    final fam = a.createFamily({'name': 'Home', 'timezone': 'UTC'});
+    final child = a.createChild(fam['id'], {'name': 'Léa', 'birth_date': '2026-06-01'});
+    for (var i = 0; i < 300; i++) {
+      a.createEvent(child['id'], {'type': 'diaper', 'wet': true, 'start': DateTime(2026, 7, 1).add(Duration(hours: i)).toIso8601String()});
+    }
+    final tA = FakeTransport(wifi, '10.0.0.1'), tB = FakeTransport(wifi, '10.0.0.2'), tC = FakeTransport(wifi, '10.0.0.3');
+    final syncA = PeerSync(storeA, transport: tA), syncB = PeerSync(storeB, transport: tB), syncC = PeerSync(storeC, transport: tC);
+    await syncB.join(await syncA.pairingCode(fam['id']));
+    final full = tB.traffic;
+    expect(storeB.eventsOf(child['id']).length, 300);
+
+    // Nothing changed: a round is tiny (the family and baby only).
+    tA.traffic = tB.traffic = 0;
+    await syncB.syncAll();
+    await syncA.syncAll();
+    expect(tA.traffic + tB.traffic, lessThan(full ~/ 10));
+
+    // One change goes across, and is not sent again afterwards.
+    final feed = b.createEvent(child['id'], {'type': 'feed', 'method': 'bottle', 'amount_ml': 90});
+    await syncB.syncAll();
+    expect(storeA.events[feed['id']]!['amount_ml'], 90.0);
+    tA.traffic = tB.traffic = 0;
+    await syncA.syncAll();
+    await syncB.syncAll();
+    expect(tA.traffic + tB.traffic, lessThan(full ~/ 10));
+
+    // Grandma pairs through Dad's phone and still gets Mom's history and new entries.
+    await syncC.join(await syncB.pairingCode(fam['id']));
+    expect(storeC.eventsOf(child['id']).length, 301);
+    final sleep = a.createEvent(child['id'], {'type': 'sleep', 'start': '2026-10-01T13:00', 'end': '2026-10-01T14:00'});
+    await syncA.syncAll();
+    await syncB.syncAll();
+    expect(storeC.events[sleep['id']], isNotNull);
+
+    // When unsure what the other phone has, everything is sent again.
+    syncA.peers.values.firstWhere((p) => p['name'] == 'Dad')['acked_replica'] = 'an older copy';
+    tA.traffic = 0;
+    await syncA.syncAll();
+    expect(tA.traffic, greaterThan(full ~/ 2));
+    for (final s in [syncA, syncB, syncC]) {
+      await s.stop();
+    }
   });
 
   test('real HTTP between two phones on this machine', () async {

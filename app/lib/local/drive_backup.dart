@@ -36,16 +36,23 @@ class DriveBackup {
   DateTime? get lastBackup => _cfg['last'] is int ? DateTime.fromMillisecondsSinceEpoch(_cfg['last']) : null;
 
   Future<drive.DriveApi> _api({required bool interactive}) async {
-    if (!available) throw UnsupportedError('Google Drive backup needs the Android app.');
+    final (api, email) = await googleDrive(_scopes, interactive: interactive);
+    _cfg['account'] = email;
+    return api;
+  }
+
+  /// Drive with [scopes] for the signed-in Google account. [interactive]: may ask the user to
+  /// sign in or to allow access; otherwise fails if that would be needed.
+  static Future<(drive.DriveApi, String)> googleDrive(List<String> scopes, {required bool interactive}) async {
+    if (!available) throw UnsupportedError('Google Drive needs the Android app.');
     await (_init ??= GoogleSignIn.instance.initialize(serverClientId: _clientId));
     GoogleSignInAccount? user = await GoogleSignIn.instance.attemptLightweightAuthentication();
-    if (user == null && interactive) user = await GoogleSignIn.instance.authenticate(scopeHint: _scopes);
+    if (user == null && interactive) user = await GoogleSignIn.instance.authenticate(scopeHint: scopes);
     if (user == null) throw StateError('Not signed in to Google.');
-    var auth = await user.authorizationClient.authorizationForScopes(_scopes);
-    if (auth == null && interactive) auth = await user.authorizationClient.authorizeScopes(_scopes);
+    var auth = await user.authorizationClient.authorizationForScopes(scopes);
+    if (auth == null && interactive) auth = await user.authorizationClient.authorizeScopes(scopes);
     if (auth == null) throw StateError('Google Drive access wasn\'t granted.');
-    _cfg['account'] = user.email;
-    return drive.DriveApi(auth.authClient(scopes: _scopes));
+    return (drive.DriveApi(auth.authClient(scopes: scopes)), user.email);
   }
 
   Future<String?> _fileId(drive.DriveApi api) async {

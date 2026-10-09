@@ -163,7 +163,7 @@ class PeerSync {
         _again = false;
         for (final MapEntry(key: id, value: p) in peers.entries.toList()) {
           try {
-            await _exchange(p['host'], p['port']);
+            await _exchange(p['host'], p['port'], id);
             peers[id]?.remove('error');
           } catch (e) {
             peers[id]?['error'] = '$e';
@@ -177,27 +177,78 @@ class PeerSync {
     }
   }
 
-  Future<void> _exchange(String host, int port) async {
-    final k = key!;
-    final request = {'from': _me, 'snapshot': _snapshot()};
-    final answer = decodeSnapshot(await k.decrypt(await transport.post(host, port, await k.encrypt(encodeSnapshot(request)))));
-    _notePeer(answer['from'], host, synced: true);
-    _merge(answer['snapshot']);
+  // Each exchange sends only what the other phone hasn't seen. Per peer we keep `got` (their
+  // replica and the last stamp of theirs merged here) and `acked` (the last stamp of ours they
+  // said they have, with our replica then). A request says what it has (`want`) and what its
+  // snapshot is based on (`base`); the answer does the same, so both sides catch up in one round
+  // trip. A phone that starts over gets a new replica and is sent everything again.
+
+  Map<String, dynamic> _peerState(String? deviceId) =>
+      deviceId == null ? <String, dynamic>{} : (peers[deviceId] as Map<String, dynamic>?) ?? <String, dynamic>{};
+
+  Map<String, dynamic>? _want(Map<String, dynamic> p) =>
+      p['got_replica'] is String ? {'replica': p['got_replica'], 'since': p['got'] ?? 0} : null;
+
+  /// What to send [p]: changes after what it acknowledged (everything if unsure).
+  int _base(Map<String, dynamic> p) => p['acked_replica'] == store.replica ? (p['acked'] as int? ?? 0) : 0;
+
+  /// The other side's message: note what it has of ours, merge its snapshot, and remember how far
+  /// we are now in its changes (only when the snapshot started where we were).
+  void _receive(Map<String, dynamic> msg, String host) {
+    final from = msg['from'];
+    _notePeer(from, host, synced: true);
+    final p = peers[from is Map ? from['device_id'] : null] as Map<String, dynamic>?;
+    final want = msg['want'];
+    if (p != null && want is Map && want['replica'] == store.replica) {
+      p['acked'] = want['since'];
+      p['acked_replica'] = store.replica;
+    }
+    _merge(msg['snapshot']);
+    if (p == null || msg['replica'] is! String || msg['stamp'] is! int) return;
+    final base = msg['base'] as int? ?? 0;
+    final sameReplica = p['got_replica'] == msg['replica'];
+    final got = sameReplica ? p['got'] as int? ?? 0 : 0;
+    if ((base == 0 || (sameReplica && base <= got)) && (!sameReplica || msg['stamp'] > got)) {
+      p['got_replica'] = msg['replica'];
+      p['got'] = msg['stamp'];
+    }
   }
 
-  /// Another phone sent its snapshot: merge it and answer with ours.
+  Map<String, dynamic> _message(Map<String, dynamic> p, {required int base}) => {
+    'from': _me,
+    'replica': store.replica,
+    'want': _want(p),
+    'base': base,
+    'stamp': store.stamp,
+    'snapshot': _snapshot(since: base),
+  };
+
+  Future<void> _exchange(String host, int port, [String? deviceId]) async {
+    final k = key!;
+    final p = _peerState(deviceId);
+    final request = _message(p, base: _base(p));
+    final answer = decodeSnapshot(await k.decrypt(await transport.post(host, port, await k.encrypt(encodeSnapshot(request)))));
+    _receive(answer, host);
+  }
+
+  /// Another phone sent its changes: merge them and answer with ours.
   Future<List<int>> _handle(List<int> body, String remoteHost) async {
     final k = key ?? (throw StateError('not paired'));
     final request = decodeSnapshot(await k.decrypt(body));
-    _notePeer(request['from'], remoteHost, synced: true);
-    _merge(request['snapshot']);
+    _receive(request, remoteHost);
     onStatus?.call();
-    return k.encrypt(encodeSnapshot({'from': _me, 'snapshot': _snapshot()}));
+    final from = request['from'];
+    final p = _peerState(from is Map ? from['device_id'] : null);
+    // Send what it asked for: changes after the stamp of ours it has (everything if it doesn't
+    // know this copy, or is an older app that doesn't say).
+    final want = request['want'];
+    final since = want is Map && want['replica'] == store.replica ? want['since'] as int? ?? 0 : 0;
+    return k.encrypt(encodeSnapshot(_message(p, base: since)));
   }
 
-  Map<String, dynamic>? _snapshot() {
+  Map<String, dynamic>? _snapshot({int since = 0}) {
     final f = familyId;
-    return f != null && store.families.any((x) => x['id'] == f) ? exportFamily(store, f) : null;
+    return f != null && store.families.any((x) => x['id'] == f) ? exportFamily(store, f, since: since) : null;
   }
 
   void _merge(dynamic snap) {

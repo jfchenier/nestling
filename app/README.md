@@ -39,10 +39,16 @@ activity color. Colors live in
 - **Without a server** ("Use without a server" on the sign-in screen) — for families with no home
   server: everything is saved on the phone (`LocalApi`, the same local engine as offline mode, plus
   families, babies and photos). Phones pair with a QR code (Family → Pair a phone; the other phone
-  picks "Join with a pairing code") and then sync over the home Wi-Fi whenever both apps are open:
-  each phone sends the family as a snapshot, the newest change of each entry wins, deletions travel
-  along, and two timers started apart keep the earlier start (`lib/local/merge.dart`,
-  `lib/local/peer_sync.dart`). Everything between phones is encrypted with the family key from the
+  picks "Join with a pairing code") and then sync over the home Wi-Fi whenever both apps are open
+  (and right away when the app comes back to the foreground): each phone sends what changed since
+  the other last heard from it (per-copy change stamps, `LocalStore.stamps`), the newest change of
+  each entry wins, deletions travel along, and two timers started apart keep the earlier start
+  (`lib/local/merge.dart`, `lib/local/peer_sync.dart`). For phones that aren't open at the same time
+  or on the same Wi-Fi, Family → Sync through Google Drive keeps one encrypted, gzipped snapshot per
+  phone in a Drive folder shared by link (`lib/local/relay.dart`, `lib/local/drive_relay.dart`;
+  the folder id travels in the family record). It syncs when the app opens, 30 s after a change,
+  when the app goes to the background, and every 5 minutes while open; only changed files are
+  downloaded and a phone uploads only after something changed. Everything between phones is encrypted with the family key from the
   QR code (AES-256-GCM). Phones find each other with a UDP announcement (port 47816) or their last
   address, and listen on port 47815. Phones that were apart catch up when they meet again. Google
   Drive keeps a daily backup in the app's private Drive folder (Family → Back up to Google Drive;
@@ -192,11 +198,15 @@ The backup signs in with Google, so the Android build needs an OAuth client of y
 
 1. In the [Google Cloud console](https://console.cloud.google.com/), create a project, enable the
    **Google Drive API**, and set up the OAuth consent screen (External; add the
-   `.../auth/drive.appdata` scope; while in "Testing", add your caregivers' Google accounts as test users).
+   `.../auth/drive.appdata` scope for the backup and `.../auth/drive` for Drive sync; while in
+   "Testing", add your caregivers' Google accounts as test users). Drive sync needs the full `drive`
+   scope because each phone reads files the other caregiver's account wrote; Google calls it a
+   restricted scope, so users see an "unverified app" screen, and a public release needs Google's
+   verification and security assessment.
 2. Create an OAuth client of type **Android**: package `org.nestling.nestling`, and the SHA-1 of the
    key that signs the APK (`keytool -list -v -keystore <your keystore>`).
 3. Create an OAuth client of type **Web application** (no settings needed) and copy its client id.
 4. Build with it: `flutter build apk --dart-define=GOOGLE_SERVER_CLIENT_ID=<web client id>`
    (in CI: a `GOOGLE_SERVER_CLIENT_ID` secret passed the same way).
 
-Without it, everything else works and the backup row says it isn't available.
+Without it, everything else works and the Drive rows say they aren't available.
