@@ -30,12 +30,17 @@ class TimerNotifications(private val activity: Activity) : MethodChannel.MethodC
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "requestPermission" -> {
-                if (Build.VERSION.SDK_INT >= 33 &&
-                    activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                if (Build.VERSION.SDK_INT < 33 ||
+                    activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
                 ) {
-                    activity.requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 7301)
+                    result.success(true)
+                } else {
+                    // Answer once the user has chosen, so the first notification is posted after
+                    // "Allow" (posted before it, Android drops it silently).
+                    pendingPermission?.success(false)
+                    pendingPermission = result
+                    activity.requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), PERMISSION_REQUEST)
                 }
-                result.success(null)
             }
             "show" -> {
                 show(
@@ -55,6 +60,15 @@ class TimerNotifications(private val activity: Activity) : MethodChannel.MethodC
             }
             else -> result.notImplemented()
         }
+    }
+
+    private var pendingPermission: MethodChannel.Result? = null
+
+    /** Called by [MainActivity.onRequestPermissionsResult]. */
+    fun onPermissionResult(requestCode: Int, grantResults: IntArray) {
+        if (requestCode != PERMISSION_REQUEST) return
+        pendingPermission?.success(grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED)
+        pendingPermission = null
     }
 
     private fun ensureChannel() {
@@ -120,6 +134,7 @@ class TimerNotifications(private val activity: Activity) : MethodChannel.MethodC
     companion object {
         const val CHANNEL_NAME = "nestling/timer_notifications"
         private const val CHANNEL = "running_timers"
+        private const val PERMISSION_REQUEST = 7301
         private val ACCENT = Color.rgb(0x3D, 0x7A, 0x6A)
     }
 }
