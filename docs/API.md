@@ -65,7 +65,7 @@ Every record is an event with a `type`, a `start`, an optional `end`, an optiona
 | | |
 |---|---|
 | `GET /children/{id}/events?type=feed,diaper&from=&to=&limit=100` | newest first; page back with `to=<next_to>` |
-| `POST /children/{id}/events` | create → `201` |
+| `POST /children/{id}/events` | create → `201`; may carry its own `id` (a UUID) so a retried request doesn't log twice (the repeat answers `200` with the same event) |
 | `GET /events/{id}` | |
 | `PATCH /events/{id}` | send only what changes; `null` removes a field |
 | `DELETE /events/{id}` | |
@@ -115,13 +115,13 @@ Stopping a timer saves it as an event.
 | | | |
 |---|---|---|
 | `GET /children/{id}/timers` | | running/paused timers |
-| `POST /children/{id}/timers` | `{kind, side?, start?}` | breastfeed side: `left`/`right` (default left); pump: `left`/`right`/`both` (default both); `start` can be in the past |
+| `POST /children/{id}/timers` | `{id?, kind, side?, start?}` | breastfeed side: `left`/`right` (default left); pump: `left`/`right`/`both` (default both); `start` can be in the past |
 | `GET /timers/{id}` | | |
 | `POST /timers/{id}/switch` | `{side?}` | change side; without a body flips left↔right; resumes if paused |
 | `POST /timers/{id}/pause` | | |
 | `POST /timers/{id}/resume` | `{side?}` | |
 | `PATCH /timers/{id}` | `{start?, left_seconds?, right_seconds?, seconds?}` | correct a timer: move its start (the total grows or shrinks by the same amount, even while running), set the time on each side (breastfeed) or the total time (`seconds`, sleep and pump); it keeps running |
-| `POST /timers/{id}/stop` | `{end?, note?, left_ml?, right_ml?, location?}` | → `201` created event; `end` lets you trim ("fell asleep 5 min ago") |
+| `POST /timers/{id}/stop` | `{event_id?, end?, note?, left_ml?, right_ml?, location?}` | → `201` created event; `end` lets you trim ("fell asleep 5 min ago"); `event_id` makes a retry return the same event (`200`). Two caregivers stopping at once save one event; the second gets `404` |
 | `DELETE /timers/{id}` | | discard without saving |
 
 Timer shape: `{id, child_id, kind, started_at, running, side, elapsed_seconds, left_seconds, right_seconds, segments: [{side, start, end}], …}`.
@@ -171,6 +171,14 @@ Daily averages use complete days only.
 - `GET /families/{id}/sync?since=<cursor>` — `{cursor, full, children, events, timers}`. Without `since` you get
   everything; with it, only events changed since, including deletions as `{"id", "deleted": true}`. Store `cursor`
   for next time.
+- `POST /families/{id}/sync` — changes made offline:
+  `{"events": [{id, child_id, changed_at, deleted?, …event fields}], "timers": [{id, child_id, kind, changed_at, deleted?, segments: [{side, start, end}]}]}`.
+  `id`s are UUIDs made on the device; `changed_at` is when the change was made there. Each record is settled on
+  its own and answered `{id, status}`: `applied`, `conflict` (the server kept its copy) or `rejected` (invalid,
+  with a `message`); the last two include `current`, the server's copy (`null` if it has none). Rules: the most
+  recent change wins (a `changed_at` in the future counts as now); a deletion is final; a timer started offline
+  while another device started the same kind for the same child keeps the earlier start. Pushing the same batch
+  twice changes nothing.
 
 ## Export
 

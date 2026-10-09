@@ -18,12 +18,13 @@ class ApiException implements Exception {
 
 /// Thin JSON client for the Nestling API (`<server>/api/v1`).
 class Api {
-  Api(this.server, [this.token]);
+  Api(this.server, [this.token, http.Client? client]) : _client = client ?? http.Client();
 
   /// Server root, e.g. `http://192.168.1.10:8080` (no trailing slash, no `/api/v1`).
   final String server;
   String? token;
-  final http.Client _client = http.Client();
+  final http.Client _client;
+  http.Client get client => _client;
 
   Uri uri(String path, [Map<String, String>? query]) {
     final base = Uri.parse('$server/api/v1$path');
@@ -32,18 +33,18 @@ class Api {
 
   Map<String, String> get headers => {'content-type': 'application/json', if (token != null) 'authorization': 'Bearer $token'};
 
-  Future<dynamic> get(String path, [Map<String, String>? query]) => _send('GET', path, query: query);
-  Future<dynamic> post(String path, [Object? body]) => _send('POST', path, body: body);
-  Future<dynamic> patch(String path, Object body) => _send('PATCH', path, body: body);
-  Future<dynamic> delete(String path) => _send('DELETE', path);
+  Future<dynamic> get(String path, [Map<String, String>? query]) => send('GET', path, query: query);
+  Future<dynamic> post(String path, [Object? body]) => send('POST', path, body: body);
+  Future<dynamic> patch(String path, Object body) => send('PATCH', path, body: body);
+  Future<dynamic> delete(String path) => send('DELETE', path);
 
   /// POST raw bytes (e.g. a CSV file) instead of JSON.
   Future<dynamic> upload(String path, List<int> bytes, {String contentType = 'text/csv', Map<String, String>? query}) =>
-      _send('POST', path, query: query, raw: bytes, contentType: contentType, timeout: const Duration(minutes: 3));
+      send('POST', path, query: query, raw: bytes, contentType: contentType, timeout: const Duration(minutes: 3));
 
   /// PUT raw bytes (e.g. a photo).
   Future<dynamic> putBytes(String path, List<int> bytes, {required String contentType}) =>
-      _send('PUT', path, raw: bytes, contentType: contentType, timeout: const Duration(minutes: 1));
+      send('PUT', path, raw: bytes, contentType: contentType, timeout: const Duration(minutes: 1));
 
   /// GET a binary resource (e.g. a photo).
   Future<Uint8List> getBytes(String path) async {
@@ -58,7 +59,8 @@ class Api {
     return res.bodyBytes;
   }
 
-  Future<dynamic> _send(
+  /// One request. Subclasses (see `SyncApi`) may answer some requests themselves.
+  Future<dynamic> send(
     String method,
     String path, {
     Object? body,
@@ -101,9 +103,9 @@ class Api {
   }
 
   /// Checks that [server] answers `/health` like a Nestling server.
-  static Future<bool> ping(String server) async {
+  static Future<bool> ping(String server, [http.Client? client]) async {
     try {
-      final res = await http.get(Uri.parse('$server/health')).timeout(const Duration(seconds: 8));
+      final res = await (client ?? http.Client()).get(Uri.parse('$server/health')).timeout(const Duration(seconds: 8));
       return res.statusCode == 200 && res.body.contains('"ok"');
     } catch (_) {
       return false;

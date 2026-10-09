@@ -30,6 +30,12 @@ activity color. Colors live in
   correct its start time and its time (per side for breastfeeding, total for sleep/pump) with the pencils;
   ✕ closes the page and the timer keeps running, **Save** stores it, **Delete** throws it away;
   an End Time row ("Now" until set) saves it as ending earlier.
+- **Offline** — when the server can't be reached the app keeps working from the device's copy of
+  the data: log, edit and delete entries, run timers, see the home cards, timeline, calendar and
+  trends. The header shows "offline · N to sync"; changes are sent when the server answers again
+  (checked every 10 s), and the server settles conflicts (newest change wins, deletions are final).
+  Online with nothing queued, every request goes to the server as before. Family settings,
+  invites, imports and accounts need the server. The web app can't reload without the server.
 - **Times** use a 24-hour clock; date/time rows have separate day and time pills. Durations
   past 24 h read in days ("41d 11h").
 - **Forms** — a sheet with the activity's icon and title, label/value rows and a big Save button
@@ -153,6 +159,9 @@ lib/
   main.dart            app, sign-in/onboarding/main switch, bottom navigation
   state.dart           AppState: session, families, selected child, home data, live stream
   api/api.dart         JSON client + errors
+  api/sync_api.dart    offline support: server when reachable, local copy + queued changes otherwise
+  local/               the device's copy (store.dart), the server's rules in Dart (domain.dart:
+                       validation, timer math, daily stats) and requests answered locally (engine.dart)
   api/stream*.dart     live updates (EventSource on web, streamed HTTP elsewhere)
   models.dart          Me, Family, Child, Event, TimerModel
   format.dart          units (metric/imperial), durations, event descriptions

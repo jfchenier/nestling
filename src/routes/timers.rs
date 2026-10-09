@@ -15,7 +15,7 @@ use crate::{
     auth::{child_access, AuthUser},
     error::{bad, ApiJson, AppError, AppResult},
     model::{Details, Feed, FeedMethod, Pump, Side, Sleep},
-    routes::events::{insert_event, NewEvent},
+    routes::events::{get_row, insert_event_in, NewEvent},
     state::AppState,
     util::{fmt_time, new_id, now_ms, parse_opt_time},
 };
@@ -29,14 +29,14 @@ pub enum TimerKind {
 }
 
 impl TimerKind {
-    fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             TimerKind::Breastfeed => "breastfeed",
             TimerKind::Pump => "pump",
             TimerKind::Sleep => "sleep",
         }
     }
-    fn parse(s: &str) -> AppResult<Self> {
+    pub fn parse(s: &str) -> AppResult<Self> {
         serde_json::from_value(json!(s)).map_err(|_| AppError::Other(anyhow::anyhow!("bad timer kind {s}")))
     }
 }
@@ -62,7 +62,7 @@ pub struct TimerRow {
     pub updated_at: i64,
 }
 
-const TIMER_COLS: &str = "id, family_id, child_id, kind, segments, created_by, created_at, updated_at";
+pub const TIMER_COLS: &str = "id, family_id, child_id, kind, segments, created_by, created_at, updated_at";
 
 /// Seconds spent on each side (both-sided segments count for both).
 fn side_seconds(segments: &[Segment], now: i64) -> (i64, i64, i64) {
@@ -137,7 +137,7 @@ pub async fn list(State(state): State<AppState>, user: AuthUser, Path(child_id):
     Ok(Json(json!({ "timers": child_timers(&state, &child_id, ctx.tz).await? })))
 }
 
-fn check_side(kind: TimerKind, side: Option<Side>) -> AppResult<Option<Side>> {
+pub fn check_side(kind: TimerKind, side: Option<Side>) -> AppResult<Option<Side>> {
     match kind {
         TimerKind::Sleep => Ok(None),
         TimerKind::Breastfeed => match side.unwrap_or(Side::Left) {
@@ -150,6 +150,9 @@ fn check_side(kind: TimerKind, side: Option<Side>) -> AppResult<Option<Side>> {
 
 #[derive(Deserialize)]
 pub struct StartReq {
+    /// Optional id chosen by the client (a UUID), so a retried start is harmless.
+    #[serde(default)]
+    id: Option<String>,
     kind: TimerKind,
     #[serde(default)]
     side: Option<Side>,
@@ -166,6 +169,17 @@ pub async fn start(State(state): State<AppState>, user: AuthUser, Path(child_id)
         return bad("a timer cannot start in the future");
     }
     let side = check_side(req.kind, req.side)?;
+    if let Some(id) = &req.id {
+        if uuid::Uuid::parse_str(id).is_err() {
+            return bad("id must be a UUID");
+        }
+        if let Ok(row) = load(&state, id).await {
+            if row.child_id != child_id {
+                return Err(AppError::Conflict("this id is already used".into()));
+            }
+            return Ok((StatusCode::OK, Json(row.to_json(ctx.tz)?)));
+        }
+    }
     let existing: Option<(String,)> = sqlx::query_as("SELECT id FROM timers WHERE child_id = ? AND kind = ?")
         .bind(&child_id)
         .bind(req.kind.as_str())
@@ -174,7 +188,7 @@ pub async fn start(State(state): State<AppState>, user: AuthUser, Path(child_id)
     if let Some((id,)) = existing {
         return Err(AppError::Conflict(format!("a {} timer is already running ({id})", req.kind.as_str())));
     }
-    let id = new_id();
+    let id = req.id.unwrap_or_else(new_id);
     let segs = vec![Segment { side, start, end: None }];
     sqlx::query("INSERT INTO timers (id, family_id, child_id, kind, segments, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
         .bind(&id)
@@ -192,7 +206,7 @@ pub async fn start(State(state): State<AppState>, user: AuthUser, Path(child_id)
     Ok((StatusCode::CREATED, Json(json)))
 }
 
-async fn load(state: &AppState, id: &str) -> AppResult<TimerRow> {
+pub async fn load(state: &AppState, id: &str) -> AppResult<TimerRow> {
     sqlx::query_as::<_, TimerRow>(&format!("SELECT {TIMER_COLS} FROM timers WHERE id = ?"))
         .bind(id)
         .fetch_optional(&state.db)
@@ -399,6 +413,9 @@ pub async fn edit(State(state): State<AppState>, user: AuthUser, Path(id): Path<
 
 #[derive(Deserialize, Default)]
 pub struct StopReq {
+    /// Optional id for the saved event (a UUID), so a retried stop doesn't log twice.
+    #[serde(default)]
+    event_id: Option<String>,
     /// Override the end time (e.g. "fell asleep on the breast 5 minutes ago").
     #[serde(default)]
     end: Option<String>,
@@ -421,6 +438,18 @@ pub async fn stop(State(state): State<AppState>, user: AuthUser, Path(id): Path<
     } else {
         serde_json::from_slice(&body).map_err(|e| AppError::BadRequest(format!("invalid JSON: {e}")))?
     };
+    if let Some(event_id) = &req.event_id {
+        // Already stopped by this same request (its answer got lost): return that event.
+        if let Ok(event) = crate::routes::events::get_row(&state.db, event_id).await {
+            let ctx = child_access(&state.db, &event.child_id, &user.id).await.map_err(|_| AppError::NotFound("timer"))?;
+            if event.deleted_at.is_none() {
+                return Ok((StatusCode::OK, Json(event.to_json(ctx.tz)?)));
+            }
+        }
+        if uuid::Uuid::parse_str(event_id).is_err() {
+            return bad("event_id must be a UUID");
+        }
+    }
     let (row, tz) = accessible(&state, &id, &user).await?;
     let kind = TimerKind::parse(&row.kind)?;
     let mut segs = row.segs()?;
@@ -469,9 +498,17 @@ pub async fn stop(State(state): State<AppState>, user: AuthUser, Path(id): Path<
     };
     details.validate(start, Some(event_end), &req.note)?;
 
-    let event = insert_event(
-        &state.db,
+    // Delete the timer and save the event together, and only once: when two caregivers stop the
+    // same timer at the same moment, the second finds it gone.
+    let mut tx = state.db.begin().await?;
+    let gone = sqlx::query("DELETE FROM timers WHERE id = ?").bind(&row.id).execute(&mut *tx).await?.rows_affected() == 0;
+    if gone {
+        return Err(AppError::NotFound("timer"));
+    }
+    let event_id = insert_event_in(
+        &mut tx,
         NewEvent {
+            id: req.event_id,
             family_id: row.family_id.clone(),
             child_id: row.child_id.clone(),
             start_at: start,
@@ -482,8 +519,8 @@ pub async fn stop(State(state): State<AppState>, user: AuthUser, Path(id): Path<
         },
     )
     .await?;
-    sqlx::query("DELETE FROM timers WHERE id = ?").bind(&row.id).execute(&state.db).await?;
-    let event_json = event.to_json(tz)?;
+    tx.commit().await?;
+    let event_json = get_row(&state.db, &event_id).await?.to_json(tz)?;
     state.publish(&row.family_id, "timer", "deleted", json!({ "id": row.id, "child_id": row.child_id }));
     state.publish(&row.family_id, "event", "created", event_json.clone());
     Ok((StatusCode::CREATED, Json(event_json)))

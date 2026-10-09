@@ -6,7 +6,7 @@ use axum::{
 use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
-use sqlx::SqlitePool;
+use sqlx::{SqliteConnection, SqlitePool};
 
 use crate::{
     auth::{child_access, AuthUser},
@@ -89,6 +89,9 @@ struct EventOut<'a> {
 /// Request body for creating (and, after merging, patching) an event.
 #[derive(Debug, Deserialize)]
 pub struct EventInput {
+    /// Optional id chosen by the client (a UUID), so a retried create doesn't log twice.
+    #[serde(default)]
+    pub id: Option<String>,
     #[serde(default)]
     pub start: Option<String>,
     #[serde(default)]
@@ -100,6 +103,8 @@ pub struct EventInput {
 }
 
 pub struct NewEvent {
+    /// Client-chosen id; a new one is made when absent.
+    pub id: Option<String>,
     pub family_id: String,
     pub child_id: String,
     pub start_at: i64,
@@ -118,7 +123,15 @@ pub async fn get_row(db: &SqlitePool, id: &str) -> AppResult<EventRow> {
 }
 
 pub async fn insert_event(db: &SqlitePool, ev: NewEvent) -> AppResult<EventRow> {
-    let id = new_id();
+    let mut conn = db.acquire().await?;
+    let id = insert_event_in(&mut conn, ev).await?;
+    drop(conn);
+    get_row(db, &id).await
+}
+
+/// Insert on a given connection (e.g. inside a transaction); returns the new event's id.
+pub async fn insert_event_in(conn: &mut SqliteConnection, ev: NewEvent) -> AppResult<String> {
+    let id = ev.id.unwrap_or_else(new_id);
     let now = now_ms();
     sqlx::query(
         "INSERT INTO events (id, family_id, child_id, type, start_at, end_at, data, note, created_by, updated_by, created_at, updated_at)
@@ -136,12 +149,25 @@ pub async fn insert_event(db: &SqlitePool, ev: NewEvent) -> AppResult<EventRow> 
     .bind(&ev.user_id)
     .bind(now)
     .bind(now)
-    .execute(db)
+    .execute(&mut *conn)
     .await?;
-    get_row(db, &id).await
+    Ok(id)
 }
 
-fn clean_note(note: Option<String>) -> Option<String> {
+/// A client-chosen id that is already taken: the earlier event when it is the same family's
+/// (a retried request whose first answer got lost), an error otherwise.
+pub async fn existing_client_id(db: &SqlitePool, id: &str, family_id: &str) -> AppResult<Option<EventRow>> {
+    if uuid::Uuid::parse_str(id).is_err() {
+        return bad("id must be a UUID");
+    }
+    match sqlx::query_as::<_, EventRow>(&format!("SELECT {EVENT_COLS} FROM events WHERE id = ?")).bind(id).fetch_optional(db).await? {
+        Some(row) if row.family_id == family_id && row.deleted_at.is_none() => Ok(Some(row)),
+        Some(_) => Err(AppError::Conflict("this id is already used".into())),
+        None => Ok(None),
+    }
+}
+
+pub fn clean_note(note: Option<String>) -> Option<String> {
     note.map(|n| n.trim().to_string()).filter(|n| !n.is_empty())
 }
 
@@ -194,12 +220,18 @@ pub async fn list(State(state): State<AppState>, user: AuthUser, Path(child_id):
 
 pub async fn create(State(state): State<AppState>, user: AuthUser, Path(child_id): Path<String>, ApiJson(input): ApiJson<EventInput>) -> AppResult<(StatusCode, Json<Value>)> {
     let ctx = child_access(&state.db, &child_id, &user.id).await?;
+    if let Some(id) = &input.id {
+        if let Some(row) = existing_client_id(&state.db, id, &ctx.family_id).await? {
+            return Ok((StatusCode::OK, Json(row.to_json(ctx.tz)?)));
+        }
+    }
     let start = parse_opt_time(&input.start, ctx.tz)?.unwrap_or_else(now_ms);
     let end = parse_opt_time(&input.end, ctx.tz)?;
     input.details.validate(start, end, &input.note)?;
     let row = insert_event(
         &state.db,
         NewEvent {
+            id: input.id,
             family_id: ctx.family_id.clone(),
             child_id,
             start_at: start,
@@ -265,7 +297,7 @@ pub async fn update(State(state): State<AppState>, user: AuthUser, Path(id): Pat
     let end = parse_opt_time(&input.end, tz)?;
     input.details.validate(start, end, &input.note)?;
 
-    sqlx::query("UPDATE events SET type = ?, start_at = ?, end_at = ?, data = ?, note = ?, updated_by = ?, updated_at = ? WHERE id = ?")
+    sqlx::query("UPDATE events SET type = ?, start_at = ?, end_at = ?, data = ?, note = ?, updated_by = ?, updated_at = ?, changed_at = NULL WHERE id = ?")
         .bind(input.details.type_name())
         .bind(start)
         .bind(end)
@@ -285,7 +317,7 @@ pub async fn update(State(state): State<AppState>, user: AuthUser, Path(id): Pat
 pub async fn delete(State(state): State<AppState>, user: AuthUser, Path(id): Path<String>) -> AppResult<StatusCode> {
     let (row, tz) = accessible_event(&state, &id, &user).await?;
     let now = now_ms();
-    sqlx::query("UPDATE events SET deleted_at = ?, updated_at = ?, updated_by = ? WHERE id = ?")
+    sqlx::query("UPDATE events SET deleted_at = ?, updated_at = ?, updated_by = ?, changed_at = NULL WHERE id = ?")
         .bind(now)
         .bind(now)
         .bind(&user.id)

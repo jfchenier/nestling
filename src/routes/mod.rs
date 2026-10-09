@@ -4,6 +4,7 @@ pub mod events;
 pub mod families;
 pub mod import;
 pub mod insights;
+pub mod sync;
 pub mod timers;
 pub mod admin;
 pub mod export;
@@ -38,7 +39,7 @@ pub fn api() -> Router<AppState> {
         .route("/families/{id}/members/{user_id}", delete(families::remove_member))
         .route("/invites/{code}/accept", post(families::accept_invite))
         .route("/families/{id}/children", get(children::list).post(children::create))
-        .route("/families/{id}/sync", get(events::sync))
+        .route("/families/{id}/sync", get(events::sync).post(sync::push))
         .route("/families/{id}/stream", get(insights::stream))
         // Imports can be large (a year of Nara history is several MB).
         .route("/families/{id}/export.csv", get(export::export_csv))

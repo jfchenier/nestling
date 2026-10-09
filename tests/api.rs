@@ -530,3 +530,130 @@ async fn csv_export_round_trip() {
 async fn e_total(c: &Client, t: &str, id: &str) -> i64 {
     c.call(Method::GET, &format!("/timers/{id}"), Some(t), None).await.1["elapsed_seconds"].as_i64().unwrap()
 }
+
+#[tokio::test]
+async fn offline_push_and_conflicts() {
+    let c = Client::new().await;
+    let mom = c.register("mom@example.com", "Mom").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&mom), Some(json!({ "name": "F", "timezone": "America/New_York" }))).await;
+    let fid = fam["id"].as_str().unwrap().to_string();
+    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&mom), Some(json!({ "name": "B" }))).await;
+    let cid = child["id"].as_str().unwrap().to_string();
+    let ago = |m: i64| (chrono::Utc::now() - chrono::Duration::minutes(m)).to_rfc3339();
+    let push = |body: Value| {
+        let (c, mom, fid) = (&c, mom.clone(), fid.clone());
+        async move { c.call(Method::POST, &format!("/families/{fid}/sync"), Some(&mom), Some(body)).await }
+    };
+
+    // A diaper logged offline, with the device's own id; pushing twice is harmless.
+    let offline_id = "0199c5a0-0000-7000-8000-000000000001";
+    let diaper = json!({ "events": [{ "id": offline_id, "child_id": cid, "changed_at": ago(30), "type": "diaper", "wet": true, "start": ago(30) }] });
+    let (s, r) = push(diaper.clone()).await;
+    assert_eq!(s, StatusCode::OK, "{r}");
+    assert_eq!(r["events"][0]["status"], "applied", "{r}");
+    let (_, r) = push(diaper).await;
+    assert_eq!(r["events"][0]["status"], "applied");
+    let (_, list) = c.call(Method::GET, &format!("/children/{cid}/events"), Some(&mom), None).await;
+    assert_eq!(list["events"].as_array().unwrap().len(), 1);
+    assert_eq!(list["events"][0]["id"], offline_id);
+
+    // Edited online a minute ago; an older offline edit loses, a newer one wins.
+    let (s, _) = c.call(Method::PATCH, &format!("/events/{offline_id}"), Some(&mom), Some(json!({ "dirty": true }))).await;
+    assert_eq!(s, StatusCode::OK);
+    let (_, r) = push(json!({ "events": [{ "id": offline_id, "child_id": cid, "changed_at": ago(10), "type": "diaper", "dry": true, "start": ago(30) }] })).await;
+    assert_eq!(r["events"][0]["status"], "conflict", "{r}");
+    assert_eq!(r["events"][0]["current"]["dirty"], true, "the server's copy comes back");
+    let (_, ev) = c.call(Method::GET, &format!("/events/{offline_id}"), Some(&mom), None).await;
+    assert_eq!(ev["dirty"], true);
+    let (_, r) = push(json!({ "events": [{ "id": offline_id, "child_id": cid, "changed_at": "now", "type": "diaper", "dry": true, "start": ago(30) }] })).await;
+    assert_eq!(r["events"][0]["status"], "applied", "{r}");
+    let (_, ev) = c.call(Method::GET, &format!("/events/{offline_id}"), Some(&mom), None).await;
+    assert_eq!((ev["dry"].clone(), ev["dirty"].clone()), (json!(true), json!(false)));
+
+    // Invalid records are rejected one by one; the rest of the batch still applies.
+    let (_, r) = push(json!({ "events": [
+        { "id": "0199c5a0-0000-7000-8000-000000000002", "child_id": cid, "changed_at": "now", "type": "diaper", "start": ago(5) },
+        { "id": "0199c5a0-0000-7000-8000-000000000003", "child_id": cid, "changed_at": "now", "type": "sleep", "start": ago(90), "end": ago(30) },
+    ] })).await;
+    assert_eq!(r["events"][0]["status"], "rejected");
+    assert_eq!(r["events"][1]["status"], "applied", "{r}");
+
+    // Deleted offline; a later offline edit can't bring it back.
+    let (_, r) = push(json!({ "events": [{ "id": offline_id, "changed_at": "now", "deleted": true }] })).await;
+    assert_eq!(r["events"][0]["status"], "applied", "{r}");
+    let (s, _) = c.call(Method::GET, &format!("/events/{offline_id}"), Some(&mom), None).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    let (_, r) = push(json!({ "events": [{ "id": offline_id, "child_id": cid, "changed_at": "now", "type": "diaper", "wet": true, "start": ago(30) }] })).await;
+    assert_eq!(r["events"][0]["status"], "conflict");
+
+    // A sleep timer started offline 40 minutes ago, while another device started one 10 minutes ago:
+    // the earlier start wins and takes over the existing timer.
+    let (s, online) = c.call(Method::POST, &format!("/children/{cid}/timers"), Some(&mom), Some(json!({ "kind": "sleep", "start": ago(10) }))).await;
+    assert_eq!(s, StatusCode::CREATED);
+    let timer = |id: &str, start: String| json!({ "timers": [{ "id": id, "child_id": cid, "kind": "sleep", "changed_at": "now", "segments": [{ "start": start }] }] });
+    let (_, r) = push(timer("0199c5a0-0000-7000-8000-0000000000a1", ago(40))).await;
+    assert_eq!(r["timers"][0]["status"], "applied", "{r}");
+    let (_, ts) = c.call(Method::GET, &format!("/children/{cid}/timers"), Some(&mom), None).await;
+    assert_eq!(ts["timers"].as_array().unwrap().len(), 1);
+    assert_eq!(ts["timers"][0]["id"], online["id"]);
+    assert!(ts["timers"][0]["elapsed_seconds"].as_i64().unwrap() >= 40 * 60 - 1);
+    let (_, r) = push(timer("0199c5a0-0000-7000-8000-0000000000a2", ago(20))).await;
+    assert_eq!(r["timers"][0]["status"], "conflict");
+    assert_eq!(r["timers"][0]["current"], Value::Null, "the losing timer never reached the server");
+
+    // Stopped offline: the event arrives with the timer's deletion.
+    let tid = online["id"].as_str().unwrap();
+    let (_, r) = push(json!({
+        "events": [{ "id": "0199c5a0-0000-7000-8000-000000000004", "child_id": cid, "changed_at": "now", "type": "sleep", "start": ago(40), "end": ago(1) }],
+        "timers": [{ "id": tid, "child_id": cid, "kind": "sleep", "changed_at": "now", "deleted": true }],
+    })).await;
+    assert_eq!((r["events"][0]["status"].clone(), r["timers"][0]["status"].clone()), (json!("applied"), json!("applied")), "{r}");
+    let (_, ts) = c.call(Method::GET, &format!("/children/{cid}/timers"), Some(&mom), None).await;
+    assert!(ts["timers"].as_array().unwrap().is_empty());
+
+    // Another family's child is off limits.
+    let other = c.register("x@example.com", "X").await;
+    let (_, fam2) = c.call(Method::POST, "/families", Some(&other), Some(json!({ "name": "G" }))).await;
+    let (s, _) = c.call(Method::POST, &format!("/families/{}/sync", fam2["id"].as_str().unwrap()), Some(&mom), Some(json!({}))).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+
+    // The pull side sees everything, deletions included.
+    let (_, sync) = c.call(Method::GET, &format!("/families/{fid}/sync?since=0"), Some(&mom), None).await;
+    let ids: Vec<&str> = sync["events"].as_array().unwrap().iter().map(|e| e["id"].as_str().unwrap()).collect();
+    assert!(ids.contains(&offline_id) && ids.contains(&"0199c5a0-0000-7000-8000-000000000004"));
+}
+
+#[tokio::test]
+async fn client_ids_make_retries_safe() {
+    let c = Client::new().await;
+    let t = c.register("a@example.com", "A").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&t), Some(json!({ "name": "F" }))).await;
+    let fid = fam["id"].as_str().unwrap();
+    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&t), Some(json!({ "name": "B" }))).await;
+    let cid = child["id"].as_str().unwrap();
+
+    let body = json!({ "id": "0199c5a0-0000-7000-8000-0000000000e1", "type": "diaper", "wet": true });
+    let (s, a) = c.call(Method::POST, &format!("/children/{cid}/events"), Some(&t), Some(body.clone())).await;
+    assert_eq!(s, StatusCode::CREATED, "{a}");
+    let (s, b) = c.call(Method::POST, &format!("/children/{cid}/events"), Some(&t), Some(body)).await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(a["id"], b["id"]);
+
+    let start = json!({ "id": "0199c5a0-0000-7000-8000-0000000000e2", "kind": "sleep" });
+    let (s, _) = c.call(Method::POST, &format!("/children/{cid}/timers"), Some(&t), Some(start.clone())).await;
+    assert_eq!(s, StatusCode::CREATED);
+    let (s, _) = c.call(Method::POST, &format!("/children/{cid}/timers"), Some(&t), Some(start)).await;
+    assert_eq!(s, StatusCode::OK);
+    let stop = json!({ "event_id": "0199c5a0-0000-7000-8000-0000000000e3" });
+    let (s, ev) = c.call(Method::POST, "/timers/0199c5a0-0000-7000-8000-0000000000e2/stop", Some(&t), Some(stop.clone())).await;
+    assert_eq!(s, StatusCode::CREATED, "{ev}");
+    assert_eq!(ev["id"], "0199c5a0-0000-7000-8000-0000000000e3");
+    let (s, again) = c.call(Method::POST, "/timers/0199c5a0-0000-7000-8000-0000000000e2/stop", Some(&t), Some(stop)).await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(again["id"], ev["id"]);
+    // A second stop without an id finds the timer gone instead of logging the sleep twice.
+    let (s, _) = c.call(Method::POST, "/timers/0199c5a0-0000-7000-8000-0000000000e2/stop", Some(&t), None).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    let (_, list) = c.call(Method::GET, &format!("/children/{cid}/events"), Some(&t), None).await;
+    assert_eq!(list["events"].as_array().unwrap().len(), 2);
+}
