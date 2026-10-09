@@ -11,8 +11,10 @@ import 'dart:math' as math;
 import 'domain.dart';
 import 'store.dart';
 
-/// One family's data, ready to send to another phone (or to a backup).
-Map<String, dynamic> exportFamily(LocalStore store, String familyId) {
+/// One family's data, ready to send to another phone (or to a backup). With [since] (a
+/// [LocalStore.stamp] the other phone already has), only events, timers and photos changed on
+/// this copy after it are included; the family and its children always are (they are small).
+Map<String, dynamic> exportFamily(LocalStore store, String familyId, {int since = 0}) {
   final f = store.families.firstWhere((f) => f['id'] == familyId);
   final kids = <String>{
     for (final c in (f['children'] as List? ?? [])) c['id'],
@@ -20,9 +22,11 @@ Map<String, dynamic> exportFamily(LocalStore store, String familyId) {
       if (d['family_id'] == familyId) d['id'],
   };
   int clock(String key) => store.clocks[key] ?? 0;
+  bool fresh(String key) => since == 0 || (store.stamps[key] ?? 0) > since;
   return {
     'v': 1,
     'family_id': familyId,
+    if (since > 0) 'since': since,
     'family': {for (final e in f.entries) if (e.key != 'children' && e.key != 'role') e.key: e.value},
     'family_clock': clock('f:$familyId'),
     'children': [
@@ -32,15 +36,15 @@ Map<String, dynamic> exportFamily(LocalStore store, String familyId) {
     ],
     'events': [
       for (final e in store.events.values)
-        if (kids.contains(e['child_id'])) {...e, '_clock': clock('e:${e['id']}')},
+        if (kids.contains(e['child_id']) && fresh('e:${e['id']}')) {...e, '_clock': clock('e:${e['id']}')},
     ],
     'timers': [
       for (final t in store.timers.values)
-        if (kids.contains(t.childId)) {...t.toJson(), '_clock': clock('t:${t.id}')},
+        if (kids.contains(t.childId) && fresh('t:${t.id}')) {...t.toJson(), '_clock': clock('t:${t.id}')},
     ],
     'photos': {
       for (final MapEntry(:key, :value) in store.photos.entries)
-        if (kids.contains(key)) key: {...value, '_clock': clock('p:$key')},
+        if (kids.contains(key) && fresh('p:$key')) key: {...value, '_clock': clock('p:$key')},
     },
   };
 }
@@ -56,6 +60,7 @@ bool mergeFamily(LocalStore store, Map<String, dynamic> snap) {
     final t = theirs is int ? theirs : 0;
     if (t <= mine) return false;
     store.clocks[key] = t;
+    store.touch(key);
     changed = true;
     return true;
   }
@@ -68,12 +73,13 @@ bool mergeFamily(LocalStore store, Map<String, dynamic> snap) {
     f = {...theirFamily, 'role': 'owner', 'members': <dynamic>[], 'children': <dynamic>[]};
     store.families.add(f);
     store.clocks['f:$familyId'] = snap['family_clock'] ?? 0;
+    store.touch('f:$familyId');
     changed = theirsNewer = true;
   } else if (newer('f:$familyId', snap['family_clock'], exists: true)) {
     theirsNewer = true;
   }
   if (theirsNewer) {
-    for (final k in ['name', 'timezone', 'created_at']) {
+    for (final k in ['name', 'timezone', 'created_at', 'drive_folder']) {
       f[k] = theirFamily[k];
     }
   }
@@ -82,6 +88,7 @@ bool mergeFamily(LocalStore store, Map<String, dynamic> snap) {
     final i = members.indexWhere((x) => x['user_id'] == m['user_id']);
     if (i < 0) {
       members.add(Map<String, dynamic>.from(m));
+      store.touch('f:$familyId');
       changed = true;
     } else if (theirsNewer) {
       members[i] = Map<String, dynamic>.from(m);
@@ -144,6 +151,7 @@ bool resolveTimerClashes(LocalStore store) {
     for (final t in list.skip(1)) {
       t.deleted = true;
       store.clocks['t:${t.id}'] = math.max(nowMs(), (store.clocks['t:${t.id}'] ?? 0) + 1);
+      store.touch('t:${t.id}');
       changed = true;
     }
   }

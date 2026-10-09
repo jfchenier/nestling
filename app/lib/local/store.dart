@@ -138,9 +138,25 @@ class LocalStore {
   /// Profile pictures in serverless mode: child id → `{version, type, data (base64)}`.
   final Map<String, Map<String, dynamic>> photos = {};
 
-  /// Serverless mode: settings of this device (pairing key, peers…), see `local/serverless.dart`.
+  /// Serverless mode: settings of this device (pairing key, peers…), see `local/peer_sync.dart`.
   Map<String, dynamic> serverless = {};
   int _seq = 0;
+
+  /// Serverless mode: when each record last changed *on this copy* (a counter, keyed like
+  /// [clocks]), whether changed here or merged in from another phone. Another phone that has
+  /// everything up to [stamp] only needs the records stamped after it. [replica] names this copy,
+  /// so a phone that starts over is sent everything again.
+  final Map<String, int> stamps = {};
+  int stamp = 0;
+  String replica = _newReplica();
+
+  static String _newReplica() {
+    final r = math.Random.secure();
+    return List.generate(12, (_) => r.nextInt(36).toRadixString(36)).join();
+  }
+
+  /// [key] changed on this copy (see [stamps]).
+  void touch(String key) => stamps[key] = ++stamp;
 
   Timer? _saveTimer;
 
@@ -196,6 +212,7 @@ class LocalStore {
     pending[key] = Pending(now, ++_seq);
     // Strictly increasing, so a change right after a merge still wins.
     clocks[key] = math.max(now, (clocks[key] ?? 0) + 1);
+    touch(key);
     save();
   }
 
@@ -270,6 +287,9 @@ class LocalStore {
     deletedChildren.clear();
     photos.clear();
     serverless = {};
+    stamps.clear();
+    stamp = 0;
+    replica = _newReplica();
     _saveTimer?.cancel();
     await _persist.delete(_key);
   }
@@ -306,6 +326,9 @@ class LocalStore {
     'deleted_children': deletedChildren,
     'photos': photos,
     'serverless': serverless,
+    'stamps': stamps,
+    'stamp': stamp,
+    'replica': replica,
   };
 
   void _fromJson(Map<String, dynamic> j) {
@@ -327,5 +350,12 @@ class LocalStore {
     (j['deleted_children'] as Map? ?? {}).forEach((k, v) => deletedChildren[k] = v);
     (j['photos'] as Map? ?? {}).forEach((k, v) => photos[k] = v);
     serverless = j['serverless'] ?? {};
+    (j['stamps'] as Map? ?? {}).forEach((k, v) => stamps[k] = v);
+    stamp = j['stamp'] ?? 0;
+    if (j['replica'] is String) replica = j['replica'];
+    // Saved before stamps existed: every record counts as changed once.
+    for (final key in clocks.keys) {
+      if (!stamps.containsKey(key)) touch(key);
+    }
   }
 }
