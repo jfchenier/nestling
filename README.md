@@ -27,7 +27,7 @@ One codebase ([`app/`](app/README.md)) for the browser and Android.
   screen and the timer keeps running (on Android, a notification shows it with a live clock).
 - **Quick forms** for bottles, solids, diapers (color, consistency, rash, blowout), growth,
   temperature, medicine (your recent ones first), vaccines, routines and baby's firsts.
-- **Timeline** of everything, grouped by day and filterable; tap any entry to edit it.
+- **Timeline** of everything, grouped by day and filterable; tap any entry to edit it. A summary counts each type for today or the last 24 hours.
 - **Calendar** with a column per day and a bar per entry: scroll back through weeks to see sleep
   and feeding patterns.
 - **Growth charts**: weight, length and head size on the WHO percentile curves (birth to 24

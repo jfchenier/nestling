@@ -115,6 +115,106 @@ pub fn range_ms(tz: Tz, from: NaiveDate, days: u32) -> (i64, i64) {
     (local_ms(tz, from, 0), local_ms(tz, from + Duration::days(days as i64), 0))
 }
 
+/// Totals behind the averages that a `DayStats` doesn't keep.
+#[derive(Default)]
+struct Extra {
+    nap_seconds: i64,
+    naps: u32,
+    bottle_ml: f64,
+    bottles: u32,
+}
+
+/// Stats for events starting in [w0, w1) (sleep: the part inside it). `daytimes` are the
+/// 06–18 intervals overlapping the window, for the day/night split and naps.
+fn window_stats(events: &[TrendEvent], date: NaiveDate, w0: i64, w1: i64, daytimes: &[(i64, i64)], now: i64) -> (DayStats, Extra) {
+    let mut day = DayStats {
+        date,
+        complete: w1 <= now,
+        feed: FeedStats::default(),
+        sleep: SleepStats::default(),
+        diaper: DiaperStats::default(),
+        pump: PumpStats::default(),
+    };
+    let mut extra = Extra::default();
+    for ev in events {
+        let starts_in = ev.start >= w0 && ev.start < w1;
+        let daytime = daytimes.iter().any(|&(a, b)| ev.start >= a && ev.start < b);
+        match &ev.details {
+            Details::Feed(f) if starts_in => {
+                day.feed.count += 1;
+                let breast = f.left_seconds.unwrap_or(0) as i64 + f.right_seconds.unwrap_or(0) as i64;
+                if matches!(f.method, FeedMethod::Breast | FeedMethod::Combo) {
+                    day.feed.breast_count += 1;
+                    day.feed.breast_seconds += breast;
+                }
+                if matches!(f.method, FeedMethod::Bottle | FeedMethod::Combo) {
+                    day.feed.bottle_count += 1;
+                    let ml = f.amount_ml.unwrap_or(0.0);
+                    day.feed.bottle_ml += ml;
+                    if ml > 0.0 {
+                        extra.bottle_ml += ml;
+                        extra.bottles += 1;
+                    }
+                }
+                if f.method == FeedMethod::Solids {
+                    day.feed.solids_count += 1;
+                }
+            }
+            Details::Sleep(_) => {
+                let end = ev.end.unwrap_or(ev.start).min(now.max(ev.start));
+                let total = overlap(ev.start, end, w0, w1);
+                let dayt: i64 = daytimes.iter().map(|&(a, b)| overlap(ev.start, end, a.max(w0), b.min(w1))).sum();
+                day.sleep.total_seconds += total / 1000;
+                day.sleep.day_seconds += dayt / 1000;
+                day.sleep.night_seconds += (total - dayt) / 1000;
+                if starts_in {
+                    let dur = (end - ev.start) / 1000;
+                    day.sleep.longest_seconds = day.sleep.longest_seconds.max(dur);
+                    if daytime {
+                        day.sleep.nap_count += 1;
+                        extra.nap_seconds += dur;
+                        extra.naps += 1;
+                    }
+                }
+            }
+            Details::Diaper(d) if starts_in => {
+                day.diaper.count += 1;
+                if d.wet {
+                    day.diaper.wet += 1;
+                }
+                if d.dirty {
+                    day.diaper.dirty += 1;
+                }
+                if daytime {
+                    day.diaper.day_count += 1;
+                } else {
+                    day.diaper.night_count += 1;
+                }
+            }
+            Details::Pump(p) if starts_in => {
+                day.pump.count += 1;
+                day.pump.total_ml += p.left_ml.unwrap_or(0.0) + p.right_ml.unwrap_or(0.0);
+                day.pump.total_seconds += ev.end.map(|e| (e - ev.start) / 1000).unwrap_or(0);
+            }
+            _ => {}
+        }
+    }
+    (day, extra)
+}
+
+/// The 24 hours up to `now` (rolling, not the calendar day). `date` is today's local date.
+pub fn last_24h(events: &[TrendEvent], tz: Tz, now: i64) -> DayStats {
+    let w0 = now - 24 * 3600 * 1000;
+    let today = tz.timestamp_millis_opt(now).single().map(|t| t.date_naive()).unwrap_or_default();
+    let daytimes: Vec<(i64, i64)> = [today - Duration::days(1), today]
+        .into_iter()
+        .map(|d| (local_ms(tz, d, DAY_START_HOUR), local_ms(tz, d, NIGHT_START_HOUR)))
+        .collect();
+    let (mut day, _) = window_stats(events, today, w0, now, &daytimes, now);
+    day.complete = false;
+    day
+}
+
 pub fn compute(events: &[TrendEvent], tz: Tz, from: NaiveDate, days: u32, now: i64) -> Trends {
     let mut out = Vec::with_capacity(days as usize);
     let mut nap_total = 0i64;
@@ -128,81 +228,14 @@ pub fn compute(events: &[TrendEvent], tz: Tz, from: NaiveDate, days: u32, now: i
         let date = from + Duration::days(i as i64);
         let d0 = local_ms(tz, date, 0);
         let d1 = local_ms(tz, date + Duration::days(1), 0);
-        let day0 = local_ms(tz, date, DAY_START_HOUR);
-        let day1 = local_ms(tz, date, NIGHT_START_HOUR);
-        let mut day = DayStats {
-            date,
-            complete: d1 <= now,
-            feed: FeedStats::default(),
-            sleep: SleepStats::default(),
-            diaper: DiaperStats::default(),
-            pump: PumpStats::default(),
-        };
-        for ev in events {
-            let starts_today = ev.start >= d0 && ev.start < d1;
-            let daytime = ev.start >= day0 && ev.start < day1;
-            match &ev.details {
-                Details::Feed(f) if starts_today => {
-                    day.feed.count += 1;
-                    let breast = f.left_seconds.unwrap_or(0) as i64 + f.right_seconds.unwrap_or(0) as i64;
-                    if matches!(f.method, FeedMethod::Breast | FeedMethod::Combo) {
-                        day.feed.breast_count += 1;
-                        day.feed.breast_seconds += breast;
-                        bf_total += breast;
-                        bf_n += 1;
-                    }
-                    if matches!(f.method, FeedMethod::Bottle | FeedMethod::Combo) {
-                        day.feed.bottle_count += 1;
-                        let ml = f.amount_ml.unwrap_or(0.0);
-                        day.feed.bottle_ml += ml;
-                        if ml > 0.0 {
-                            bottle_total += ml;
-                            bottle_n += 1;
-                        }
-                    }
-                    if f.method == FeedMethod::Solids {
-                        day.feed.solids_count += 1;
-                    }
-                }
-                Details::Sleep(_) => {
-                    let end = ev.end.unwrap_or(ev.start).min(now.max(ev.start));
-                    let total = overlap(ev.start, end, d0, d1);
-                    let dayt = overlap(ev.start, end, day0, day1);
-                    day.sleep.total_seconds += total / 1000;
-                    day.sleep.day_seconds += dayt / 1000;
-                    day.sleep.night_seconds += (total - dayt) / 1000;
-                    if starts_today {
-                        let dur = (end - ev.start) / 1000;
-                        day.sleep.longest_seconds = day.sleep.longest_seconds.max(dur);
-                        if daytime {
-                            day.sleep.nap_count += 1;
-                            nap_total += dur;
-                            nap_n += 1;
-                        }
-                    }
-                }
-                Details::Diaper(d) if starts_today => {
-                    day.diaper.count += 1;
-                    if d.wet {
-                        day.diaper.wet += 1;
-                    }
-                    if d.dirty {
-                        day.diaper.dirty += 1;
-                    }
-                    if daytime {
-                        day.diaper.day_count += 1;
-                    } else {
-                        day.diaper.night_count += 1;
-                    }
-                }
-                Details::Pump(p) if starts_today => {
-                    day.pump.count += 1;
-                    day.pump.total_ml += p.left_ml.unwrap_or(0.0) + p.right_ml.unwrap_or(0.0);
-                    day.pump.total_seconds += ev.end.map(|e| (e - ev.start) / 1000).unwrap_or(0);
-                }
-                _ => {}
-            }
-        }
+        let daytime = [(local_ms(tz, date, DAY_START_HOUR), local_ms(tz, date, NIGHT_START_HOUR))];
+        let (day, extra) = window_stats(events, date, d0, d1, &daytime, now);
+        nap_total += extra.nap_seconds;
+        nap_n += extra.naps;
+        bf_total += day.feed.breast_seconds;
+        bf_n += day.feed.breast_count;
+        bottle_total += extra.bottle_ml;
+        bottle_n += extra.bottles;
         out.push(day);
     }
 
@@ -268,6 +301,29 @@ mod tests {
 
     fn ms(tz: Tz, s: &str) -> i64 {
         crate::util::parse_time(s, tz).unwrap()
+    }
+
+    #[test]
+    fn last_24_hours_cross_midnight() {
+        let tz: Tz = "America/New_York".parse().unwrap();
+        let events = vec![
+            // Yesterday evening: inside the last 24 h, not "today".
+            TrendEvent { start: ms(tz, "2026-10-01T20:00"), end: None, details: Details::Diaper(Diaper { wet: true, ..Default::default() }) },
+            TrendEvent { start: ms(tz, "2026-10-01T22:00"), end: Some(ms(tz, "2026-10-02T04:00")), details: Details::Sleep(Sleep::default()) },
+            // More than 24 h ago: out.
+            TrendEvent { start: ms(tz, "2026-10-01T08:00"), end: None, details: Details::Diaper(Diaper { dirty: true, ..Default::default() }) },
+            // This morning: a nap, and a sleep still in progress counts up to now.
+            TrendEvent { start: ms(tz, "2026-10-02T07:00"), end: Some(ms(tz, "2026-10-02T08:00")), details: Details::Sleep(Sleep::default()) },
+        ];
+        let now = ms(tz, "2026-10-02T10:00");
+        let d = last_24h(&events, tz, now);
+        assert_eq!((d.diaper.count, d.diaper.wet, d.diaper.dirty), (1, 1, 0));
+        assert_eq!(d.sleep.total_seconds, 7 * 3600);
+        assert_eq!(d.sleep.night_seconds, 6 * 3600);
+        assert_eq!(d.sleep.day_seconds, 3600);
+        assert_eq!(d.sleep.nap_count, 1);
+        let today = compute(&events, tz, NaiveDate::from_ymd_opt(2026, 10, 2).unwrap(), 1, now);
+        assert_eq!(today.days[0].diaper.count, 0);
     }
 
     #[test]

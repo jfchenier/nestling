@@ -7,6 +7,7 @@ import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/event_tile.dart';
+import 'summary.dart';
 
 /// Everything logged for the child, newest first, grouped by day.
 class TimelineScreen extends StatefulWidget {
@@ -94,7 +95,13 @@ class _TimelineScreenState extends State<TimelineScreen> {
     }
 
     return Scaffold(
-      appBar: AppBar(title: Text('${s.child?.name ?? ''}’s timeline')),
+      appBar: AppBar(
+        title: Text('${s.child?.name ?? ''}’s timeline'),
+        actions: [
+          TextButton.icon(onPressed: () => showSummary(context), icon: const Icon(Icons.summarize_outlined), label: const Text('Summary')),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: Constrained(
         child: Column(
           children: [

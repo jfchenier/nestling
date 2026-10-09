@@ -37,7 +37,7 @@ activity color. Colors live in
   breastfeeding (manual), bottle, solids, sleep, diaper (wet/dirty/dry, color, consistency, rash,
   blowout), pump, growth, health (medicine, temperature, vaccine, symptom, appointment), activity,
   milestone, note. Tap any entry to edit or delete it.
-- **Timeline** — everything, grouped by day, filter by type, infinite scroll.
+- **Timeline** — everything, grouped by day, filter by type, infinite scroll; Summary sheet with counts per type (today / last 24 h).
 - **Running-timer notifications** (Android) — while a timer runs, an ongoing notification shows it
   with a live clock that Android keeps counting with the app closed; paused timers say so; it goes
   away when the timer is saved or deleted (`lib/timer_notifications.dart`). Asked for once on

@@ -136,7 +136,8 @@ Timer shape: `{id, child_id, kind, started_at, running, side, elapsed_seconds, l
   "last":  {"feed": {event}, "sleep": {event}, "diaper": {event}, "pump": null},
   "since": {"feed_seconds": 5400, "sleep_seconds": 3600, "diaper_seconds": 1200, "pump_seconds": null},
   "timers": [ … ],
-  "today": { day stats, see below }
+  "today": { day stats, see below },
+  "last_24h": { the same stats over the 24 hours up to now }
 }
 ```
 

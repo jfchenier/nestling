@@ -106,6 +106,8 @@ pub async fn summary(State(state): State<AppState>, user: AuthUser, Path(child_i
         "since": since,
         "timers": timers,
         "today": t.days.into_iter().next(),
+        // Rolling: the 24 hours up to now (what the home screen's totals show).
+        "last_24h": trends::last_24h(&events, ctx.tz, now),
     })))
 }
 

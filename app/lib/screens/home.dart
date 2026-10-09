@@ -36,7 +36,9 @@ class HomeScreen extends StatelessWidget {
                 _Header(child: s.child!, live: s.live),
                 const SizedBox(height: 16),
                 for (final t in s.timers) _TimerBanner(timer: t),
-                if (s.summary?['today'] is Map) _TodayStrip(today: s.summary!['today'], units: s.units),
+                // Rolling last 24 hours (older servers: the calendar day).
+                if ((s.summary?['last_24h'] ?? s.summary?['today']) case final Map<String, dynamic> stats)
+                  _TodayStrip(today: stats, units: s.units, rolling: s.summary?['last_24h'] != null),
                 _CardGrid(cards: _cards(context, s, history)),
                 const SizedBox(height: 8),
                 Center(
@@ -601,9 +603,12 @@ class ChildAvatar extends StatelessWidget {
 }
 
 class _TodayStrip extends StatelessWidget {
-  const _TodayStrip({required this.today, required this.units});
+  const _TodayStrip({required this.today, required this.units, required this.rolling});
   final Map<String, dynamic> today;
   final Units units;
+
+  /// Totals for the last 24 hours rather than the calendar day.
+  final bool rolling;
 
   @override
   Widget build(BuildContext context) {
@@ -649,10 +654,14 @@ class _TodayStrip extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          stat('${feed['count'] ?? 0}', 'feeds today', detail(feedDetail, Kind.breast)),
-          stat(duration(toInt(sleep['total_seconds']) ?? 0), 'sleep today', detail(sleepDetail, Kind.sleep)),
+          stat('${feed['count'] ?? 0}', rolling ? 'feeds in 24 h' : 'feeds today', detail(feedDetail, Kind.breast)),
+          stat(duration(toInt(sleep['total_seconds']) ?? 0), rolling ? 'sleep in 24 h' : 'sleep today', detail(sleepDetail, Kind.sleep)),
           // A diaper can be both wet and dirty.
-          stat('${diaper['count'] ?? 0}', 'diapers today', detail('${n(diaper, 'wet')} wet · ${n(diaper, 'dirty')} dirty', Kind.diaper)),
+          stat(
+            '${diaper['count'] ?? 0}',
+            rolling ? 'diapers in 24 h' : 'diapers today',
+            detail('${n(diaper, 'wet')} wet · ${n(diaper, 'dirty')} dirty', Kind.diaper),
+          ),
         ],
       ),
     );
