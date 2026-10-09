@@ -46,8 +46,11 @@ activity color. Colors live in
   QR code (AES-256-GCM). Phones find each other with a UDP announcement (port 47816) or their last
   address, and listen on port 47815. Phones that were apart catch up when they meet again. Google
   Drive keeps a daily backup in the app's private Drive folder (Family → Back up to Google Drive;
-  "Restore from Google Drive" when setting up a new phone). Not available without a server: Nara
-  import, CSV export, invites by code, API tokens, live updates across town. Pairing and Drive need
+  "Restore from Google Drive" when setting up a new phone). Family → Import from Nara reads Nara's
+  CSV export on the phone (`lib/local/nara_csv.dart`, a port of the server's `src/nara_csv.rs`;
+  event ids come from the family and Nara's id, so importing again updates and paired phones
+  agree). Not available without a server: signing in to Nara for an import, CSV export, invites by
+  code, API tokens, live updates across town. Pairing and Drive need
   the Android app; the web app can run serverless alone (saved in the browser).
 - **Times** use a 24-hour clock; date/time rows have separate day and time pills. Durations
   past 24 h read in days ("41d 11h").

@@ -129,6 +129,7 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - [x] Serverless mode (no server): data on the phone, QR pairing + encrypted Wi-Fi sync between
       phones (snapshot merge, last writer wins per record), daily Google Drive backup. Drive needs
       a Google OAuth client (`--dart-define=GOOGLE_SERVER_CLIENT_ID`, see app/README.md) — not
-      set up yet. Not yet tried on real phones. Nara CSV import isn't available serverless yet.
+      set up yet. Not yet tried on real phones. The Nara CSV import runs on the phone (`app/lib/local/nara_csv.dart`, a port
+      of `src/nara_csv.rs`: keep both in step); the Nara account import still needs a server.
 - [ ] Home-screen widgets.
 - [ ] Distribution: Play Store vs sideloading (undecided).

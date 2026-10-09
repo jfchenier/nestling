@@ -1,8 +1,11 @@
 import 'dart:convert';
 import 'dart:math' as math;
 
+import 'package:cryptography/dart.dart';
+
 import '../models.dart';
 import 'domain.dart';
+import 'nara_csv.dart';
 import 'store.dart';
 
 /// Answers the API's requests from the [LocalStore], with the server's rules, so the app works
@@ -35,6 +38,7 @@ class LocalEngine {
     ('GET|POST', RegExp(r'^/families/([^/]+)/children$')),
     ('PATCH|DELETE', RegExp(r'^/children/([^/]+)$')),
     ('PUT|DELETE', RegExp(r'^/children/([^/]+)/photo$')),
+    ('POST', RegExp(r'^/families/([^/]+)/import/nara-csv$')),
   ];
 
   /// Whether this request can be answered locally.
@@ -117,6 +121,8 @@ class LocalEngine {
           return putPhoto(id, body as List<int>, query?['content_type'] ?? 'image/png');
         case ('DELETE', ['children', final id, 'photo']):
           return deletePhoto(id);
+        case ('POST', ['families', final id, 'import', 'nara-csv']):
+          return importNaraCsv(id, body is List<int> ? body : const [], q);
       }
     }
     throw notFound('endpoint');
@@ -267,6 +273,139 @@ class LocalEngine {
     final data = store.photos[childId]?['data'];
     if (data is! String) throw notFound('photo');
     return base64Decode(data);
+  }
+
+  // ---- serverless: Nara import ----
+
+  /// `POST /families/{id}/import/nara-csv`, like the server: preview with `dry_run=true`, put
+  /// everything into `child_id` (or map `children=<nara key>:<child id>,…`), and match records
+  /// on their Nara id so importing the same file again updates instead of duplicating. The event
+  /// ids are derived from the family and the Nara id, so phones that import the same file agree.
+  Map<String, dynamic> importNaraCsv(String familyId, List<int> bytes, Map<String, String> q) {
+    final family = _family(familyId);
+    final text = utf8.decode(bytes, allowMalformed: true);
+    if (text.trim().isEmpty) throw badRequest('send the CSV file exported from the Nara app');
+    final NaraCsv csv;
+    try {
+      csv = parseNaraCsv(text);
+    } on FormatException catch (e) {
+      throw badRequest(e.message);
+    }
+    final records = validNaraRecords(csv);
+    final children = (family['children'] as List).cast<Map<String, dynamic>>();
+    final wanted = <String, String>{
+      for (final pair in (q['children'] ?? '').split(','))
+        if (pair.split(':') case [final k, final v]) k.trim(): v.trim(),
+    };
+    final childId = q['child_id'];
+    for (final target in [...wanted.values, ?childId]) {
+      if (!children.any((c) => c['id'] == target)) throw badRequest("child '$target' is not in this family");
+    }
+    final naraChildren = <String, int>{};
+    for (final r in records) {
+      naraChildren[r.childKey ?? ''] = (naraChildren[r.childKey ?? ''] ?? 0) + 1;
+    }
+    final keys = naraChildren.keys.toList()..sort();
+    final mapping = <String, String>{};
+    final toCreate = <String>[];
+    for (final key in keys) {
+      if (wanted[key] ?? childId case final target?) {
+        mapping[key] = target;
+      } else if (children.length == 1 && keys.length == 1) {
+        mapping[key] = children.first['id'];
+      } else if (children.isEmpty) {
+        toCreate.add(key);
+      } else {
+        final found = {for (final k in keys) csv.profiles[k]?.name == null ? k : '${csv.profiles[k]!.name} ($k)': naraChildren[k]};
+        throw badRequest(
+          'this family has several children; say where each Nara child goes with "children" (<nara child key>:<child id>) or "child_id". '
+          'Nara children found (with event counts): ${jsonEncode(found)}',
+        );
+      }
+    }
+    final byType = <String, int>{};
+    for (final r in records) {
+      byType[r.details['type']] = (byType[r.details['type']] ?? 0) + 1;
+    }
+    final sortedByType = {for (final k in byType.keys.toList()..sort()) k: byType[k]};
+    final sortedSkipped = {for (final k in csv.skipped.keys.toList()..sort()) k: csv.skipped[k]};
+    List<Map<String, dynamic>> childrenOut() => [
+      for (final k in keys)
+        {'key': k, 'name': csv.profiles[k]?.name, 'birth_date': csv.profiles[k]?.birthDate, 'events': naraChildren[k], 'child_id': mapping[k]},
+    ];
+    if (q['dry_run'] == 'true') {
+      final starts = records.map((r) => r.start);
+      return {
+        'dry_run': true,
+        'tracks': csv.rows,
+        'importable': records.length,
+        'by_type': sortedByType,
+        'skipped': sortedSkipped,
+        'nara_children': childrenOut(),
+        'children_to_create': toCreate.length,
+        'first_ms': starts.isEmpty ? null : starts.reduce(math.min),
+        'last_ms': starts.isEmpty ? null : starts.reduce(math.max),
+      };
+    }
+
+    final created = <Map<String, dynamic>>[];
+    for (final (i, key) in toCreate.indexed) {
+      final p = csv.profiles[key];
+      final name = p?.name ?? (toCreate.length == 1 ? 'Baby' : 'Baby ${i + 1}');
+      final c = createChild(familyId, {'name': name, 'birth_date': p?.birthDate, 'sex': p?.sex});
+      mapping[key] = c['id'];
+      created.add({'id': c['id'], 'name': name, 'nara_child_key': key});
+    }
+    // Fill in a birth date / sex the existing child doesn't have yet.
+    for (final MapEntry(:key, value: id) in mapping.entries) {
+      final p = csv.profiles[key];
+      final c = store.child(id);
+      if (p == null || c == null) continue;
+      final before = '${c['birth_date']}/${c['sex']}';
+      c['birth_date'] ??= p.birthDate;
+      c['sex'] ??= p.sex;
+      if ('${c['birth_date']}/${c['sex']}' != before) store.markChanged('c:$id');
+    }
+
+    var inserted = 0, updated = 0;
+    final now = nowMs();
+    for (final r in records) {
+      final id = naraEventId(familyId, r.sourceId);
+      final old = store.events[id];
+      old != null ? updated++ : inserted++;
+      store.events[id] = eventJson(
+        id: id,
+        childId: mapping[r.childKey ?? '']!,
+        details: normalizeDetails(r.details),
+        start: r.start,
+        end: r.end,
+        note: cleanNote(r.note),
+        createdBy: old?['created_by'] ?? _userId,
+        updatedBy: _userId,
+        createdAt: old?['created_at'] ?? fmt(now),
+        updatedAt: now,
+        source: 'nara',
+      );
+      store.markChanged('e:$id');
+    }
+    return {
+      'tracks': csv.rows,
+      'imported': inserted,
+      'updated': updated,
+      'by_type': sortedByType,
+      'skipped': sortedSkipped,
+      'nara_children': childrenOut(),
+      'children_created': created,
+    };
+  }
+
+  /// A stable event id for a Nara record in a family (UUID-shaped, from a SHA-256).
+  static String naraEventId(String familyId, String sourceId) {
+    final b = const DartSha256().hashSync(utf8.encode('nara\n$familyId\n$sourceId')).bytes.sublist(0, 16);
+    b[6] = 0x80 | (b[6] & 0x0f);
+    b[8] = 0x80 | (b[8] & 0x3f);
+    final hex = b.map((x) => x.toRadixString(16).padLeft(2, '0')).join();
+    return '${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-${hex.substring(16, 20)}-${hex.substring(20)}';
   }
 
   // ---- events ----

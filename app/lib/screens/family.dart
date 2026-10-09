@@ -130,7 +130,7 @@ class FamilyScreen extends StatelessWidget {
                     onTap: () => _editFamily(context, f),
                   ),
                   if (s.serverless) DriveBackupTile(drive: s.drive),
-                  if (!s.serverless) ListTile(
+                  ListTile(
                     leading: const Icon(Icons.cloud_download_outlined),
                     title: const Text('Import from Nara'),
                     subtitle: const Text('Bring over your Nara Baby history'),
@@ -421,7 +421,8 @@ class _NaraImportScreenState extends State<NaraImportScreen> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
-    final child = context.watch<AppState>().child;
+    final s = context.watch<AppState>();
+    final child = s.child;
     final muted = t.bodyMedium?.copyWith(color: context.pal.muted, height: 1.5);
     final canPreview = _source == _Source.csv ? _fileBytes != null : _email.text.isNotEmpty && _password.text.isNotEmpty;
     return Scaffold(
@@ -431,7 +432,8 @@ class _NaraImportScreenState extends State<NaraImportScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            SegmentedButton<_Source>(
+            // Signing in to Nara goes through the server; without one, the export file is the way.
+            if (!s.serverless) SegmentedButton<_Source>(
               segments: const [
                 ButtonSegment(value: _Source.csv, label: Text('Export file'), icon: Icon(Icons.description_outlined)),
                 ButtonSegment(value: _Source.account, label: Text('Nara account'), icon: Icon(Icons.login_rounded)),
@@ -443,7 +445,7 @@ class _NaraImportScreenState extends State<NaraImportScreen> {
                 _preview = _done = null;
               }),
             ),
-            const SizedBox(height: 20),
+            if (!s.serverless) const SizedBox(height: 20),
             if (_source == _Source.csv) ...[
               Text(
                 'Export your data from the Nara app (it gives you a .csv file), then pick that file here. '

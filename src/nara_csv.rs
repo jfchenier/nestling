@@ -1,5 +1,6 @@
 //! Nara Baby CSV export ("Export data" in the Nara app) converted to events. Also reads
 //! Nestling's own export (`csv_export`), which adds a few columns in the same style.
+//! The app has a Dart port for serverless mode (`app/lib/local/nara_csv.dart`); keep the two in step.
 //!
 //! One row per record. Common columns: `Type`, `Profile Name`, `Start Date/time (Epoch)` (ms),
 //! `Note`, `Time Zone`, `_profileKey`, `_activityKey` (the same `t-…` key as the live API, so
