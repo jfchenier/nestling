@@ -379,13 +379,31 @@ class AppState extends ChangeNotifier {
 
   /// Runs an API call, then refreshes the home data. Returns the call's result.
   Future<T> act<T>(Future<T> Function(Api api) call, {bool families = false}) async {
-    final result = await call(api!);
+    final T result;
+    try {
+      result = await call(api!);
+    } on ApiException catch (e) {
+      // Another caregiver changed it first (this screen was out of date): show what's there now.
+      if (e.status != 404 && e.status != 409) rethrow;
+      await refreshChild().catchError((_) {});
+      throw _explain(e);
+    }
     if (families) {
       await load();
     } else {
       await refreshChild();
     }
     return result;
+  }
+
+  /// A clearer message for a change that lost to another caregiver's.
+  static ApiException _explain(ApiException e) {
+    final message = switch (e.message) {
+      'timer not found' => 'This timer was already stopped on another phone. The screen is up to date now.',
+      final m when m.contains('timer is already running') => 'Someone already started this timer. It\'s shown now.',
+      _ => e.message,
+    };
+    return ApiException(e.code, message, e.status);
   }
 
   // ---- live updates ----
