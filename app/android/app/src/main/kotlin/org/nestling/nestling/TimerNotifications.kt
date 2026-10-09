@@ -25,7 +25,6 @@ import io.flutter.plugin.common.MethodChannel
  */
 class TimerNotifications(private val activity: Activity) : MethodChannel.MethodCallHandler {
     private val context: Context = activity.applicationContext
-    private val manager = context.getSystemService(NotificationManager::class.java)
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
@@ -43,7 +42,8 @@ class TimerNotifications(private val activity: Activity) : MethodChannel.MethodC
                 }
             }
             "show" -> {
-                show(
+                TimerNotice.show(
+                    context,
                     id = call.argument<Int>("id")!!,
                     title = call.argument<String>("title")!!,
                     body = call.argument<String>("body")!!,
@@ -55,7 +55,7 @@ class TimerNotifications(private val activity: Activity) : MethodChannel.MethodC
                 result.success(null)
             }
             "cancel" -> {
-                manager.cancel(call.argument<Int>("id")!!)
+                TimerNotice.cancel(context, call.argument<Int>("id")!!)
                 result.success(null)
             }
             else -> result.notImplemented()
@@ -71,7 +71,25 @@ class TimerNotifications(private val activity: Activity) : MethodChannel.MethodC
         pendingPermission = null
     }
 
-    private fun ensureChannel() {
+    companion object {
+        const val CHANNEL_NAME = "nestling/timer_notifications"
+        private const val PERMISSION_REQUEST = 7301
+    }
+}
+
+/**
+ * Posts the running-timer notification. Used for this phone's timers (from Dart) and for the
+ * ones another caregiver starts, sent by the server while the app may be closed ([PushService]).
+ */
+object TimerNotice {
+    private const val CHANNEL = "running_timers"
+    private val ACCENT = Color.rgb(0x3D, 0x7A, 0x6A)
+
+    fun cancel(context: Context, id: Int) {
+        context.getSystemService(NotificationManager::class.java).cancel(id)
+    }
+
+    private fun ensureChannel(manager: NotificationManager) {
         if (Build.VERSION.SDK_INT < 26 || manager.getNotificationChannel(CHANNEL) != null) return
         // Default importance keeps the icon in the status bar; no sound or vibration, and
         // onlyAlertOnce stops updates from buzzing. Promotion also needs more than "min".
@@ -87,8 +105,9 @@ class TimerNotifications(private val activity: Activity) : MethodChannel.MethodC
         manager.deleteNotificationChannel("timers")
     }
 
-    private fun show(id: Int, title: String, body: String, running: Boolean, startedAt: Long, chip: String?) {
-        ensureChannel()
+    fun show(context: Context, id: Int, title: String, body: String, running: Boolean, startedAt: Long, chip: String?) {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        ensureChannel(manager)
         val open = PendingIntent.getActivity(
             context,
             0,
@@ -130,11 +149,5 @@ class TimerNotifications(private val activity: Activity) : MethodChannel.MethodC
             // No notification permission: the timers keep working without the notification.
         }
     }
-
-    companion object {
-        const val CHANNEL_NAME = "nestling/timer_notifications"
-        private const val CHANNEL = "running_timers"
-        private const val PERMISSION_REQUEST = 7301
-        private val ACCENT = Color.rgb(0x3D, 0x7A, 0x6A)
-    }
 }
+

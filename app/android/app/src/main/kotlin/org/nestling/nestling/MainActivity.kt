@@ -13,6 +13,8 @@ class MainActivity : FlutterActivity() {
         timerNotifications = handler
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, TimerNotifications.CHANNEL_NAME)
             .setMethodCallHandler(handler)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, Push.CHANNEL_NAME)
+            .setMethodCallHandler(Push.Handler(applicationContext))
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {

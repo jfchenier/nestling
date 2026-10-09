@@ -12,6 +12,7 @@ use tower::ServiceExt;
 
 struct Client {
     app: Router,
+    db: sqlx::SqlitePool,
 }
 
 impl Client {
@@ -21,8 +22,12 @@ impl Client {
 
     async fn with_registration(open_registration: bool) -> Self {
         let db = connect("sqlite::memory:", 1).await.unwrap();
-        let state = AppState::new(db, Config { open_registration, nara: NaraConfig::default() });
-        Client { app: app(state, None) }
+        let state = AppState::new(db.clone(), Config { open_registration, nara: NaraConfig::default() });
+        Client { app: app(state, None), db }
+    }
+
+    fn db(&self) -> sqlx::SqlitePool {
+        self.db.clone()
     }
 
     async fn call(&self, method: Method, path: &str, token: Option<&str>, body: Option<Value>) -> (StatusCode, Value) {
@@ -695,4 +700,111 @@ async fn timer_started_by_one_caregiver_reaches_the_others_live() {
     let msg = next().await;
     assert!(msg.starts_with("event: change"), "{msg}");
     assert!(msg.contains(timer["id"].as_str().unwrap()), "{msg}");
+}
+
+/// A stand-in for Google's OAuth and FCM endpoints, recording the messages sent.
+async fn fake_fcm() -> (String, std::sync::Arc<std::sync::Mutex<Vec<Value>>>) {
+    use axum::{routing::post, Json};
+    let sent = std::sync::Arc::new(std::sync::Mutex::new(Vec::<Value>::new()));
+    let log = sent.clone();
+    let app = Router::new()
+        .route("/token", post(|| async { Json(json!({ "access_token": "fake", "expires_in": 3600 })) }))
+        .route(
+            "/v1/projects/{*rest}",
+            post(move |Json(body): Json<Value>| {
+                let log = log.clone();
+                async move {
+                    let gone = body["message"]["token"] == "uninstalled-phone";
+                    log.lock().unwrap().push(body);
+                    if gone {
+                        (StatusCode::NOT_FOUND, Json(json!({ "error": { "status": "NOT_FOUND", "details": [{ "errorCode": "UNREGISTERED" }] } })))
+                    } else {
+                        (StatusCode::OK, Json(json!({ "name": "projects/p/messages/1" })))
+                    }
+                }
+            }),
+        );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}", listener.local_addr().unwrap());
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    (url, sent)
+}
+
+#[tokio::test]
+async fn timer_changes_reach_registered_phones() {
+    use nestling::push::{Push, PushConfig, ServiceAccount};
+    // A throwaway signing key for the fake OAuth endpoint.
+    let key = std::process::Command::new("openssl")
+        .args(["genpkey", "-algorithm", "RSA", "-pkeyopt", "rsa_keygen_bits:2048"])
+        .output()
+        .expect("openssl is needed for this test");
+    let (fake, sent) = fake_fcm().await;
+    let db = connect("sqlite::memory:", 1).await.unwrap();
+    let state = AppState::new(db.clone(), Config { open_registration: true, nara: NaraConfig::default() }).with_push(Push::new(PushConfig {
+        account: ServiceAccount {
+            project_id: "p".into(),
+            client_email: "nestling@p.iam.gserviceaccount.com".into(),
+            private_key: String::from_utf8(key.stdout).unwrap(),
+            token_uri: format!("{fake}/token"),
+        },
+        app_id: "1:1234:android:abcd".into(),
+        api_key: "key".into(),
+        fcm_url: fake,
+    }));
+    let c = Client { app: app(state, None), db };
+    let mom = c.register("mom@example.com", "Mom").await;
+    let dad = c.register("dad@example.com", "Dad").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&mom), Some(json!({ "name": "Home", "timezone": "America/Toronto" }))).await;
+    let fid = fam["id"].as_str().unwrap().to_string();
+    let (_, child) = c
+        .call(Method::POST, &format!("/families/{fid}/children"), Some(&mom), Some(json!({ "name": "Léa", "birth_date": "2026-06-01" })))
+        .await;
+    let cid = child["id"].as_str().unwrap().to_string();
+    let (_, inv) = c.call(Method::POST, &format!("/families/{fid}/invites"), Some(&mom), None).await;
+    c.call(Method::POST, &format!("/invites/{}/accept", inv["code"].as_str().unwrap()), Some(&dad), None).await;
+
+    let (s, cfg) = c.call(Method::GET, "/push/config", Some(&dad), None).await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(cfg["android"]["sender_id"], "1234");
+    let (s, _) = c.call(Method::POST, "/me/push-devices", Some(&dad), Some(json!({ "token": "dads-phone" }))).await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    c.call(Method::POST, "/me/push-devices", Some(&dad), Some(json!({ "token": "uninstalled-phone" }))).await;
+
+    let wait_for = |n: usize| {
+        let sent = sent.clone();
+        async move {
+            for _ in 0..100 {
+                if sent.lock().unwrap().len() >= n {
+                    return sent.lock().unwrap().clone();
+                }
+                tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+            }
+            panic!("only {} messages sent", sent.lock().unwrap().len());
+        }
+    };
+
+    // Mom starts a sleep: Dad's phone shows it (the uninstalled one is forgotten).
+    let (_, timer) = c.call(Method::POST, &format!("/children/{cid}/timers"), Some(&mom), Some(json!({ "kind": "sleep" }))).await;
+    let msgs = wait_for(2).await;
+    let shown = msgs.iter().find(|m| m["message"]["token"] == "dads-phone").expect("sent to Dad's phone");
+    let data = &shown["message"]["data"];
+    assert_eq!(data["action"], "show");
+    assert_eq!(data["title"], "Léa · Sleeping");
+    assert!(data["body"].as_str().unwrap().starts_with("Since "), "{data}");
+    assert_eq!(data["id"], "2");
+    assert_eq!(shown["message"]["android"]["priority"], "high");
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    let (n,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM push_devices WHERE fcm_token = 'uninstalled-phone'").fetch_one(&c.db()).await.unwrap();
+    assert_eq!(n, 0);
+
+    // Mom stops it: the notification goes away.
+    c.call(Method::POST, &format!("/timers/{}/stop", timer["id"].as_str().unwrap()), Some(&mom), None).await;
+    let msgs = wait_for(3).await;
+    assert_eq!(msgs[2]["message"]["data"]["action"], "cancel");
+    assert_eq!(msgs[2]["message"]["data"]["id"], "2");
+
+    // Signing out stops the notifications to that phone.
+    c.call(Method::POST, "/auth/logout", Some(&dad), None).await;
+    let (n,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM push_devices").fetch_one(&c.db()).await.unwrap();
+    assert_eq!(n, 0);
 }

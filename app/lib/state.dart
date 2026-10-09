@@ -15,6 +15,7 @@ import 'local/engine.dart';
 import 'local/peer_sync.dart';
 import 'local/store.dart';
 import 'models.dart';
+import 'push.dart';
 import 'timer_notifications.dart';
 
 /// Default server: on the web the app is usually served by the Nestling server itself.
@@ -270,6 +271,7 @@ class AppState extends ChangeNotifier {
     if (forget) await store.clear();
     _stopStream();
     TimerNotifications.sync(const [], null);
+    await PushRegistration.unregister();
     await _prefs.remove('token');
     api = null;
     me = null;
@@ -305,6 +307,7 @@ class AppState extends ChangeNotifier {
       await refreshChild(notify: false);
       // Push anything logged offline last time, and bring the local copy up to date.
       unawaited(a.sync());
+      if (!serverless) unawaited(PushRegistration.register(a));
       if (serverless) {
         unawaited(peers?.start());
         unawaited(drive.backUpIfDue());

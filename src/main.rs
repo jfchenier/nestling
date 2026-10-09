@@ -48,7 +48,11 @@ async fn main() -> anyhow::Result<()> {
         return admin_command(&db, &args).await;
     }
 
-    let state = AppState::new(db, config);
+    let mut state = AppState::new(db, config);
+    if let Some(push) = nestling::push::PushConfig::from_env()? {
+        tracing::info!("notifications to phones are on (Firebase project {})", push.account.project_id);
+        state = state.with_push(nestling::push::Push::new(push));
+    }
     let listener = tokio::net::TcpListener::bind(&bind).await?;
     tracing::info!("Nestling listening on http://{bind} (database: {database_url})");
     axum::serve(listener, app(state, web_dir))

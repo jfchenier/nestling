@@ -31,6 +31,9 @@ Base URL: `http://<server>:8080/api/v1`. JSON in, JSON out.
 | `GET /me/tokens` | | sessions and API tokens |
 | `POST /me/tokens` | `{name}` | → `{id, name, token}` long-lived API token (Home Assistant, scripts) |
 | `DELETE /me/tokens/{id}` | | revoke |
+| `GET /push/config` | | `{enabled: false}`, or `{enabled: true, android: {api_key, app_id, project_id, sender_id}}`: the Firebase settings the Android app registers with |
+| `POST /me/push-devices` | `{token}` | this phone's Firebase token; it then gets a data message whenever a family timer starts, changes or stops (`{action: "show"\|"cancel", id, title, body, running, started_at, chip, seq}`). Forgotten when the session ends |
+| `DELETE /me/push-devices/{token}` | | stop notifications to that phone |
 
 ## Families and caregivers
 

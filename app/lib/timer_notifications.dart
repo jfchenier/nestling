@@ -14,7 +14,10 @@ class TimerNotifications {
 
   static const _channel = MethodChannel('nestling/timer_notifications');
   static bool _asked = false;
-  static final Set<int> _shown = {};
+
+  /// Starts with every id: notifications shown before this run (by the server's messages while
+  /// the app was closed) are removed on the first [sync] if their timer is gone.
+  static final Set<int> _shown = {1, 2, 3};
 
   static bool get _supported => !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
 
@@ -24,15 +27,22 @@ class TimerNotifications {
     _ => 3,
   };
 
+  /// Android 13+ asks once; the timers keep working without it.
+  static Future<void> askPermission() async {
+    if (!_supported || _asked) return;
+    _asked = true;
+    try {
+      await _channel.invokeMethod('requestPermission');
+    } catch (e) {
+      debugPrint('timer notifications: $e');
+    }
+  }
+
   /// Show one notification per running or paused timer of [childName], remove the others.
   static Future<void> sync(List<TimerModel> timers, String? childName) async {
     if (!_supported) return;
     try {
-      if (timers.isNotEmpty && !_asked) {
-        // Android 13+ asks once; the timers keep working without it.
-        _asked = true;
-        await _channel.invokeMethod('requestPermission');
-      }
+      if (timers.isNotEmpty) await askPermission();
       final keep = <int>{};
       for (final t in timers) {
         final id = _id(t.kind);

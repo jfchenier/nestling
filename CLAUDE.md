@@ -108,6 +108,10 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - [ ] Some times come back as epoch ms instead of RFC 3339 (invite `expires_at`, family
       `created_at`, `/me/tokens` dates). Pause→resume leaves a zero-length timer segment.
 - [ ] **OpenAPI spec** so the web and native clients can generate their API code.
+- [x] **Notifications on phones** (optional, Firebase): `src/push.rs` sends a data message per
+      timer change to every registered phone of the family; `android/…/Push.kt` shows it as the
+      running-timer notification with the app closed. Not tried on real phones yet. Texts are
+      made on the server in step with `app/lib/timer_notifications.dart`.
 - [ ] Optional: reminders ("no feed in 3 h"), photos on milestones, Home Assistant integration
       (`/children/{id}/summary` already works as a REST sensor).
 - Note: SSE behind a reverse proxy needs response buffering disabled (the stream sends `X-Accel-Buffering: no`,

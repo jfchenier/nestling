@@ -4,6 +4,7 @@ pub mod error;
 pub mod model;
 pub mod nara;
 pub mod nara_csv;
+pub mod push;
 pub mod routes;
 pub mod state;
 pub mod trends;

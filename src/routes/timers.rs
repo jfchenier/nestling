@@ -521,7 +521,7 @@ pub async fn stop(State(state): State<AppState>, user: AuthUser, Path(id): Path<
     .await?;
     tx.commit().await?;
     let event_json = get_row(&state.db, &event_id).await?.to_json(tz)?;
-    state.publish(&row.family_id, "timer", "deleted", json!({ "id": row.id, "child_id": row.child_id }));
+    state.publish(&row.family_id, "timer", "deleted", json!({ "id": row.id, "child_id": row.child_id, "kind": row.kind }));
     state.publish(&row.family_id, "event", "created", event_json.clone());
     Ok((StatusCode::CREATED, Json(event_json)))
 }
@@ -530,7 +530,7 @@ pub async fn stop(State(state): State<AppState>, user: AuthUser, Path(id): Path<
 pub async fn discard(State(state): State<AppState>, user: AuthUser, Path(id): Path<String>) -> AppResult<StatusCode> {
     let (row, _) = accessible(&state, &id, &user).await?;
     sqlx::query("DELETE FROM timers WHERE id = ?").bind(&row.id).execute(&state.db).await?;
-    state.publish(&row.family_id, "timer", "deleted", json!({ "id": row.id, "child_id": row.child_id }));
+    state.publish(&row.family_id, "timer", "deleted", json!({ "id": row.id, "child_id": row.child_id, "kind": row.kind }));
     Ok(StatusCode::NO_CONTENT)
 }
 

@@ -24,8 +24,10 @@ void main() {
     await TimerNotifications.sync([
       TimerModel({'kind': 'sleep', 'running': true, 'elapsed_seconds': 600, 'started_at': '2026-10-09T10:00:00Z'}),
     ], 'Léa');
-    expect(calls.map((c) => c.method), ['requestPermission', 'show']);
-    final args = calls.last.arguments as Map;
+    // The first sync also clears notifications left from before (the server's, app closed).
+    expect(calls.map((c) => c.method), ['requestPermission', 'show', 'cancel', 'cancel']);
+    expect([for (final c in calls.skip(2)) (c.arguments as Map)['id']], unorderedEquals([1, 3]));
+    final args = calls[1].arguments as Map;
     expect(args['id'], 2);
     expect(args['title'], 'Léa · Sleeping');
     expect(args['running'], true);
