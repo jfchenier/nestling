@@ -261,9 +261,19 @@ async fn timers() {
     assert_eq!(e["right_seconds"], 300);
     let (s, e) = c.call(Method::PATCH, &format!("/timers/{bid}"), Some(&t), Some(json!({ "start": "2999-01-01T00:00" }))).await;
     assert_eq!(s, StatusCode::BAD_REQUEST, "{e}");
+    // Moving the start 10 minutes earlier adds 10 minutes, though it's running.
+    let before = e_total(&c, &t, bid).await;
+    let earlier = chrono::DateTime::parse_from_rfc3339(c.call(Method::GET, &format!("/timers/{bid}"), Some(&t), None).await.1["started_at"].as_str().unwrap()).unwrap()
+        - chrono::Duration::minutes(10);
+    let (s, e) = c.call(Method::PATCH, &format!("/timers/{bid}"), Some(&t), Some(json!({ "start": earlier.to_rfc3339() }))).await;
+    assert_eq!(s, StatusCode::OK, "{e}");
+    let after = e["elapsed_seconds"].as_i64().unwrap();
+    assert!((before + 599..=before + 602).contains(&after), "{before} -> {after}");
+    assert_eq!(e["running"], true);
     let (s, ev) = c.call(Method::POST, &format!("/timers/{bid}/stop"), Some(&t), None).await;
     assert_eq!(s, StatusCode::CREATED, "{ev}");
-    assert_eq!(ev["right_seconds"], 300);
+    // The right side came first in time, so the earlier start went to it: 300 + 600 s.
+    assert_eq!(ev["right_seconds"], 900);
     assert!(ev["left_seconds"].as_i64().unwrap() >= 600);
 }
 
@@ -515,4 +525,8 @@ async fn csv_export_round_trip() {
     for (x, y) in a.iter().zip(b) {
         assert_eq!(strip(x), strip(y));
     }
+}
+
+async fn e_total(c: &Client, t: &str, id: &str) -> i64 {
+    c.call(Method::GET, &format!("/timers/{id}"), Some(t), None).await.1["elapsed_seconds"].as_i64().unwrap()
 }

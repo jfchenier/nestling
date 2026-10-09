@@ -293,20 +293,24 @@ pub async fn switch(State(state): State<AppState>, user: AuthUser, Path(id): Pat
     save(&state, &row, &segs, tz).await
 }
 
-/// Move the timer's start to `start`, keeping each segment's length. A running first segment
-/// ends now, so moving its start changes its length.
-fn set_start(segs: &mut [Segment], start: i64) {
-    let Some(old) = segs.iter().map(|s| s.start).min() else { return };
-    let delta = start - old;
-    for (i, s) in segs.iter_mut().enumerate() {
-        match s.end {
-            Some(e) => {
-                s.start += delta;
-                s.end = Some(e + delta);
-            }
-            None if i == 0 => s.start = start,
-            None => {}
+/// Move the timer's start to `start`: the first segment grows (earlier start) or shrinks (later
+/// start), so the total time changes by the same amount; the rest of the timer stays as it is.
+/// A later start can swallow whole segments. Fails if nothing would be left.
+fn set_start(segs: &mut Vec<Segment>, start: i64, now: i64) -> AppResult<()> {
+    segs.sort_by_key(|s| s.start);
+    let Some(first) = segs.first_mut() else { return Ok(()) };
+    if start <= first.start {
+        first.start = start;
+        return Ok(());
+    }
+    // Later start: drop what ends before it, cut the segment it falls in.
+    segs.retain(|s| s.end.unwrap_or(now) > start);
+    match segs.first_mut() {
+        Some(s) => {
+            s.start = s.start.max(start);
+            Ok(())
         }
+        None => bad("the start must be before the timer's last minute"),
     }
 }
 
@@ -383,7 +387,7 @@ pub async fn edit(State(state): State<AppState>, user: AuthUser, Path(id): Path<
         if start > now {
             return bad("a timer cannot start in the future");
         }
-        set_start(&mut segs, start);
+        set_start(&mut segs, start, now)?;
     }
     for (side, secs) in [(Some(Side::Left), req.left_seconds), (Some(Side::Right), req.right_seconds), (None, req.seconds)] {
         if let Some(secs) = secs {
@@ -546,10 +550,25 @@ mod tests {
         assert_eq!(side_seconds(&segs, now).2, 30);
         assert!(segs.last().unwrap().end.is_none());
 
-        // Moving the start keeps closed lengths.
+        // An earlier start adds time to the first segment (and the total).
         let mut segs = base.clone();
-        set_start(&mut segs, -50_000);
-        assert_eq!(side_seconds(&segs, now), (60, 30, 90));
+        set_start(&mut segs, -50_000, now).unwrap();
+        assert_eq!(side_seconds(&segs, now), (110, 30, 140));
         assert_eq!(segs[0].start, -50_000);
+        // A later one takes it away, across segments if needed.
+        let mut segs = base.clone();
+        set_start(&mut segs, 20_000, now).unwrap();
+        assert_eq!(side_seconds(&segs, now), (40, 30, 70));
+        let mut segs = base.clone();
+        set_start(&mut segs, 80_000, now).unwrap();
+        assert_eq!(side_seconds(&segs, now), (0, 20, 20));
+        assert_eq!(segs.len(), 1);
+        // Running alone: the clock simply restarts from the new start.
+        let mut segs = vec![seg(Side::Left, 50_000, None)];
+        set_start(&mut segs, 10_000, now).unwrap();
+        assert_eq!(side_seconds(&segs, now), (90, 0, 90));
+        // Paused timer: can't start after it ended.
+        let mut segs = vec![seg(Side::Left, 0, Some(60_000))];
+        assert!(set_start(&mut segs, 70_000, now).is_err());
     }
 }
