@@ -13,4 +13,10 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((r) => r.unregister()));
 }
 
-_flutter.loader.load();
+// tool/finish_web_build.sh moves assets/ and canvaskit/ into v/<hash>/ and fills this in, so a new
+// release never mixes in an old cached icon font or engine.
+const assetVersion = "__ASSET_VERSION__";
+const versioned = !assetVersion.startsWith("__");
+_flutter.loader.load({
+  config: versioned ? { assetBase: `v/${assetVersion}/`, canvasKitBaseUrl: `v/${assetVersion}/canvaskit/` } : {},
+});
