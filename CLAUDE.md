@@ -13,6 +13,11 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
   (sign-in, onboarding, invite/join, timers, forms, timeline, trends, live updates, imperial units).
   Android project is set up but **no APK has been built yet** (the cloud session had no Android SDK).
 
+## Working agreement
+
+- For change requests: change the code and test it (analyze, tests, browser check), then commit
+  and push. **Don't** start a GitHub release or redeploy Portainer unless JF asks for it.
+
 ## Decisions already made (don't revisit without asking)
 
 - Order of work: **server API first**, then a **web app (PWA)**, then a **native mobile app**.
