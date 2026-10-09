@@ -47,7 +47,7 @@ pub fn api() -> Router<AppState> {
         // Events
         .route("/events/{id}", get(events::get).patch(events::update).delete(events::delete))
         // Timers
-        .route("/timers/{id}", get(timers::get).delete(timers::discard))
+        .route("/timers/{id}", get(timers::get).patch(timers::edit).delete(timers::discard))
         .route("/timers/{id}/pause", post(timers::pause))
         .route("/timers/{id}/resume", post(timers::resume))
         .route("/timers/{id}/switch", post(timers::switch))

@@ -213,9 +213,39 @@ async fn timers() {
     // Sleep timer -> sleep event
     let (_, st) = c.call(Method::POST, &format!("/children/{cid}/timers"), Some(&t), Some(json!({ "kind": "sleep", "start": "now" }))).await;
     let sid = st["id"].as_str().unwrap();
+    let (s, e) = c.call(Method::PATCH, &format!("/timers/{sid}"), Some(&t), Some(json!({ "seconds": 1800 }))).await;
+    assert_eq!(s, StatusCode::OK, "{e}");
+    assert!((1800..=1801).contains(&e["elapsed_seconds"].as_i64().unwrap()), "{e}");
+    let (s, _) = c.call(Method::PATCH, &format!("/timers/{sid}"), Some(&t), Some(json!({ "left_seconds": 10 }))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let (_, pt) = c.call(Method::POST, &format!("/children/{cid}/timers"), Some(&t), Some(json!({ "kind": "pump" }))).await;
+    let pid = pt["id"].as_str().unwrap();
+    let (s, e) = c.call(Method::PATCH, &format!("/timers/{pid}"), Some(&t), Some(json!({ "seconds": 900 }))).await;
+    assert_eq!(s, StatusCode::OK, "{e}");
+    assert!((900..=901).contains(&e["left_seconds"].as_i64().unwrap()), "{e}");
+    let (s, _) = c.call(Method::DELETE, &format!("/timers/{pid}"), Some(&t), None).await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
     let (s, ev) = c.call(Method::POST, &format!("/timers/{sid}/stop"), Some(&t), None).await;
     assert_eq!(s, StatusCode::CREATED, "{ev}");
     assert_eq!(ev["type"], "sleep");
+
+    // Correct a running breastfeed: start time and the time on each side
+    let (_, bt) = c.call(Method::POST, &format!("/children/{cid}/timers"), Some(&t), Some(json!({ "kind": "breastfeed", "side": "left" }))).await;
+    let bid = bt["id"].as_str().unwrap();
+    let (s, e) = c
+        .call(Method::PATCH, &format!("/timers/{bid}"), Some(&t), Some(json!({ "left_seconds": 600, "right_seconds": 300 })))
+        .await;
+    assert_eq!(s, StatusCode::OK, "{e}");
+    assert_eq!(e["running"], true);
+    assert_eq!(e["side"], "left");
+    assert!((600..=601).contains(&e["left_seconds"].as_i64().unwrap()), "{e}");
+    assert_eq!(e["right_seconds"], 300);
+    let (s, e) = c.call(Method::PATCH, &format!("/timers/{bid}"), Some(&t), Some(json!({ "start": "2999-01-01T00:00" }))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{e}");
+    let (s, ev) = c.call(Method::POST, &format!("/timers/{bid}/stop"), Some(&t), None).await;
+    assert_eq!(s, StatusCode::CREATED, "{ev}");
+    assert_eq!(ev["right_seconds"], 300);
+    assert!(ev["left_seconds"].as_i64().unwrap() >= 600);
 }
 
 #[tokio::test]

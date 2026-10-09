@@ -22,8 +22,11 @@ Titles use [Libre Caslon Text](https://github.com/google/fonts/tree/main/ofl/lib
 - **Home** — a card per activity (Feed, Pump, Diaper, Sleep, Routine, Firsts, Growth, Health): the
   latest entry, a big value on the right ("next side", "dirty", "1h 06m"…), a round **+** to log
   another and "View history". Running timers show live in their card. Today's totals on top.
-- **Timers** — nursing (tap L/R to start, switch sides, pause), sleep (with location) and pump
-  (left/right/both, asks for amounts at the end). Shared live with every caregiver; "Ended earlier…" trims the end.
+- **Timers** — nursing (tap Left/Right to start, switch sides, pause), sleep (with location) and pump
+  (left/right/both, asks for amounts at the end). Shared live with every caregiver. While one runs you can
+  correct its start time and its time (per side for nursing, total for sleep/pump) with the pencils;
+  ✕ closes the page and the timer keeps running, **Save** stores it, **Delete** throws it away;
+  "Ended earlier…" trims the end.
 - **Forms** — nursing (manual), bottle, solids, sleep, diaper (wet/dirty/dry, color, consistency, rash,
   blowout), pump, growth, health (medicine, temperature, vaccine, symptom, appointment), activity,
   milestone, note. Tap any entry to edit or delete it.

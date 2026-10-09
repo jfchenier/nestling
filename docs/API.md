@@ -110,6 +110,7 @@ Stopping a timer saves it as an event.
 | `POST /timers/{id}/switch` | `{side?}` | change side; without a body flips left↔right; resumes if paused |
 | `POST /timers/{id}/pause` | | |
 | `POST /timers/{id}/resume` | `{side?}` | |
+| `PATCH /timers/{id}` | `{start?, left_seconds?, right_seconds?, seconds?}` | correct a timer: move its start (segment lengths kept), set the time on each side (breastfeed) or the total time (`seconds`, sleep and pump); it keeps running |
 | `POST /timers/{id}/stop` | `{end?, note?, left_ml?, right_ml?, location?}` | → `201` created event; `end` lets you trim ("fell asleep 5 min ago") |
 | `DELETE /timers/{id}` | | discard without saving |
 
