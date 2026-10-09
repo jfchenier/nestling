@@ -98,8 +98,18 @@ class _TimelineScreenState extends State<TimelineScreen> {
       appBar: AppBar(
         title: Text('${s.child?.name ?? ''}’s timeline'),
         actions: [
-          TextButton.icon(onPressed: () => showSummary(context), icon: const Icon(Icons.summarize_outlined), label: const Text('Summary')),
-          const SizedBox(width: 8),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: context.pal.accent,
+              foregroundColor: context.pal.onAccent,
+              textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+            ),
+            onPressed: () => showSummary(context),
+            icon: const Icon(Icons.bar_chart_rounded, size: 20),
+            label: const Text('Summary'),
+          ),
+          const SizedBox(width: 12),
         ],
       ),
       body: Constrained(

@@ -8,12 +8,26 @@ import '../theme.dart';
 import '../widgets/common.dart';
 
 /// Counts and totals per type of entry, for today or the last 24 hours.
-Future<void> showSummary(BuildContext context) => showModalBottomSheet(
+/// Opened from the timeline's top bar, so it slides down from the top and stays there.
+Future<void> showSummary(BuildContext context) => showGeneralDialog(
   context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  backgroundColor: context.pal.background,
-  builder: (_) => const _SummarySheet(),
+  barrierDismissible: true,
+  barrierLabel: 'Close summary',
+  barrierColor: Colors.black54,
+  transitionDuration: const Duration(milliseconds: 280),
+  pageBuilder: (context, _, _) => Align(
+    alignment: Alignment.topCenter,
+    child: Material(
+      color: context.pal.background,
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(28)),
+      clipBehavior: Clip.antiAlias,
+      child: const SafeArea(bottom: false, child: _SummarySheet()),
+    ),
+  ),
+  transitionBuilder: (context, animation, _, child) => SlideTransition(
+    position: Tween(begin: const Offset(0, -1), end: Offset.zero).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic)),
+    child: child,
+  ),
 );
 
 class _SummarySheet extends StatefulWidget {
@@ -60,7 +74,7 @@ class _SummarySheetState extends State<_SummarySheet> {
     ];
     final groups = _groups(events, u);
     return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.92),
+      constraints: BoxConstraints(maxWidth: 640, maxHeight: MediaQuery.sizeOf(context).height * 0.92),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
