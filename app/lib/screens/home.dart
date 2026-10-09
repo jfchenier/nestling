@@ -577,24 +577,39 @@ class _TodayStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final feed = today['feed'] as Map? ?? {}, sleep = today['sleep'] as Map? ?? {};
     final diaper = today['diaper'] as Map? ?? {};
-    Widget stat(String value, String label, [Widget? extra]) => Expanded(
+    Widget stat(String value, String label, Widget extra) => Expanded(
       child: Column(
         children: [
           Text(value, style: serifStyle(24)),
           const SizedBox(height: 2),
           Text(label, style: TextStyle(color: context.pal.muted, fontSize: 12)),
-          ?extra,
+          Padding(padding: const EdgeInsets.symmetric(horizontal: 6), child: extra),
         ],
       ),
     );
-    // Wet / dirty split under the diaper count (a diaper can be both).
-    final diaperSplit = Padding(
+    // A detail line under each total, in the activity's color.
+    Widget detail(String text, Kind kind) => Padding(
       padding: const EdgeInsets.only(top: 3),
-      child: Text(
-        '${toInt(diaper['wet']) ?? 0} wet · ${toInt(diaper['dirty']) ?? 0} dirty',
-        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Kind.diaper.on(context.pal)),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          text,
+          maxLines: 1,
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: kind.on(context.pal)),
+        ),
       ),
     );
+    int n(Map m, String k) => toInt(m[k]) ?? 0;
+    final solids = n(feed, 'solids_count');
+    final feedDetail = [
+      '${n(feed, 'breast_count')} breast',
+      units.volume(toDouble(feed['bottle_ml']) ?? 0),
+      if (solids > 0) '$solids solids',
+    ].join(' · ');
+    // Night sleep (18–06, as in Trends) and daytime naps; whichever there is.
+    final night = n(sleep, 'night_seconds'), naps = n(sleep, 'nap_count');
+    final sleepParts = [if (night > 0) '${duration(night)} night', if (naps > 0) naps == 1 ? '1 nap' : '$naps naps'];
+    final sleepDetail = sleepParts.isEmpty ? '0 naps' : sleepParts.join(' · ');
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -602,9 +617,10 @@ class _TodayStrip extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          stat('${feed['count'] ?? 0}', 'feeds today'),
-          stat(duration(toInt(sleep['total_seconds']) ?? 0), 'sleep today'),
-          stat('${diaper['count'] ?? 0}', 'diapers today', diaperSplit),
+          stat('${feed['count'] ?? 0}', 'feeds today', detail(feedDetail, Kind.breast)),
+          stat(duration(toInt(sleep['total_seconds']) ?? 0), 'sleep today', detail(sleepDetail, Kind.sleep)),
+          // A diaper can be both wet and dirty.
+          stat('${diaper['count'] ?? 0}', 'diapers today', detail('${n(diaper, 'wet')} wet · ${n(diaper, 'dirty')} dirty', Kind.diaper)),
         ],
       ),
     );
