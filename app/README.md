@@ -29,7 +29,7 @@ activity color. Colors live in
   (left/right/both, asks for amounts at the end). Shared live with every caregiver. While one runs you can
   correct its start time and its time (per side for breastfeeding, total for sleep/pump) with the pencils;
   ✕ closes the page and the timer keeps running, **Save** stores it, **Delete** throws it away;
-  "Ended earlier…" trims the end.
+  an End Time row ("Now" until set) saves it as ending earlier.
 - **Times** use a 24-hour clock; date/time rows have separate day and time pills. Durations
   past 24 h read in days ("41d 11h").
 - **Forms** — a sheet with the activity's icon and title, label/value rows and a big Save button

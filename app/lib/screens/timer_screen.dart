@@ -29,6 +29,9 @@ class _TimerScreenState extends State<TimerScreen> {
 
   /// Start time picked before the timer runs (null = now).
   DateTime? _startAt;
+
+  /// End time picked on a running timer (null = now); Save stops the timer at that time.
+  DateTime? _endAt;
   final _note = TextEditingController();
 
   Kind get kind => switch (widget.kind) {
@@ -68,13 +71,20 @@ class _TimerScreenState extends State<TimerScreen> {
     await _call((s) => s.act((api) => api.patch('/timers/${t.id}', {'start': formatTime(picked)})));
   }
 
+  /// Time on the timer, stopping at the picked end on a running timer.
+  int _total(TimerModel? t) {
+    final elapsed = t?.elapsed ?? 0;
+    if (t == null || !t.running || _endAt == null) return elapsed;
+    return (elapsed - DateTime.now().difference(_endAt!).inSeconds).clamp(0, elapsed);
+  }
+
   /// Pencil under a side (breastfeed) or on Total Time (sleep, pump): correct the time. Before
   /// anything runs, it creates the timer with that time and leaves it paused.
   Future<void> _editTime(TimerModel? t, [String? side]) async {
     final secs = switch (side) {
       'left' => t?.left ?? 0,
       'right' => t?.right ?? 0,
-      _ => t?.elapsed ?? 0,
+      _ => _total(t),
     };
     TextEditingController ctl(int v) =>
         TextEditingController(text: '$v')..selection = TextSelection(baseOffset: 0, extentOffset: '$v'.length);
@@ -122,6 +132,7 @@ class _TimerScreenState extends State<TimerScreen> {
     if (total == null || !mounted) return;
     final key = side == null ? 'seconds' : '${side}_seconds';
     if (t != null) {
+      setState(() => _endAt = null); // the corrected time runs up to now again
       await _call((s) => s.act((api) => api.patch('/timers/${t.id}', {key: total})));
       return;
     }
@@ -219,14 +230,13 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  /// Only asks for the time: a time later than now means yesterday.
-  Future<void> _stopEarlier(TimerModel t) async {
+  /// End Time row: a time later than now means yesterday (when only the time was picked).
+  void _editEnd(TimerModel t, DateTime picked) {
     final now = DateTime.now();
-    var end = await pickTime(context, now.subtract(const Duration(minutes: 5)));
-    if (end == null || !mounted) return;
-    if (end.isAfter(now)) end = end.subtract(const Duration(days: 1));
+    var end = picked;
+    if (end.isAfter(now)) end = _endAt == null ? end.subtract(const Duration(days: 1)) : now;
     if (!end.isAfter(t.startedAt)) return showMessage(context, 'The end must be after the start (${timeOfDay(t.startedAt)}).');
-    await _stop(t, end: end);
+    setState(() => _endAt = end);
   }
 
   Future<void> _delete(TimerModel t) async {
@@ -265,7 +275,7 @@ class _TimerScreenState extends State<TimerScreen> {
                 minimumSize: const Size(80, 40),
                 padding: const EdgeInsets.symmetric(horizontal: 20),
               ),
-              onPressed: _busy ? null : () => _stop(t),
+              onPressed: _busy ? null : () => _stop(t, end: _endAt),
               child: const Text('Save'),
             ),
             const SizedBox(width: 12),
@@ -282,7 +292,7 @@ class _TimerScreenState extends State<TimerScreen> {
                 _hint(s, t),
                 const SizedBox(height: 12),
                 Text(
-                  clock(t?.elapsed ?? 0),
+                  clock(_total(t)),
                   textAlign: TextAlign.center,
                   style: serifStyle(64, weight: FontWeight.w600).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                 ),
@@ -349,13 +359,6 @@ class _TimerScreenState extends State<TimerScreen> {
                   const SizedBox(height: 8),
                   Center(
                     child: TextButton(
-                      style: TextButton.styleFrom(textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                      onPressed: _busy ? null : () => _stopEarlier(t),
-                      child: Text(widget.kind == 'sleep' ? 'Woke up earlier…' : 'Ended earlier…'),
-                    ),
-                  ),
-                  Center(
-                    child: TextButton(
                       style: TextButton.styleFrom(
                         foregroundColor: c.danger,
                         textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
@@ -396,10 +399,11 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  /// Start Time (editable) and Total Time rows.
+  /// Start Time and End Time (editable) and Total Time rows.
   Widget _timeRows(TimerModel? t) {
     final c = context.pal;
     final start = t?.startedAt ?? _startAt;
+    final total = _total(t);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Column(
@@ -408,6 +412,11 @@ class _TimerScreenState extends State<TimerScreen> {
             label: widget.kind == 'sleep' ? 'Fell asleep' : 'Start Time',
             child: DateTimeValue(value: start, placeholder: 'Now', enabled: !_busy, onChanged: (v) => _editStart(t, v)),
           ),
+          if (t != null)
+            FormRow(
+              label: widget.kind == 'sleep' ? 'Woke up' : 'End Time',
+              child: DateTimeValue(value: _endAt, placeholder: 'Now', enabled: !_busy, onChanged: (v) => _editEnd(t, v)),
+            ),
           // Breastfeed time is the sum of the sides (edited with their pencils), so it's read-only.
           FormRow(
             label: 'Total Time',
@@ -416,7 +425,7 @@ class _TimerScreenState extends State<TimerScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  duration(t?.elapsed ?? 0, showSeconds: true),
+                  duration(total, showSeconds: true),
                   style: TextStyle(fontSize: 17, color: widget.kind == 'breastfeed' ? c.muted : c.ink),
                 ),
                 if (widget.kind != 'breastfeed') ...[
