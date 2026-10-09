@@ -51,7 +51,8 @@ to Home Assistant.
 - **Live updates** over Server-Sent Events, plus incremental `/sync` for offline clients.
 - **Daily statistics** (day/night split, naps, feed intervals) computed on the server, so every
   client shows the same numbers.
-- **History import** from a previous tracker's CSV export, with a preview before anything is saved.
+- **History import** from a previous tracker's CSV export, with a preview before anything is saved,
+  and **CSV export** of everything in the same layout (it imports back without losing anything).
 - **Home Assistant friendly.** Long-lived API tokens and a `/summary` endpoint for REST sensors.
 - **Serves the web app** at `/`, so one container is the whole install.
 
@@ -154,6 +155,11 @@ location /api/v1/families/ {
 The server sends a keep-alive every 15 s, so idle timeouts (Cloudflare's included) don't cut the
 stream. Don't let the proxy cache the web app's files: the server already sends the right cache
 headers, and every release gets new file URLs.
+
+### Exporting your data
+
+**Family → Settings → Export data** downloads everything for the family as a CSV file (one row
+per entry, readable in any spreadsheet). The same file imports back into Nestling.
 
 ### Bringing your history over
 

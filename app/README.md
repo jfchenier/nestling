@@ -46,7 +46,7 @@ activity color. Colors live in
   breastfeeding, pumping) and daily charts.
 - **Family** — babies (with a profile picture: tap a baby → Add a photo; cropped to a 512 px square
   before upload), caregivers, invite codes, join a family, units (metric/imperial), time zone,
-  history import from a previous tracker's CSV export (preview first), API token for Home
+  history import from a previous tracker's CSV export (preview first), CSV export of everything, API token for Home
   Assistant, change password, users (admins), sign out.
 
 Changes made by other caregivers appear within a second (Server-Sent Events from `/families/{id}/stream`;

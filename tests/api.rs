@@ -451,3 +451,68 @@ async fn child_photo() {
     let (s, _, _) = c.call_raw(Method::GET, &format!("/children/{cid}/photo"), &t, vec![]).await;
     assert_eq!(s, StatusCode::NOT_FOUND);
 }
+
+#[tokio::test]
+async fn csv_export_round_trip() {
+    let c = Client::new().await;
+    let t = c.register("export@example.com", "Ex").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&t), Some(json!({ "name": "Home", "timezone": "America/Toronto" }))).await;
+    let fid = fam["id"].as_str().unwrap();
+    let (_, child) = c
+        .call(Method::POST, &format!("/families/{fid}/children"), Some(&t), Some(json!({ "name": "Léa", "birth_date": "2026-06-12", "sex": "female" })))
+        .await;
+    let cid = child["id"].as_str().unwrap();
+    let entries = [
+        json!({ "type": "feed", "method": "breast", "left_seconds": 600, "right_seconds": 300, "start_side": "left", "start": "2026-10-01T08:00", "note": "sleepy" }),
+        json!({ "type": "feed", "method": "bottle", "amount_ml": 120, "milk": "formula", "formula_name": "Brand", "start": "2026-10-01T09:00" }),
+        json!({ "type": "feed", "method": "combo", "left_seconds": 300, "amount_ml": 60, "milk": "breast_milk", "start": "2026-10-01T10:00" }),
+        json!({ "type": "feed", "method": "solids", "foods": "Avocado", "start": "2026-10-01T11:00" }),
+        json!({ "type": "sleep", "start": "2026-10-01T12:00", "end": "2026-10-01T13:30", "location": "crib" }),
+        json!({ "type": "diaper", "wet": true, "dirty": true, "color": "yellow", "consistency": "mushy", "blowout": true, "start": "2026-10-01T14:00" }),
+        json!({ "type": "pump", "left_ml": 80, "right_ml": 70, "left_seconds": 600, "right_seconds": 600, "start": "2026-10-01T15:00" }),
+        json!({ "type": "growth", "weight_g": 5850, "length_cm": 60.5, "head_cm": 40.1, "start": "2026-10-01T16:00" }),
+        json!({ "type": "health", "kind": "medicine", "name": "Vitamin D", "dose": 1, "dose_unit": "drop", "start": "2026-10-01T17:00" }),
+        json!({ "type": "health", "kind": "temperature", "temperature_c": 37.8, "start": "2026-10-01T17:30" }),
+        json!({ "type": "health", "kind": "vaccine", "name": "Rotavirus", "start": "2026-10-01T18:00" }),
+        json!({ "type": "activity", "kind": "tummy_time", "start": "2026-10-01T19:00", "end": "2026-10-01T19:10" }),
+        json!({ "type": "milestone", "name": "First smile", "start": "2026-10-01T20:00" }),
+        json!({ "type": "note", "note": "Visited grandma", "start": "2026-10-01T21:00" }),
+    ];
+    for e in &entries {
+        let (s, b) = c.call(Method::POST, &format!("/children/{cid}/events"), Some(&t), Some(e.clone())).await;
+        assert_eq!(s, StatusCode::CREATED, "{e} -> {b}");
+    }
+
+    let (s, ct, body) = c.call_raw(Method::GET, &format!("/families/{fid}/export.csv"), &t, vec![]).await;
+    assert_eq!(s, StatusCode::OK);
+    assert!(ct.starts_with("text/csv"), "{ct}");
+    let csv = String::from_utf8(body).unwrap();
+    assert!(csv.starts_with("\u{feff}\"Type\",\"Profile Name\""), "{}", &csv[..80]);
+    assert!(csv.contains("\"Profile\",\"Léa\""));
+
+    // Import it into an empty family: same records, same values.
+    let (_, fam2) = c.call(Method::POST, "/families", Some(&t), Some(json!({ "name": "Copy", "timezone": "America/Toronto" }))).await;
+    let fid2 = fam2["id"].as_str().unwrap();
+    let (s, res) = c.call_csv(&format!("/families/{fid2}/import/nara-csv"), &t, &csv).await;
+    assert_eq!(s, StatusCode::OK, "{res}");
+    assert_eq!(res["imported"], entries.len(), "{res}");
+    assert_eq!(res["children_created"][0]["name"], "Léa");
+    let cid2 = res["children_created"][0]["id"].as_str().unwrap();
+    let (_, child2) = c.call(Method::GET, &format!("/children/{cid2}"), Some(&t), None).await;
+    assert_eq!((child2["birth_date"].as_str(), child2["sex"].as_str()), (Some("2026-06-12"), Some("female")));
+
+    let (_, a) = c.call(Method::GET, &format!("/children/{cid}/events?limit=100"), Some(&t), None).await;
+    let (_, b) = c.call(Method::GET, &format!("/children/{cid2}/events?limit=100"), Some(&t), None).await;
+    let strip = |v: &Value| {
+        let mut v = v.clone();
+        for k in ["id", "child_id", "created_at", "updated_at", "source", "created_by", "updated_by"] {
+            v.as_object_mut().unwrap().remove(k);
+        }
+        v
+    };
+    let (a, b) = (a["events"].as_array().unwrap(), b["events"].as_array().unwrap());
+    assert_eq!(a.len(), b.len());
+    for (x, y) in a.iter().zip(b) {
+        assert_eq!(strip(x), strip(y));
+    }
+}

@@ -1,4 +1,5 @@
-//! Nara Baby CSV export ("Export data" in the Nara app) converted to events.
+//! Nara Baby CSV export ("Export data" in the Nara app) converted to events. Also reads
+//! Nestling's own export (`csv_export`), which adds a few columns in the same style.
 //!
 //! One row per record. Common columns: `Type`, `Profile Name`, `Start Date/time (Epoch)` (ms),
 //! `Note`, `Time Zone`, `_profileKey`, `_activityKey` (the same `t-…` key as the live API, so
@@ -52,6 +53,9 @@ impl Row<'_> {
     fn qty(&self, col: &str) -> Option<(f64, String)> {
         let v = self.num(col).filter(|v| *v > 0.0)?;
         Some((v, self.get(&format!("{col} Unit")).unwrap_or("").to_uppercase()))
+    }
+    fn has_column(&self, col: &str) -> bool {
+        self.cols.contains_key(col)
     }
     fn json(&self, headers: &csv::StringRecord) -> Value {
         let mut m = Map::new();
@@ -158,6 +162,28 @@ fn time(row: &Row, epoch_col: &str, local_col: &str) -> Option<i64> {
     tz.from_local_datetime(&local).earliest().map(|t| t.timestamp_millis())
 }
 
+/// Bottle volume (mL) and milk type from the `[Bottle Feed]` columns.
+fn bottle_amount(row: &Row) -> (Option<f64>, Option<Milk>) {
+    let breast = row.qty("[Bottle Feed] Breast Milk Volume").map(to_ml);
+    let formula = row.qty("[Bottle Feed] Formula Volume").map(to_ml);
+    let total = row.qty("[Bottle Feed] Volume").map(to_ml);
+    let kind = row.get("[Bottle Feed] Type").unwrap_or("").to_lowercase();
+    let milk = match (breast.is_some(), formula.is_some()) {
+        (true, true) => Some(Milk::Mixed),
+        (true, false) => Some(Milk::BreastMilk),
+        (false, true) => Some(Milk::Formula),
+        _ if kind.contains("breast") && kind.contains("formula") => Some(Milk::Mixed),
+        _ if kind.contains("breast") => Some(Milk::BreastMilk),
+        _ if kind.contains("formula") => Some(Milk::Formula),
+        _ => None,
+    };
+    let amount = match (breast, formula) {
+        (None, None) => total,
+        (b, f) => Some(round(b.unwrap_or(0.0) + f.unwrap_or(0.0), 1)),
+    };
+    (amount, milk)
+}
+
 /// One row → one or more records (a medical row with a medicine and a temperature gives two).
 fn convert_row(row: &Row) -> Result<Vec<(String, Details, i64, Option<i64>)>, String> {
     let ty = row.get("Type").ok_or("missing Type")?;
@@ -185,24 +211,28 @@ fn convert_row(row: &Row) -> Result<Vec<(String, Details, i64, Option<i64>)>, St
                 end,
             )
         }
+        "combo feed" => {
+            // Nestling's own export: a breastfeed with a bottle top-up in one row.
+            let left = row.secs("[Breastfeed] Left Duration (Seconds)");
+            let right = row.secs("[Breastfeed] Right Duration (Seconds)");
+            let total = left.unwrap_or(0) + right.unwrap_or(0);
+            let (amount, milk) = bottle_amount(row);
+            one(
+                Details::Feed(Feed {
+                    method: FeedMethod::Combo,
+                    left_seconds: left,
+                    right_seconds: right,
+                    start_side: side(row.get("[Breastfeed] Begin Side")),
+                    amount_ml: amount,
+                    milk,
+                    formula_name: row.get("[Bottle Feed] Formula Name").map(String::from),
+                    foods: None,
+                }),
+                (total > 0).then(|| start + total as i64 * 1000),
+            )
+        }
         "bottle feed" => {
-            let breast = row.qty("[Bottle Feed] Breast Milk Volume").map(to_ml);
-            let formula = row.qty("[Bottle Feed] Formula Volume").map(to_ml);
-            let total = row.qty("[Bottle Feed] Volume").map(to_ml);
-            let kind = row.get("[Bottle Feed] Type").unwrap_or("").to_lowercase();
-            let milk = match (breast.is_some(), formula.is_some()) {
-                (true, true) => Some(Milk::Mixed),
-                (true, false) => Some(Milk::BreastMilk),
-                (false, true) => Some(Milk::Formula),
-                _ if kind.contains("breast") && kind.contains("formula") => Some(Milk::Mixed),
-                _ if kind.contains("breast") => Some(Milk::BreastMilk),
-                _ if kind.contains("formula") => Some(Milk::Formula),
-                _ => None,
-            };
-            let amount = match (breast, formula) {
-                (None, None) => total,
-                (b, f) => Some(round(b.unwrap_or(0.0) + f.unwrap_or(0.0), 1)),
-            };
+            let (amount, milk) = bottle_amount(row);
             one(
                 Details::Feed(Feed {
                     method: FeedMethod::Bottle,
@@ -253,7 +283,7 @@ fn convert_row(row: &Row) -> Result<Vec<(String, Details, i64, Option<i64>)>, St
                 .or_else(|| row.secs("[Sleep] Duration (Seconds)").map(|s| start + s as i64 * 1000))
                 .filter(|e| *e >= start)
                 .ok_or("sleep without an end")?;
-            one(Details::Sleep(Sleep::default()), Some(end))
+            one(Details::Sleep(Sleep { location: row.get("[Sleep] Location").map(String::from) }), Some(end))
         }
         "growth" => {
             let g = Growth {
@@ -273,7 +303,13 @@ fn convert_row(row: &Row) -> Result<Vec<(String, Details, i64, Option<i64>)>, St
                 let name = meds.lines().map(str::trim).filter(|l| !l.is_empty()).collect::<Vec<_>>().join(", ");
                 out.push((
                     id.clone(),
-                    Details::Health(Health { kind: HealthKind::Medicine, name: Some(name), dose: None, dose_unit: None, temperature_c: None }),
+                    Details::Health(Health {
+                        kind: HealthKind::Medicine,
+                        name: Some(name),
+                        dose: row.num("[Medical] Dose").filter(|d| *d > 0.0),
+                        dose_unit: row.get("[Medical] Dose Unit").map(String::from),
+                        temperature_c: None,
+                    }),
                     start,
                     None,
                 ));
@@ -288,10 +324,40 @@ fn convert_row(row: &Row) -> Result<Vec<(String, Details, i64, Option<i64>)>, St
                     None,
                 ));
             }
+            // Nestling's own columns.
+            for (col, kind, suffix) in [
+                ("[Medical] Vaccine", HealthKind::Vaccine, "vaccine"),
+                ("[Medical] Symptom", HealthKind::Symptom, "symptom"),
+                ("[Medical] Appointment", HealthKind::Appointment, "appointment"),
+            ] {
+                if let Some(name) = row.get(col) {
+                    let key = if out.is_empty() { id.clone() } else { format!("{id}#{suffix}") };
+                    out.push((
+                        key,
+                        Details::Health(Health { kind, name: Some(name.to_string()), dose: None, dose_unit: None, temperature_c: None }),
+                        start,
+                        None,
+                    ));
+                }
+            }
             if out.is_empty() {
                 return Err("empty medical record".into());
             }
             Ok(out)
+        }
+        "pump" => {
+            let p = Pump {
+                left_ml: row.qty("[Pump] Left Volume").map(to_ml),
+                right_ml: row.qty("[Pump] Right Volume").map(to_ml),
+                left_seconds: row.secs("[Pump] Left Duration (Seconds)"),
+                right_seconds: row.secs("[Pump] Right Duration (Seconds)"),
+            };
+            let secs = p.left_seconds.unwrap_or(0).max(p.right_seconds.unwrap_or(0));
+            one(Details::Pump(p), (secs > 0).then(|| start + secs as i64 * 1000))
+        }
+        "note" => {
+            row.get("Note").ok_or("empty note")?;
+            one(Details::Note(NoteDetails {}), None)
         }
         "routine" | "activity" => one(
             Details::Activity(Activity { kind: activity_kind(row.get("[Routine] Routine").unwrap_or("")) }),
@@ -337,7 +403,17 @@ pub fn parse(text: &str) -> Result<CsvImport, String> {
             continue;
         }
         match convert_row(&row) {
-            Ok(items) => {
+            Ok(mut items) => {
+                // Nestling's export states every end exactly (none included); trust it over
+                // the end implied by durations.
+                if row.has_column("End Date/time (Epoch)") {
+                    let end = time(&row, "End Date/time (Epoch)", "End Date/time");
+                    for item in &mut items {
+                        if !matches!(item.1, Details::Sleep(_)) || end.is_some() {
+                            item.3 = end;
+                        }
+                    }
+                }
                 let raw = row.json(&headers);
                 for (source_id, details, start_at, end_at) in items {
                     out.records.push((
@@ -450,8 +526,9 @@ mod tests {
         assert_eq!(find(&r, "t-noprofile").child_key.as_deref(), Some("c-1"));
 
         assert_eq!(r.skipped.get("empty medical record"), Some(&1));
-        assert_eq!(r.skipped.get("unsupported type: pump"), Some(&1));
-        assert_eq!(r.records.len(), 10);
+        // Pump rows are read too (amounts and durations come from Nestling's own export).
+        assert!(matches!(find(&r, "t-pump").details, Details::Pump(_)));
+        assert_eq!(r.records.len(), 11);
     }
 
     #[test]

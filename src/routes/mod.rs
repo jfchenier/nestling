@@ -6,6 +6,7 @@ pub mod import;
 pub mod insights;
 pub mod timers;
 pub mod admin;
+pub mod export;
 
 use axum::{
     extract::DefaultBodyLimit,
@@ -40,6 +41,7 @@ pub fn api() -> Router<AppState> {
         .route("/families/{id}/sync", get(events::sync))
         .route("/families/{id}/stream", get(insights::stream))
         // Imports can be large (a year of Nara history is several MB).
+        .route("/families/{id}/export.csv", get(export::export_csv))
         .route("/families/{id}/import/nara", post(import::import_nara).layer(DefaultBodyLimit::max(IMPORT_LIMIT)))
         .route("/families/{id}/import/nara-csv", post(import::import_nara_csv).layer(DefaultBodyLimit::max(IMPORT_LIMIT)))
         // Children

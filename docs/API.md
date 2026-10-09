@@ -171,6 +171,16 @@ Daily averages use complete days only.
   everything; with it, only events changed since, including deletions as `{"id", "deleted": true}`. Store `cursor`
   for next time.
 
+## Export
+
+`GET /families/{id}/export.csv` (any member) — everything for the family as CSV, one row per
+record plus a `Profile` row per child, in the same layout the CSV import below reads: `Type`,
+start time (local and epoch ms), caregiver names, note, time zone, `[<Type>] <field>` columns with
+their units (mL, kg, cm, °C) and the `_familyKey` / `_profileKey` / `_activityKey` ids. Extra
+columns carry what that layout has no place for (pumping, combo feeds, doses, vaccines,
+symptoms, appointments, sleep location, notes, exact `End Date/time`). Importing an export into
+another family recreates the same children and records.
+
 ## History import
 
 Brings over the history from the baby-tracking app a family used before. Two ways in; both preview

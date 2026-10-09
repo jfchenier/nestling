@@ -132,6 +132,12 @@ class FamilyScreen extends StatelessWidget {
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NaraImportScreen())),
                   ),
                   ListTile(
+                    leading: const Icon(Icons.file_download_outlined),
+                    title: const Text('Export data'),
+                    subtitle: const Text('Everything for this family as a CSV file'),
+                    onTap: () => _export(context, f),
+                  ),
+                  ListTile(
                     leading: const Icon(Icons.group_add_outlined),
                     title: const Text('Join another family'),
                     onTap: () => _join(context),
@@ -590,4 +596,15 @@ Future<void> _changePassword(BuildContext context) async {
   final s = context.read<AppState>();
   final res = await guard(context, () => s.api!.patch('/me', {'password': next.text, 'current_password': current.text}));
   if (res != null && context.mounted) showMessage(context, 'Password changed');
+}
+
+/// Download the family's data as CSV (same layout as the import reads, so it re-imports).
+Future<void> _export(BuildContext context, Family f) async {
+  final s = context.read<AppState>();
+  final bytes = await guard(context, () => s.api!.getBytes('/families/${f.id}/export.csv'));
+  if (bytes == null || !context.mounted) return;
+  final slug = f.name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), '');
+  final name = 'nestling-${slug.isEmpty ? 'export' : slug}-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.csv';
+  final saved = await guard(context, () => FilePicker.saveFile(fileName: name, bytes: bytes, mimeType: 'text/csv').then((_) => true));
+  if (saved == true && context.mounted) showMessage(context, 'Exported $name');
 }
