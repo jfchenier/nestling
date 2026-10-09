@@ -129,6 +129,9 @@ Notes:
   debug key.
 - The application id is `org.nestling.nestling` (`android/app/build.gradle.kts`). Change it **before**
   publishing to a store; it can't change afterwards.
+- Launcher icon: an adaptive icon (Android 8+) with a monochrome layer for Android 13+ themed
+  icons, drawn as vectors by `tool/android_icon.py` (edit the script and re-run it from `app/`).
+  The PNGs in `mipmap-*/` remain for older Android versions.
 - Plain `http://` servers on the home network are allowed (`usesCleartextTraffic`). Use HTTPS when
   the server is reachable from outside.
 
