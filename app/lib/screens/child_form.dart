@@ -170,7 +170,13 @@ class _ChildFormState extends State<_ChildForm> {
             TextButton(
               style: TextButton.styleFrom(foregroundColor: context.pal.danger),
               onPressed: () async {
-                if (!await confirm(context, 'Delete ${widget.child!.name}?', 'This deletes the baby and everything logged for them.')) {
+                if (!await confirmByTyping(
+                  context,
+                  'Delete ${widget.child!.name}?',
+                  'This permanently deletes ${widget.child!.name} and everything logged for them, for every caregiver. '
+                      'It can\'t be undone.',
+                  expected: widget.child!.name,
+                )) {
                   return;
                 }
                 if (!context.mounted) return;
