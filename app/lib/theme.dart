@@ -191,7 +191,7 @@ ThemeData buildTheme(AppColors c) {
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         side: c.isDark ? BorderSide.none : BorderSide(color: c.line),
       ),
     ),

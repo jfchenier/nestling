@@ -11,23 +11,27 @@ lilac (sleep), seafoam (routine), marigold (firsts), oat (growth), moss (health)
 baby blue. **Light and dark themes**: follows the system, or pick one under Family → Settings →
 Appearance (saved on the device).
 
-Titles use [Libre Caslon Text](https://github.com/google/fonts/tree/main/ofl/librecaslontext)
-(SIL Open Font License, `assets/fonts/OFL.txt`), bundled so the app works offline. Colors live in
+Text is the platform sans-serif (Roboto), titles and big numbers bold. Activities are shown as
+filled Material icons on a colored circle (`BlobIcon`); dark mode uses darker shades of each
+activity color. Colors live in
 `lib/theme.dart` (`AppColors.light` / `AppColors.dark`, read in widgets with `context.pal`; each
 `Kind` has a pastel and a deep tone for light backgrounds). Blob icons and form rows are in
 `lib/widgets/common.dart`.
 
 ## Screens
 
-- **Home** — a card per activity (Feed, Pump, Diaper, Sleep, Routine, Firsts, Growth, Health): the
-  latest entry, a big value on the right ("next side", "dirty", "1h 06m"…), a round **+** to log
-  another and "View history". Running timers show live in their card. Today's totals on top.
+- **Home** — running-timer banners, today's totals, then two cards per row in a fixed order
+  (Feed · Sleep / Diaper · Pump / Growth · Health / Routine · Firsts). Each card shows the latest
+  entry and a big value ("next side", "dirty", "1h 06m"…), or the live clock of a running timer.
+  **Tap a card to log** (Feed asks Nursing / Bottle / Solids / Combo); the clock icon in its header
+  opens its history. "Add a note" sits under the grid.
 - **Timers** — nursing (tap Left/Right to start, switch sides, pause), sleep (with location) and pump
   (left/right/both, asks for amounts at the end). Shared live with every caregiver. While one runs you can
   correct its start time and its time (per side for nursing, total for sleep/pump) with the pencils;
   ✕ closes the page and the timer keeps running, **Save** stores it, **Delete** throws it away;
   "Ended earlier…" trims the end.
-- **Forms** — nursing (manual), bottle, solids, sleep, diaper (wet/dirty/dry, color, consistency, rash,
+- **Forms** — a sheet with the activity's icon and title, label/value rows and a big Save button:
+  nursing (manual), bottle, solids, sleep, diaper (wet/dirty/dry, color, consistency, rash,
   blowout), pump, growth, health (medicine, temperature, vaccine, symptom, appointment), activity,
   milestone, note. Tap any entry to edit or delete it.
 - **Timeline** — everything, grouped by day, filter by type, infinite scroll.
