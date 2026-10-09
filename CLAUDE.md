@@ -54,7 +54,7 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
   `EventInput`/`EventOut`) + validation.
 - `src/routes/` — accounts, families (members, invites), children, events (CRUD, list, sync),
   timers (breastfeed/pump/sleep with segments; `PATCH` corrects start/durations; stop → event;
-  `POST /events/{id}/continue` turns a saved entry back into a running timer — the app's Continue button), insights (summary, trends, SSE
+  `POST /events/{id}/continue` turns a saved entry back into a running timer — the Continue button on an entry's edit sheet), insights (summary, trends, SSE
   stream), import (Nara).
 - `src/trends.rs` — pure daily stats (day/night split by the family's `day_start`/`day_end`, 06–18 local by
   default; app: Family → Day and night), sleep split at midnight; `previous` = the period before.

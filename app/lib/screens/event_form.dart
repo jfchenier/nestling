@@ -8,6 +8,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/date_time.dart';
 import '../widgets/medicine_picker.dart';
+import 'timer_screen.dart';
 
 /// Log a new event of [type] (feeds also take a [method]) or edit [event].
 Future<void> showEventForm(BuildContext context, {String? type, String? method, Event? event}) => showModalBottomSheet(
@@ -188,6 +189,43 @@ class _EventFormState extends State<EventForm> {
     if (ok != null) Navigator.pop(context);
   }
 
+  /// The timer this saved entry can be continued as (breastfeed, pump, sleep), when no timer of
+  /// that kind is running; null otherwise.
+  String? _continuable(AppState s) {
+    final kind = switch (widget.type) {
+      'feed' when _method == 'breast' => 'breastfeed',
+      'pump' => 'pump',
+      'sleep' => 'sleep',
+      _ => null,
+    };
+    if (e == null || kind == null || e!.childId != s.childId) return null;
+    return s.timers.any((t) => t.kind == kind) ? null : kind;
+  }
+
+  /// Continue: saves any edits, turns the entry back into a running timer and opens it.
+  Future<void> _continue(String kind) async {
+    if (widget.type == 'sleep' && _end == null) {
+      return showMessage(context, 'When did the sleep end?');
+    }
+    setState(() => _busy = true);
+    final s = context.read<AppState>();
+    final body = _body();
+    final ok = await guard(
+      context,
+      () => s.act((api) async {
+        final saved = Event(Map<String, dynamic>.from(await api.patch('/events/${e!.id}', body)));
+        await api.post('/events/${e!.id}/continue', {});
+        return saved;
+      }),
+    );
+    if (!mounted) return;
+    setState(() => _busy = false);
+    if (ok is! Event) return;
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    navigator.push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => TimerScreen(kind: kind, continued: ok)));
+  }
+
   Future<void> _delete() async {
     if (!await confirm(context, 'Delete this entry?', 'It will be removed for everyone in the family.')) return;
     if (!mounted) return;
@@ -256,10 +294,28 @@ class _EventFormState extends State<EventForm> {
                 top: false,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
-                  child: FilledButton(
-                    onPressed: _busy ? null : _save,
-                    style: FilledButton.styleFrom(backgroundColor: strong, foregroundColor: Colors.white),
-                    child: Text(e == null ? 'Save' : 'Save changes'),
+                  child: Row(
+                    children: [
+                      if (_continuable(context.watch<AppState>()) case final timer?) ...[
+                        OutlinedButton.icon(
+                          onPressed: _busy ? null : () => _continue(timer),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: k.on(c),
+                            side: BorderSide(color: k.on(c), width: 1.5),
+                          ),
+                          icon: const Icon(Icons.play_arrow_rounded),
+                          label: const Text('Continue'),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: _busy ? null : _save,
+                          style: FilledButton.styleFrom(backgroundColor: strong, foregroundColor: Colors.white),
+                          child: Text(e == null ? 'Save' : 'Save changes'),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),

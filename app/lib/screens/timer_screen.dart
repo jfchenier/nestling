@@ -12,11 +12,16 @@ import 'event_form.dart';
 
 /// Live timer for `breastfeed`, `sleep` or `pump`, shared with every caregiver.
 class TimerScreen extends StatefulWidget {
-  const TimerScreen({super.key, required this.kind});
+  const TimerScreen({super.key, required this.kind, this.continued});
   final String kind;
 
-  static Future<void> open(BuildContext context, String kind) =>
-      Navigator.of(context).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => TimerScreen(kind: kind)));
+  /// The saved entry this timer continues (Continue on its edit sheet): its note, sleep location
+  /// and pump amounts are kept here, since a timer doesn't store them.
+  final Event? continued;
+
+  static Future<void> open(BuildContext context, String kind, {Event? continued}) => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => TimerScreen(kind: kind, continued: continued)));
 
   @override
   State<TimerScreen> createState() => _TimerScreenState();
@@ -167,28 +172,17 @@ class _TimerScreenState extends State<TimerScreen> {
     return s.act((api) => api.post('/timers/${t.id}/resume', widget.kind == 'pump' ? {'side': _pumpSide} : {}));
   });
 
-  /// The last saved entry of this kind, which Continue turns back into a running timer.
-  Event? _last(AppState s) {
-    final last = s.summary?['last']?[widget.kind == 'breastfeed' ? 'feed' : widget.kind];
-    if (last is! Map<String, dynamic>) return null;
-    if (widget.kind == 'breastfeed' && last['method'] != 'breast') return null;
-    return Event(last);
-  }
-
   /// Pump amounts of a continued entry, offered again when it's saved.
-  Map<String, dynamic>? _pumped;
+  late final Map<String, dynamic>? _pumped = widget.kind == 'pump' && widget.continued != null
+      ? {'left_ml': widget.continued!.json['left_ml'], 'right_ml': widget.continued!.json['right_ml']}
+      : null;
 
-  void _continue(Event e) => _call((s) async {
-    await s.act((api) => api.post('/events/${e.id}/continue', {}));
-    if (!mounted) return;
-    // The timer has no note, location or amounts: keep the entry's on this screen.
-    setState(() {
-      if (_note.text.trim().isEmpty && e.note != null) _note.text = e.note!;
-      _location ??= e.json['location'] as String?;
-      if (widget.kind == 'pump') _pumped = {'left_ml': e.json['left_ml'], 'right_ml': e.json['right_ml']};
-      _endAt = null;
-    });
-  });
+  @override
+  void initState() {
+    super.initState();
+    _note.text = widget.continued?.note ?? '';
+    _location = widget.continued?.json['location'] as String?;
+  }
 
   Future<void> _stop(TimerModel t, {DateTime? end}) async {
     final body = <String, dynamic>{if (end != null) 'end': formatTime(end)};
@@ -365,8 +359,6 @@ class _TimerScreenState extends State<TimerScreen> {
                     ),
                   ],
                 ],
-                if (t == null)
-                  if (_last(s) case final last?) ...[const SizedBox(height: 24), _continueButton(last)],
                 const SizedBox(height: 24),
                 _timeRows(t),
                 const SizedBox(height: 16),
@@ -425,44 +417,6 @@ class _TimerScreenState extends State<TimerScreen> {
     return SizedBox(
       height: 48,
       child: hint == null ? null : Text(hint, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, height: 1.4)),
-    );
-  }
-
-  /// Continue: shown when no timer of this kind runs and there's a saved entry to pick up.
-  Widget _continueButton(Event e) {
-    final c = context.pal;
-    final what = switch (widget.kind) {
-      'sleep' => 'sleep',
-      'pump' => 'pump',
-      _ => 'feed',
-    };
-    final ended = e.end ?? e.start;
-    final timed = switch (widget.kind) {
-      'sleep' => e.durationSeconds ?? 0,
-      'pump' => [toInt(e.json['left_seconds']) ?? 0, toInt(e.json['right_seconds']) ?? 0].reduce((a, b) => a > b ? a : b),
-      _ => (toInt(e.json['left_seconds']) ?? 0) + (toInt(e.json['right_seconds']) ?? 0),
-    };
-    return Center(
-      child: Column(
-        children: [
-          OutlinedButton.icon(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: kind.on(c),
-              side: BorderSide(color: kind.on(c), width: 1.5),
-              minimumSize: const Size(220, 48),
-              textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
-            ),
-            onPressed: _busy ? null : () => _continue(e),
-            icon: const Icon(Icons.replay_rounded),
-            label: Text('Continue last $what'),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '${duration(timed, showSeconds: timed < 3600)} · ended ${ago(DateTime.now().difference(ended).inSeconds)}',
-            style: TextStyle(color: c.muted, fontSize: 14),
-          ),
-        ],
-      ),
     );
   }
 
