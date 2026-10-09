@@ -1,10 +1,9 @@
 # Portainer stack (Stacks -> Add stack -> Web editor) for nestling.example.com.
+# Works as a Swarm stack or a plain Compose stack.
 # Nginx Proxy Manager forwards https://nestling.example.com to http://<server>:8383.
 services:
   nestling:
     image: ghcr.io/jfchenier/nestling:latest
-    container_name: nestling
-    restart: unless-stopped
     ports:
       - "8383:8080"
     volumes:
@@ -13,6 +12,10 @@ services:
       # Set to "false" once you and your caregivers have created accounts, then redeploy.
       NESTLING_OPEN_REGISTRATION: "true"
       RUST_LOG: "nestling=info,tower_http=info"
+    restart: unless-stopped # plain Compose
+    deploy: # Swarm
+      restart_policy:
+        condition: any
 
 volumes:
   nestling-data:
