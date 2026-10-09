@@ -89,6 +89,7 @@ PWA ("Add to Home screen" / "Install app").
 
   ```bash
   git tag v0.2.0 && git push origin v0.2.0
+  # or: Actions → Release → Run workflow, version = 0.2.0
   ```
 
   The version comes from the tag (`0.2.0`), the build number from the run number. Tags with a `-`
