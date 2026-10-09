@@ -176,26 +176,32 @@ class _AverageGrid extends StatelessWidget {
             SizedBox(
               width: w,
               child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Same colored band as the home cards.
+                    Container(
+                      color: k.fill(context.pal),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                      child: Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: context.pal.bandInk, fontWeight: FontWeight.w700, fontSize: 14),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(k.icon, size: 16, color: k.on(context.pal)),
-                          const SizedBox(width: 6),
-                          Text(
-                            title,
-                            style: TextStyle(color: k.on(context.pal), fontWeight: FontWeight.w700, fontSize: 13),
-                          ),
+                          Text(value, style: serifStyle(24)),
+                          Text(sub, style: TextStyle(color: context.pal.muted, fontSize: 13)),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
-                      Text(sub, style: TextStyle(color: context.pal.muted, fontSize: 12)),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),

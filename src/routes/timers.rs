@@ -93,7 +93,7 @@ impl TimerRow {
         let now = now_ms();
         let running = segs.last().is_some_and(|s| s.end.is_none());
         let (left, right, total) = side_seconds(&segs, now);
-        let started_at = segs.first().map(|s| s.start).unwrap_or(self.created_at);
+        let started_at = segs.iter().map(|s| s.start).min().unwrap_or(self.created_at);
         let mut v = json!({
             "id": self.id,
             "child_id": self.child_id,
@@ -293,6 +293,106 @@ pub async fn switch(State(state): State<AppState>, user: AuthUser, Path(id): Pat
     save(&state, &row, &segs, tz).await
 }
 
+/// Move the timer's start to `start`, keeping each segment's length. A running first segment
+/// ends now, so moving its start changes its length.
+fn set_start(segs: &mut [Segment], start: i64) {
+    let Some(old) = segs.iter().map(|s| s.start).min() else { return };
+    let delta = start - old;
+    for (i, s) in segs.iter_mut().enumerate() {
+        match s.end {
+            Some(e) => {
+                s.start += delta;
+                s.end = Some(e + delta);
+            }
+            None if i == 0 => s.start = start,
+            None => {}
+        }
+    }
+}
+
+/// Make the time spent on `side` (`None`: every segment, i.e. the total) add up to `target` ms by
+/// growing or shrinking the latest matching segments (a running segment grows backwards, a closed one forwards). Segments may
+/// overlap afterwards; only their lengths matter.
+fn set_side(segs: &mut Vec<Segment>, side: Option<Side>, target: i64, now: i64) {
+    let len = |s: &Segment| s.end.unwrap_or(now) - s.start;
+    let matches = |s: &Segment| side.is_none() || s.side == side;
+    let mut delta = target - segs.iter().filter(|s| matches(s)).map(len).sum::<i64>();
+    for s in segs.iter_mut().rev().filter(|s| matches(s)) {
+        if delta == 0 {
+            break;
+        }
+        let change = delta.max(-len(s));
+        match s.end {
+            None => s.start -= change,
+            Some(e) => s.end = Some(e + change),
+        }
+        delta -= change;
+    }
+    if delta > 0 {
+        // This side was never used: add a closed segment just before the running one, or after the last.
+        match segs.last() {
+            Some(last) if last.end.is_none() => {
+                let at = last.start;
+                segs.insert(segs.len() - 1, Segment { side, start: at - delta, end: Some(at) });
+            }
+            last => {
+                let at = last.and_then(|l| l.end).unwrap_or(now);
+                segs.push(Segment { side, start: at, end: Some(at + delta) });
+            }
+        }
+    }
+    // Nothing may end in the future: pull the closed segments back if needed.
+    let over = segs.iter().filter_map(|s| s.end).max().unwrap_or(now) - now;
+    if over > 0 {
+        for s in segs.iter_mut().filter(|s| s.end.is_some()) {
+            s.start -= over;
+            s.end = s.end.map(|e| e - over);
+        }
+    }
+}
+
+#[derive(Deserialize)]
+pub struct EditReq {
+    #[serde(default)]
+    start: Option<String>,
+    #[serde(default)]
+    left_seconds: Option<u32>,
+    #[serde(default)]
+    right_seconds: Option<u32>,
+    /// Sleep / pump: total time.
+    #[serde(default)]
+    seconds: Option<u32>,
+}
+
+/// Correct a timer: its start time, the time on each side (breastfeed) or the total time (sleep, pump).
+pub async fn edit(State(state): State<AppState>, user: AuthUser, Path(id): Path<String>, ApiJson(req): ApiJson<EditReq>) -> AppResult<Json<Value>> {
+    let (row, tz) = accessible(&state, &id, &user).await?;
+    let kind = TimerKind::parse(&row.kind)?;
+    if kind != TimerKind::Breastfeed && (req.left_seconds.is_some() || req.right_seconds.is_some()) {
+        return bad("left_seconds / right_seconds can only be set on a breastfeed timer");
+    }
+    if kind == TimerKind::Breastfeed && req.seconds.is_some() {
+        return bad("set left_seconds / right_seconds on a breastfeed timer");
+    }
+    if [req.left_seconds, req.right_seconds, req.seconds].iter().flatten().any(|&s| s > 12 * 3600) {
+        return bad("a timer cannot be set to more than 12 hours");
+    }
+    let now = now_ms();
+    let mut segs = row.segs()?;
+    if let Some(start) = parse_opt_time(&req.start, tz)? {
+        if start > now {
+            return bad("a timer cannot start in the future");
+        }
+        set_start(&mut segs, start);
+    }
+    for (side, secs) in [(Some(Side::Left), req.left_seconds), (Some(Side::Right), req.right_seconds), (None, req.seconds)] {
+        if let Some(secs) = secs {
+            set_side(&mut segs, side, i64::from(secs) * 1000, now);
+        }
+    }
+    save(&state, &row, &segs, tz).await
+}
+
 #[derive(Deserialize, Default)]
 pub struct StopReq {
     /// Override the end time (e.g. "fell asleep on the breast 5 minutes ago").
@@ -329,14 +429,14 @@ pub async fn stop(State(state): State<AppState>, user: AuthUser, Path(id): Path<
             last.end = Some(now);
         }
     }
-    let first_start = segs.first().map(|s| s.start);
+    let first_start = segs.iter().map(|s| s.start).min();
     segs.retain(|s| Some(s.start) == first_start || s.start < end);
     for s in segs.iter_mut() {
         if s.end.unwrap_or(now) > end {
             s.end = Some(end.max(s.start));
         }
     }
-    let start = segs.first().map(|s| s.start).unwrap_or(row.created_at);
+    let start = segs.iter().map(|s| s.start).min().unwrap_or(row.created_at);
     if end < start {
         return bad("end must be after the timer started");
     }
@@ -405,5 +505,51 @@ mod tests {
             Segment { side: Some(Side::Both), start: 150_000, end: None },
         ];
         assert_eq!(side_seconds(&segs, 160_000), (70, 70, 130));
+    }
+
+    fn seg(side: Side, start: i64, end: Option<i64>) -> Segment {
+        Segment { side: Some(side), start, end }
+    }
+
+    #[test]
+    fn edits_sides() {
+        // Left 60 s, then right running for 30 s.
+        let base = vec![seg(Side::Left, 0, Some(60_000)), seg(Side::Right, 70_000, None)];
+        let now = 100_000;
+
+        let mut segs = base.clone();
+        set_side(&mut segs, Some(Side::Right), 300_000, now);
+        assert_eq!(side_seconds(&segs, now), (60, 300, 360));
+        assert!(segs[1].end.is_none(), "still running");
+
+        let mut segs = base.clone();
+        set_side(&mut segs, Some(Side::Left), 120_000, now);
+        assert_eq!(side_seconds(&segs, now).0, 120);
+        assert!(segs.iter().filter_map(|s| s.end).all(|e| e <= now));
+
+        let mut segs = base.clone();
+        set_side(&mut segs, Some(Side::Left), 0, now);
+        assert_eq!(side_seconds(&segs, now), (0, 30, 30));
+
+        // A side never used gets its own segment, before the running one.
+        let mut segs = vec![seg(Side::Left, 0, None)];
+        set_side(&mut segs, Some(Side::Right), 20_000, now);
+        assert_eq!(side_seconds(&segs, now), (100, 20, 120));
+        assert_eq!(segs.last().unwrap().side, Some(Side::Left));
+
+        // Total time (sleep has no sides; pump segments may be both-sided).
+        let mut segs = vec![Segment { side: None, start: 50_000, end: None }];
+        set_side(&mut segs, None, 3_600_000, now);
+        assert_eq!(side_seconds(&segs, now).2, 3600);
+        let mut segs = vec![seg(Side::Both, 0, Some(40_000)), seg(Side::Left, 60_000, None)];
+        set_side(&mut segs, None, 30_000, now);
+        assert_eq!(side_seconds(&segs, now).2, 30);
+        assert!(segs.last().unwrap().end.is_none());
+
+        // Moving the start keeps closed lengths.
+        let mut segs = base.clone();
+        set_start(&mut segs, -50_000);
+        assert_eq!(side_seconds(&segs, now), (60, 30, 90));
+        assert_eq!(segs[0].start, -50_000);
     }
 }

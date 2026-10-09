@@ -196,47 +196,78 @@ class _EventFormState extends State<EventForm> {
   }
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      SheetHeader(title: _title, color: kind.color, onSave: _busy ? null : _save),
-      Expanded(
-        child: Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
-          child: Constrained(
-            child: ListView(
-              padding: const EdgeInsets.only(bottom: 32),
-              children: [
-                ..._fields(),
-                FormRow(
-                  label: widget.type == 'note' ? 'Note' : 'Notes',
-                  below: TextField(
-                    controller: _note,
-                    maxLines: null,
-                    minLines: widget.type == 'note' ? 4 : 1,
-                    autofocus: widget.type == 'note' && e == null,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: const InputDecoration(hintText: 'Add a note…'),
-                  ),
+  Widget build(BuildContext context) {
+    final c = context.pal;
+    final k = kind;
+    final strong = c.isDark ? k.fill(c) : k.deepTone;
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.92, maxWidth: 640),
+        child: Align(
+          alignment: Alignment.topCenter,
+          heightFactor: 1,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  margin: const EdgeInsets.only(top: 10),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(color: c.line, borderRadius: BorderRadius.circular(2)),
                 ),
-                if (e != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 24),
-                    child: Center(
-                      child: TextButton.icon(
-                        onPressed: _delete,
-                        icon: const Icon(Icons.delete_outline),
-                        label: const Text('Delete entry'),
-                        style: TextButton.styleFrom(foregroundColor: context.pal.danger),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+                child: Row(
+                  children: [
+                    BlobIcon(k, size: 46),
+                    const SizedBox(width: 14),
+                    Expanded(child: Text(e == null ? _title : 'Edit ${_title.toLowerCase()}', style: serifStyle(24))),
+                    if (e != null)
+                      IconButton(onPressed: _delete, tooltip: 'Delete', icon: const Icon(Icons.delete_outline_rounded), color: c.danger),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: c.line),
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    ..._fields(),
+                    FormRow(
+                      label: widget.type == 'note' ? 'Note' : 'Notes',
+                      below: TextField(
+                        controller: _note,
+                        maxLines: null,
+                        minLines: widget.type == 'note' ? 4 : 1,
+                        autofocus: widget.type == 'note' && e == null,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: const InputDecoration(hintText: 'Add a note…'),
                       ),
                     ),
+                  ],
+                ),
+              ),
+              SafeArea(
+                top: false,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+                  child: FilledButton(
+                    onPressed: _busy ? null : _save,
+                    style: FilledButton.styleFrom(backgroundColor: strong, foregroundColor: Colors.white),
+                    child: Text(e == null ? 'Save' : 'Save changes'),
                   ),
-              ],
-            ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
-    ],
-  );
+    );
+  }
 
   Widget _timeRow(String label, DateTime? value, ValueChanged<DateTime> set, {String placeholder = 'Add'}) => FormRow(
     label: label,
@@ -281,7 +312,7 @@ class _EventFormState extends State<EventForm> {
 
   Widget _chipsRow<T>(String label, Map<T, String> options, T? value, ValueChanged<T?> onChanged) => FormRow(
     label: label,
-    below: ChoiceChips<T>(options: options, value: value, color: kind.color, onChanged: onChanged),
+    below: ChoiceChips<T>(options: options, value: value, color: kind.fill(context.pal), onChanged: onChanged),
   );
 
   Widget _switchRow(String label, bool value, ValueChanged<bool> onChanged) => FormRow(
@@ -448,7 +479,7 @@ class _EventFormState extends State<EventForm> {
                   ChoiceChip(
                     label: Text(cap(a), style: TextStyle(color: _activityKind.text == a ? context.pal.bandInk : context.pal.ink)),
                     selected: _activityKind.text == a,
-                    selectedColor: kind.color,
+                    selectedColor: kind.fill(context.pal),
                     showCheckmark: false,
                     onSelected: (_) => setState(() => _activityKind.text = a),
                   ),

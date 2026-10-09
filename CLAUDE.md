@@ -16,12 +16,17 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 ## Decisions already made (don't revisit without asking)
 
 - Order of work: **server API first**, then a **web app (PWA)**, then a **native mobile app**.
-- Client: **Flutter**, one codebase for web (served by the server) and Android. Layout inspired by
-  Nara (activity cards, sheets with a colored header and label/value rows) but with Nestling's
-  **own palette** ("nursery garden": oat neutrals, eucalyptus accent, earthy pastels per activity;
-  explicitly **no baby pink / baby blue**, nothing that copies Nara's colors). **Light + dark
-  themes** (system or user choice). Serif display font Libre Caslon Text (bundled). Icons are
-  Material line icons over generated blobs (`BlobIcon`), no copied artwork.
+- Client: **Flutter**, one codebase for web (served by the server) and Android. Nestling's own
+  airy design (JF did *not* want a Nara copy); the one thing taken from Nara is the home **activity
+  cards** — two per row, fixed order (Feed·Sleep / Diaper·Pump / Growth·Health / Routine·Firsts),
+  colored header band + history icon, **tap the card to log** (no floating +). Timers: big
+  Left/Right circles (nursing) or one big button; editable start time and durations (pencils);
+  ✕ closes while the timer keeps running, Save in the top bar, Delete at the bottom. Forms:
+  sheet with icon + title, label/value rows, big Save. **Own palette** ("nursery garden": oat
+  neutrals, eucalyptus accent, earthy pastels per activity; **no baby pink / baby blue**, nothing
+  copied from Nara). **Light + dark themes** (dark uses darker activity shades). Platform
+  sans-serif, bold titles (`serifStyle()` is the historic name). Filled Material icons on colored
+  circles (`BlobIcon`), no copied artwork.
 - Colors: always via `context.pal` (`AppColors` theme extension) and `Kind.on(pal)` for text/marks;
   never hard-code a color in a screen.
 - Server in **Rust**: axum 0.8, sqlx 0.8 (SQLite, runtime queries — no `query!` macros, so no
@@ -40,7 +45,7 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - `src/model.rs` — event `Details` enum (serde internally tagged by `type`, flattened into
   `EventInput`/`EventOut`) + validation.
 - `src/routes/` — accounts, families (members, invites), children, events (CRUD, list, sync),
-  timers (breastfeed/pump/sleep with segments; stop → event), insights (summary, trends, SSE
+  timers (breastfeed/pump/sleep with segments; `PATCH` corrects start/durations; stop → event), insights (summary, trends, SSE
   stream), import (Nara).
 - `src/trends.rs` — pure daily stats (day/night split 06–18 local, sleep split at midnight).
 - `src/nara.rs` — Nara Firebase login/fetch + `convert()` of tracks. Quantities are

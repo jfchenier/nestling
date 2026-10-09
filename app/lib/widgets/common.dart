@@ -45,48 +45,23 @@ class BlobPainter extends CustomPainter {
 /// Seed that is the same on every platform and run (String.hashCode isn't guaranteed to be).
 int stableSeed(String s) => s.codeUnits.fold(7, (a, c) => (a * 31 + c) & 0x7fffffff);
 
-/// Line icon drawn over a pastel blob, slightly offset — a hand-drawn feel.
+/// Filled icon on a solid circle in the activity's color.
 class BlobIcon extends StatelessWidget {
-  const BlobIcon(this.kind, {super.key, this.size = 56, this.icon, this.lineColor});
+  const BlobIcon(this.kind, {super.key, this.size = 56, this.icon});
   final Kind kind;
   final double size;
   final IconData? icon;
 
-  /// Line color; defaults to the theme's text color.
-  final Color? lineColor;
-
   @override
-  Widget build(BuildContext context) => SizedBox(
-    width: size,
-    height: size,
-    child: Stack(
-      children: [
-        Positioned(
-          left: size * 0.16,
-          top: size * 0.18,
-          width: size * 0.8,
-          height: size * 0.8,
-          child: CustomPaint(painter: BlobPainter(kind.color, stableSeed(kind.label))),
-        ),
-        // A thin dark outline keeps the line art readable over light blobs.
-        for (final (dx, dy) in const [(-1.0, 0.0), (1.0, 0.0), (0.0, -1.0), (0.0, 1.0)])
-          Positioned(
-            left: dx * size * 0.025,
-            top: dy * size * 0.025,
-            width: size * 0.84,
-            height: size * 0.84,
-            child: Icon(icon ?? kind.icon, size: size * 0.62, color: context.pal.background),
-          ),
-        Positioned(
-          left: 0,
-          top: 0,
-          width: size * 0.84,
-          height: size * 0.84,
-          child: Icon(icon ?? kind.icon, size: size * 0.62, color: lineColor ?? context.pal.ink),
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final c = context.pal;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: kind.fill(c), shape: BoxShape.circle),
+      child: Icon(icon ?? kind.icon, size: size * 0.5, color: kind.iconOn(c)),
+    );
+  }
 }
 
 /// Compact list badge (kept for small rows).
@@ -196,7 +171,7 @@ class FormRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(label, style: serifStyle(21)),
+              Text(label, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
               const SizedBox(width: 16),
               Expanded(
                 child: Align(
