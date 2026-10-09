@@ -38,4 +38,4 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
-      - run: flutter build web --release --no-web-resources-cdn
+      - run: flutter build web --release --no-web-resources-cdn && sh tool/finish_web_build.sh

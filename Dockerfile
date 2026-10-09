@@ -4,7 +4,8 @@ WORKDIR /app
 COPY app/pubspec.yaml app/pubspec.lock ./
 RUN flutter pub get
 COPY app ./
-RUN flutter build web --release --no-web-resources-cdn
+RUN flutter build web --release --no-web-resources-cdn \
+ && sh tool/finish_web_build.sh
 
 # Server (Rust)
 FROM rust:1-bookworm AS build

@@ -66,6 +66,7 @@ The server allows cross-origin requests, so `flutter run -d chrome` works agains
 
 ```bash
 flutter build web --release --no-web-resources-cdn
+sh tool/finish_web_build.sh    # per-build URLs so browsers don't keep an old app
 # then run the server with NESTLING_WEB_DIR=app/build/web
 ```
 

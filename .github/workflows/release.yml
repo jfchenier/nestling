@@ -87,6 +87,7 @@ jobs:
       - name: Build web app
         run: |
           flutter build web --release --no-web-resources-cdn
+          sh tool/finish_web_build.sh
           (cd build/web && zip -qr "../../../dist/nestling-web-${{ steps.version.outputs.version }}.zip" .)
 
       - name: Checksums
