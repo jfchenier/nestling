@@ -171,7 +171,7 @@ class FormRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text(label, style: serifStyle(21)),
+              Text(label, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
               const SizedBox(width: 16),
               Expanded(
                 child: Align(

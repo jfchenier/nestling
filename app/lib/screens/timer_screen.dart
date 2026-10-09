@@ -35,7 +35,7 @@ class _TimerScreenState extends State<TimerScreen> {
   String get title => switch (widget.kind) {
     'sleep' => 'Sleep',
     'pump' => 'Pump',
-    _ => 'Breastfeed',
+    _ => 'Nursing',
   };
 
   TimerModel? _timer(AppState s) => s.timers.where((t) => t.kind == widget.kind).firstOrNull;
@@ -152,196 +152,241 @@ class _TimerScreenState extends State<TimerScreen> {
   Widget build(BuildContext context) {
     final s = context.watch<AppState>();
     final t = _timer(s);
+    final c = context.pal;
+    final strong = c.isDark ? kind.fill(c) : kind.deepTone;
     return Scaffold(
-      body: Column(
-        children: [
-          SheetHeader(title: title, color: kind.fill(context.pal), onSave: t == null || _busy ? null : () => _stop(t)),
-          Expanded(
-            child: Constrained(
-              child: Ticking(
-                builder: (context) => ListView(
-                  padding: const EdgeInsets.only(bottom: 32),
-                  children: [
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border(bottom: BorderSide(color: context.pal.line)),
+      backgroundColor: Color.lerp(c.background, kind.fill(c), c.isDark ? 0.25 : 0.3),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        title: Text(title),
+        actions: [
+          if (t == null) TextButton(onPressed: _manual, child: const Text('Log past')),
+          if (t != null)
+            PopupMenuButton<String>(
+              onSelected: (v) => v == 'earlier' ? _stopEarlier(t) : _discard(t),
+              itemBuilder: (_) => [
+                PopupMenuItem(value: 'earlier', child: Text(widget.kind == 'sleep' ? 'Woke up earlier…' : 'Ended earlier…')),
+                const PopupMenuItem(value: 'discard', child: Text('Discard timer')),
+              ],
+            ),
+        ],
+      ),
+      body: SafeArea(
+        child: Constrained(
+          maxWidth: 520,
+          child: Ticking(
+            builder: (context) => Column(
+              children: [
+                const SizedBox(height: 4),
+                _hint(s, t),
+                const Spacer(),
+                Text(
+                  clock(t?.elapsed ?? 0),
+                  style: serifStyle(64, weight: FontWeight.w600).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                ),
+                Text(
+                  t == null
+                      ? (widget.kind == 'breastfeed' ? 'Tap a side to start' : 'Tap to start')
+                      : t.running
+                      ? 'Started ${timeOfDay(t.startedAt)}'
+                      : 'Paused',
+                  style: TextStyle(color: c.muted, fontSize: 16),
+                ),
+                const Spacer(),
+                if (widget.kind == 'breastfeed')
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [_circle(t, 'left', t?.left ?? 0), _circle(t, 'right', t?.right ?? 0)],
+                  )
+                else ...[
+                  if (widget.kind == 'pump') ...[_pumpSides(t), const SizedBox(height: 24)],
+                  _bigButton(t),
+                  if (widget.kind == 'sleep') ...[
+                    const SizedBox(height: 24),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: ChoiceChips<String>(
+                        options: const {
+                          'crib': 'Crib',
+                          'bassinet': 'Bassinet',
+                          'bed': 'Bed',
+                          'arms': 'Arms',
+                          'stroller': 'Stroller',
+                          'car': 'Car',
+                        },
+                        value: _location,
+                        color: kind.fill(c),
+                        onChanged: (v) => setState(() => _location = v),
                       ),
-                      padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
-                      child: switch (widget.kind) {
-                        'breastfeed' => _breast(s, t),
-                        _ => _single(t),
-                      },
                     ),
-                    FormRow(
-                      label: 'Start Time',
-                      child: t == null
-                          ? TextButton(
-                              onPressed: _manual,
-                              child: const Text('Log past', style: TextStyle(fontWeight: FontWeight.w700)),
-                            )
-                          : Text('${dayLabel(t.startedAt)}   ${timeOfDay(t.startedAt)}', style: const TextStyle(fontSize: 17)),
+                  ],
+                ],
+                const Spacer(),
+                if (t != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: TextField(
+                      controller: _note,
+                      textCapitalization: TextCapitalization.sentences,
+                      decoration: const InputDecoration(hintText: 'Note (optional)', prefixIcon: Icon(Icons.edit_note_rounded)),
                     ),
-                    FormRow(
-                      label: 'Total Time',
-                      child: Text(
-                        duration(t?.elapsed ?? 0, showSeconds: true),
-                        style: TextStyle(fontSize: 17, color: t == null ? context.pal.muted : context.pal.ink),
-                      ),
-                    ),
-                    if (widget.kind == 'sleep')
-                      FormRow(
-                        label: 'Where',
-                        below: ChoiceChips<String>(
-                          options: const {
-                            'crib': 'Crib',
-                            'bassinet': 'Bassinet',
-                            'bed': 'Bed',
-                            'arms': 'Arms',
-                            'stroller': 'Stroller',
-                            'car': 'Car',
-                          },
-                          value: _location,
-                          color: kind.fill(context.pal),
-                          onChanged: (v) => setState(() => _location = v),
-                        ),
-                      ),
-                    FormRow(
-                      label: 'Notes',
-                      below: TextField(
-                        controller: _note,
-                        maxLines: null,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: const InputDecoration(hintText: 'Saved with the entry'),
-                      ),
-                    ),
-                    if (t != null) ...[
-                      FormRow(
-                        label: widget.kind == 'sleep' ? 'Woke up earlier?' : 'Ended earlier?',
-                        value: 'Set time',
-                        onTap: () => _stopEarlier(t),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 20),
-                        child: Center(
-                          child: TextButton.icon(
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
                             onPressed: _busy ? null : () => _discard(t),
-                            icon: const Icon(Icons.delete_outline),
-                            label: const Text('Discard timer'),
-                            style: TextButton.styleFrom(foregroundColor: context.pal.danger),
+                            style: OutlinedButton.styleFrom(side: BorderSide(color: c.line, width: 1.5)),
+                            child: const Text('Discard'),
                           ),
                         ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(backgroundColor: strong, foregroundColor: Colors.white),
+                            onPressed: _busy ? null : () => _stop(t),
+                            child: Text(widget.kind == 'sleep' ? 'Woke up — save' : 'Done — save'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else
+                  const SizedBox(height: 84),
+              ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
-  /// Two columns: L and R counters with start/pause/switch buttons and a "last side" tag.
-  Widget _breast(AppState s, TimerModel? t) {
-    String? lastSide;
-    if (t == null) {
+  /// "Last feed ended on the left · 2h ago — start on the right" / "Awake for 45m".
+  Widget _hint(AppState s, TimerModel? t) {
+    String? hint;
+    if (t == null && widget.kind == 'breastfeed') {
       final last = s.summary?['last']?['feed'];
-      lastSide = last is Map<String, dynamic> ? Event(last).endSide : null;
+      final e = last is Map<String, dynamic> ? Event(last) : null;
+      final end = e?.endSide;
+      if (end != null) {
+        hint =
+            'Last feed ended on the $end · ${ago(DateTime.now().difference(e!.start).inSeconds)}\nStart on the ${end == 'left' ? 'right' : 'left'}';
+      }
+    } else if (t == null && widget.kind == 'sleep') {
+      final last = s.summary?['last']?['sleep'];
+      final e = last is Map<String, dynamic> ? Event(last) : null;
+      if (e?.end != null) hint = 'Awake for ${duration(DateTime.now().difference(e!.end!).inSeconds)}';
     }
-    Widget column(String side) {
-      final seconds = side == 'left' ? (t?.left ?? 0) : (t?.right ?? 0);
-      final active = t != null && t.running && t.side == side;
-      final label = side == 'left' ? 'Left' : 'Right';
-      final action = t == null
-          ? 'Start $label'
-          : active
-          ? 'Pause'
-          : t.running
-          ? 'Switch to $label'
-          : 'Resume $label';
-      return Expanded(
-        child: Column(
-          children: [
-            SizedBox(
-              height: 38,
-              child: lastSide == side || (t != null && t.side == side)
-                  ? Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: kind.fill(context.pal).withValues(alpha: 0.6),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(t == null ? 'last side' : (active ? 'now' : 'paused'), style: serifStyle(19)),
-                    )
-                  : null,
-            ),
-            const SizedBox(height: 14),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(clock(seconds), style: serifStyle(52, height: 1, color: active ? kind.on(context.pal) : context.pal.ink)),
-                  if (t == null)
-                    IconButton(
-                      onPressed: _manual,
-                      tooltip: 'Enter minutes',
-                      icon: Icon(Icons.edit_outlined, color: context.pal.ink),
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 22),
-            PillButton(label: action, active: active, color: kind.fill(context.pal), onTap: _busy ? null : () => _tapSide(t, side)),
-          ],
-        ),
-      );
-    }
-
-    return Row(children: [column('left'), const SizedBox(width: 12), column('right')]);
-  }
-
-  /// Sleep and pump: one big counter and a start / pause / resume button.
-  Widget _single(TimerModel? t) {
-    final running = t?.running ?? false;
-    return Column(
-      children: [
-        if (widget.kind == 'pump') ...[
-          SegmentedButton<String>(
-            segments: const [
-              ButtonSegment(value: 'left', label: Text('Left')),
-              ButtonSegment(value: 'both', label: Text('Both')),
-              ButtonSegment(value: 'right', label: Text('Right')),
-            ],
-            selected: {t?.side ?? _pumpSide},
-            showSelectedIcon: false,
-            onSelectionChanged: (v) {
-              setState(() => _pumpSide = v.first);
-              if (t != null && t.running) _call((s) => s.act((api) => api.post('/timers/${t.id}/switch', {'side': v.first})));
-            },
-          ),
-          const SizedBox(height: 20),
-        ],
-        BlobIcon(kind, size: 84),
-        const SizedBox(height: 12),
-        Text(clock(t?.elapsed ?? 0), style: serifStyle(64, height: 1, color: running ? kind.on(context.pal) : context.pal.ink)),
-        const SizedBox(height: 6),
-        Text(
-          t == null
-              ? (widget.kind == 'sleep' ? 'Tap start when baby falls asleep' : 'Tap start when you begin')
-              : (running ? 'Running' : 'Paused'),
-          style: TextStyle(color: context.pal.muted),
-        ),
-        const SizedBox(height: 22),
-        PillButton(
-          label: t == null ? 'Start' : (running ? 'Pause' : 'Resume'),
-          active: running,
-          color: kind.fill(context.pal),
-          onTap: _busy ? null : () => _toggle(t),
-        ),
-      ],
+    return SizedBox(
+      height: 48,
+      child: hint == null ? null : Text(hint, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, height: 1.4)),
     );
   }
+
+  /// Big round side button: start, pause (same side), switch (other side) or resume.
+  Widget _circle(TimerModel? t, String side, int seconds) {
+    final c = context.pal;
+    final active = t != null && t.running && t.side == side;
+    final current = t != null && t.side == side;
+    final strong = c.isDark ? kind.fill(c) : kind.deepTone;
+    final name = side == 'left' ? 'left' : 'right';
+    final action = t == null
+        ? 'Start $name'
+        : active
+        ? 'Pause $name'
+        : t.running
+        ? 'Switch to $name'
+        : 'Resume $name';
+    return Semantics(
+      button: true,
+      label: action,
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: _busy ? null : () => _tapSide(t, side),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          width: 140,
+          height: 140,
+          decoration: BoxDecoration(
+            color: active ? strong : c.surface,
+            shape: BoxShape.circle,
+            border: Border.all(color: active || current ? strong : kind.fill(c), width: 4),
+            boxShadow: [
+              BoxShadow(
+                color: strong.withValues(alpha: active ? 0.35 : 0.1),
+                blurRadius: active ? 24 : 8,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(side == 'left' ? 'L' : 'R', style: serifStyle(36, color: active ? Colors.white : kind.on(c))),
+              Text(clock(seconds), style: TextStyle(fontSize: 16, color: active ? Colors.white : c.ink)),
+              Icon(active ? Icons.pause_rounded : Icons.play_arrow_rounded, color: active ? Colors.white : kind.on(c)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Sleep / pump: one big start / pause / resume button.
+  Widget _bigButton(TimerModel? t) {
+    final c = context.pal;
+    final running = t?.running ?? false;
+    final strong = c.isDark ? kind.fill(c) : kind.deepTone;
+    return Semantics(
+      button: true,
+      label: t == null ? 'Start' : (running ? 'Pause' : 'Resume'),
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: _busy ? null : () => _toggle(t),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 250),
+          width: 180,
+          height: 180,
+          decoration: BoxDecoration(
+            color: running ? strong : c.surface,
+            shape: BoxShape.circle,
+            border: Border.all(color: strong, width: 4),
+            boxShadow: [
+              BoxShadow(
+                color: strong.withValues(alpha: running ? 0.35 : 0.12),
+                blurRadius: running ? 28 : 10,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(kind.icon, size: 48, color: running ? Colors.white : kind.on(c)),
+              const SizedBox(height: 6),
+              Text(
+                t == null ? 'Start' : (running ? 'Pause' : 'Resume'),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: running ? Colors.white : kind.on(c)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _pumpSides(TimerModel? t) => SegmentedButton<String>(
+    segments: const [
+      ButtonSegment(value: 'left', label: Text('Left')),
+      ButtonSegment(value: 'both', label: Text('Both')),
+      ButtonSegment(value: 'right', label: Text('Right')),
+    ],
+    selected: {t?.side ?? _pumpSide},
+    showSelectedIcon: false,
+    onSelectionChanged: (v) {
+      setState(() => _pumpSide = v.first);
+      if (t != null && t.running) _call((s) => s.act((api) => api.post('/timers/${t.id}/switch', {'side': v.first})));
+    },
+  );
 }

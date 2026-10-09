@@ -20,23 +20,15 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final s = context.watch<AppState>();
-    final c = context.pal;
     void history(String filter) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => TimelineScreen(initialFilter: filter)));
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showLogMenu(context),
-        backgroundColor: c.accent,
-        foregroundColor: c.onAccent,
-        tooltip: 'Log something',
-        child: const Icon(Icons.add_rounded, size: 30),
-      ),
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: s.refreshChild,
           child: Constrained(
             maxWidth: 900,
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
                 _Header(child: s.child!, live: s.live),
                 const SizedBox(height: 16),
@@ -153,62 +145,34 @@ class HomeScreen extends StatelessWidget {
           }();
 
     void open(String timerKind) => TimerScreen.open(context, timerKind);
+    // Tapping a card logs one (or opens its running timer); the clock icon opens its history.
+    _ActivityCard card(Kind kind, String title, _CardData data, VoidCallback log, String filter, [TimerModel? running]) => _ActivityCard(
+      kind: kind,
+      title: title,
+      data: data,
+      onLog: running != null ? () => open(running.kind) : log,
+      onHistory: () => history(filter),
+    );
     return [
-      _ActivityCard(
-        kind: Kind.breast,
-        title: 'Feed',
-        data: feedCard,
-        onAdd: () => showFeedPicker(context),
-        onTap: nursing != null ? () => open('breastfeed') : () => history('feed'),
+      card(Kind.breast, 'Feed', feedCard, () => showFeedPicker(context), 'feed', nursing),
+      card(Kind.sleep, 'Sleep', sleepCard, () => open('sleep'), 'sleep', sleeping),
+      card(Kind.diaper, 'Diaper', diaperCard, () => showEventForm(context, type: 'diaper'), 'diaper'),
+      card(Kind.pump, 'Pump', pumpCard, () => open('pump'), 'pump', pumping),
+      card(Kind.growth, 'Growth', growthCard, () => showEventForm(context, type: 'growth'), 'growth'),
+      card(Kind.health, 'Health', healthCard, () => showEventForm(context, type: 'health'), 'health'),
+      card(
+        Kind.activity,
+        'Routine',
+        simple(latest('activity'), (e) => cap(e['kind'] as String? ?? 'Activity')),
+        () => showEventForm(context, type: 'activity'),
+        'activity,milestone,note',
       ),
-      _ActivityCard(
-        kind: Kind.sleep,
-        title: 'Sleep',
-        data: sleepCard,
-        onAdd: () => open('sleep'),
-        onTap: sleeping != null ? () => open('sleep') : () => history('sleep'),
-      ),
-      _ActivityCard(
-        kind: Kind.diaper,
-        title: 'Diaper',
-        data: diaperCard,
-        onAdd: () => showEventForm(context, type: 'diaper'),
-        onTap: () => history('diaper'),
-      ),
-      _ActivityCard(
-        kind: Kind.pump,
-        title: 'Pump',
-        data: pumpCard,
-        onAdd: () => open('pump'),
-        onTap: pumping != null ? () => open('pump') : () => history('pump'),
-      ),
-      _ActivityCard(
-        kind: Kind.growth,
-        title: 'Growth',
-        data: growthCard,
-        onAdd: () => showEventForm(context, type: 'growth'),
-        onTap: () => history('growth'),
-      ),
-      _ActivityCard(
-        kind: Kind.health,
-        title: 'Health',
-        data: healthCard,
-        onAdd: () => showEventForm(context, type: 'health'),
-        onTap: () => history('health'),
-      ),
-      _ActivityCard(
-        kind: Kind.activity,
-        title: 'Routine',
-        data: simple(latest('activity'), (e) => cap(e['kind'] as String? ?? 'Activity')),
-        onAdd: () => showEventForm(context, type: 'activity'),
-        onTap: () => history('activity,milestone,note'),
-      ),
-      _ActivityCard(
-        kind: Kind.milestone,
-        title: 'Firsts',
-        data: simple(latest('milestone'), (e) => (e['name'] as String?) ?? 'Milestone'),
-        onAdd: () => showEventForm(context, type: 'milestone'),
-        onTap: () => history('activity,milestone,note'),
+      card(
+        Kind.milestone,
+        'Firsts',
+        simple(latest('milestone'), (e) => (e['name'] as String?) ?? 'Milestone'),
+        () => showEventForm(context, type: 'milestone'),
+        'activity,milestone,note',
       ),
     ];
   }
@@ -264,100 +228,111 @@ class _CardGrid extends StatelessWidget {
 
 /// White rounded card with a pastel header strip (name + small +) and the latest entry.
 class _ActivityCard extends StatelessWidget {
-  const _ActivityCard({required this.kind, required this.title, required this.data, required this.onAdd, required this.onTap});
+  const _ActivityCard({required this.kind, required this.title, required this.data, required this.onLog, required this.onHistory});
   final Kind kind;
   final String title;
   final _CardData data;
-  final VoidCallback onAdd;
-  final VoidCallback onTap;
+
+  /// Tap anywhere on the card: log one (or open the running timer).
+  final VoidCallback onLog;
+  final VoidCallback onHistory;
 
   @override
   Widget build(BuildContext context) {
     final c = context.pal;
     final t = data.timer;
-    return Container(
-      decoration: BoxDecoration(
-        color: c.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: c.isDark ? null : Border.all(color: c.line),
-        boxShadow: c.isDark
-            ? null
-            : [BoxShadow(color: const Color(0xFF6B5A44).withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, 4))],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Material(
-        type: MaterialType.transparency,
-        child: InkWell(
-          onTap: onTap,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                color: kind.fill(c),
-                padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        title,
-                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: c.bandInk),
+    return Semantics(
+      button: true,
+      label: 'Log $title',
+      child: Container(
+        decoration: BoxDecoration(
+          color: c.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: c.isDark ? null : Border.all(color: c.line),
+          boxShadow: c.isDark
+              ? null
+              : [BoxShadow(color: const Color(0xFF6B5A44).withValues(alpha: 0.08), blurRadius: 12, offset: const Offset(0, 4))],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: onLog,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  color: kind.fill(c),
+                  padding: const EdgeInsets.fromLTRB(14, 2, 2, 2),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: c.bandInk),
+                        ),
                       ),
-                    ),
-                    PlusButton(onTap: onAdd, size: 30, tooltip: 'Add ${title.toLowerCase()}'),
-                  ],
+                      IconButton(
+                        onPressed: onHistory,
+                        tooltip: '$title history',
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(Icons.history_rounded, color: c.bandInk, size: 22),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        BlobIcon(kind, size: 34),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            data.value == null && t == null ? 'Nothing yet' : (data.top ?? ''),
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: t != null ? kind.on(c) : c.muted,
-                              fontWeight: t != null ? FontWeight.w700 : FontWeight.w500,
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          BlobIcon(kind, size: 34),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              data.value == null && t == null ? 'Tap to log' : (data.top ?? ''),
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: t != null ? kind.on(c) : c.muted,
+                                fontWeight: t != null ? FontWeight.w700 : FontWeight.w500,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      if (t != null)
+                        Ticking(
+                          builder: (_) => Text(
+                            clock(t.elapsed),
+                            style: serifStyle(28, color: kind.on(c)).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                          ),
+                        )
+                      else
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(data.value ?? '—', style: serifStyle(26, color: data.value == null ? c.muted : c.ink)),
+                        ),
+                      if (data.caption.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            data.caption,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
+                            style: TextStyle(fontSize: 12, color: c.muted),
                           ),
                         ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    if (t != null)
-                      Ticking(
-                        builder: (_) => Text(
-                          clock(t.elapsed),
-                          style: serifStyle(28, color: kind.on(c)).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
-                        ),
-                      )
-                    else
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Text(data.value ?? '—', style: serifStyle(26, color: data.value == null ? c.muted : c.ink)),
-                      ),
-                    if (data.caption.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          data.caption,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontSize: 12, color: c.muted),
-                        ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -626,102 +601,50 @@ class _TodayStrip extends StatelessWidget {
   }
 }
 
-/// Bottom sheet listing the kinds of feed (the Feed card's +).
+/// Feed card: pick the kind of feed.
 void showFeedPicker(BuildContext context) {
   final options = <(Kind, String, VoidCallback)>[
-    (Kind.breast, 'Breastfeed', () => TimerScreen.open(context, 'breastfeed')),
-    (Kind.bottle, 'Bottle feed', () => showEventForm(context, type: 'feed', method: 'bottle')),
-    (Kind.solids, 'Solids', () => showEventForm(context, type: 'feed', method: 'solids')),
-    (Kind.combo, 'Combo feed', () => showEventForm(context, type: 'feed', method: 'combo')),
-  ];
-  showModalBottomSheet(
-    context: context,
-    builder: (c) => SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final (kind, label, onTap) in options)
-              InkWell(
-                onTap: () {
-                  Navigator.pop(c);
-                  onTap();
-                },
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                  child: Row(
-                    children: [
-                      BlobIcon(kind, size: 64),
-                      const SizedBox(width: 28),
-                      Text(label, style: serifStyle(28)),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
-
-/// Floating + : everything that can be logged.
-void showLogMenu(BuildContext context) {
-  final items = <(Kind, String, VoidCallback)>[
     (Kind.breast, 'Nursing', () => TimerScreen.open(context, 'breastfeed')),
     (Kind.bottle, 'Bottle', () => showEventForm(context, type: 'feed', method: 'bottle')),
     (Kind.solids, 'Solids', () => showEventForm(context, type: 'feed', method: 'solids')),
     (Kind.combo, 'Combo', () => showEventForm(context, type: 'feed', method: 'combo')),
-    (Kind.sleep, 'Sleep', () => TimerScreen.open(context, 'sleep')),
-    (Kind.diaper, 'Diaper', () => showEventForm(context, type: 'diaper')),
-    (Kind.pump, 'Pump', () => TimerScreen.open(context, 'pump')),
-    (Kind.growth, 'Growth', () => showEventForm(context, type: 'growth')),
-    (Kind.health, 'Health', () => showEventForm(context, type: 'health')),
-    (Kind.activity, 'Routine', () => showEventForm(context, type: 'activity')),
-    (Kind.milestone, 'First', () => showEventForm(context, type: 'milestone')),
-    (Kind.note, 'Note', () => showEventForm(context, type: 'note')),
   ];
   showModalBottomSheet(
     context: context,
     builder: (sheet) => SafeArea(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 20, 16, 16),
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.only(left: 8, bottom: 12),
-              child: Text('Log', style: serifStyle(22)),
+              padding: const EdgeInsets.only(left: 8, bottom: 16),
+              child: Text('Log a feed', style: serifStyle(22)),
             ),
-            LayoutBuilder(
-              builder: (context, box) => Wrap(
-                runSpacing: 12,
-                children: [
-                  for (final (k, label, onTap) in items)
-                    SizedBox(
-                      width: box.maxWidth / 4,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () {
-                          Navigator.pop(sheet);
-                          onTap();
-                        },
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Column(
-                            children: [
-                              BlobIcon(k, size: 54),
-                              const SizedBox(height: 6),
-                              Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-                            ],
-                          ),
+            Row(
+              children: [
+                for (final (k, label, onTap) in options)
+                  Expanded(
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(16),
+                      onTap: () {
+                        Navigator.pop(sheet);
+                        onTap();
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Column(
+                          children: [
+                            BlobIcon(k, size: 62),
+                            const SizedBox(height: 8),
+                            Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                          ],
                         ),
                       ),
                     ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ],
         ),
