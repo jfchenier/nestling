@@ -73,4 +73,35 @@ void main() {
     expect(await relayA.sync(folder), isFalse);
     expect(relayA.error, isNull);
   });
+
+  test('running timers travel through the shared folder: start, pause, switch, stop', () async {
+    final folder = MemoryFolder();
+    final (storeA, a) = await phone('Mom');
+    final (storeB, b) = await phone('Dad');
+    final fam = a.createFamily({'name': 'Home', 'timezone': 'UTC'});
+    final child = a.createChild(fam['id'], {'name': 'Léa', 'birth_date': '2026-06-01'});
+    storeA.families.single['drive_folder'] = 'folder1';
+    storeA.serverless.addAll({'family_id': fam['id'], 'key': FamilyKey.generate().toBase64()});
+    mergeFamily(storeB, exportFamily(storeA, fam['id']));
+    storeB.serverless.addAll({'family_id': fam['id'], 'key': storeA.serverless['key']});
+    final relayA = RelaySync(storeA), relayB = RelaySync(storeB);
+
+    final t = a.startTimer(child['id'], {'kind': 'breastfeed', 'side': 'left'});
+    await relayA.sync(folder);
+    await relayB.sync(folder);
+    expect(b.handle('GET', '/children/${child['id']}/timers')['timers'].single['running'], isTrue);
+
+    b.switchTimer(t['id'], {});
+    b.pauseTimer(t['id']);
+    await relayB.sync(folder);
+    await relayA.sync(folder);
+    final seen = a.handle('GET', '/timers/${t['id']}');
+    expect([seen['running'], seen['side']], [false, 'right']);
+
+    final feed = a.stopTimer(t['id'], {});
+    await relayA.sync(folder);
+    await relayB.sync(folder);
+    expect(b.handle('GET', '/children/${child['id']}/timers')['timers'], isEmpty);
+    expect(storeB.events[feed['id']]!['method'], 'breast');
+  });
 }

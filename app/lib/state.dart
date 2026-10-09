@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -78,6 +79,10 @@ class AppState extends ChangeNotifier {
   Timer? _relayTimer, _relayEvery;
   bool _relayStarted = false;
   AppLifecycleListener? _lifecycle;
+  int _timerStamp = 0;
+
+  /// Latest change to any timer on this phone (see [LocalStore.stamps]).
+  int _timersStamp() => store.timers.keys.fold(0, (m, id) => math.max(m, store.stamps['t:$id'] ?? 0));
 
   void _useServerless() {
     final local = LocalApi(store);
@@ -85,15 +90,25 @@ class AppState extends ChangeNotifier {
       ..onMerged = (() => load().catchError((_) {}))
       ..onStatus = notifyListeners;
     relay = DriveRelay(store);
+    _timerStamp = _timersStamp();
     local.onChanged = () {
       peers?.changed();
-      // Upload a little later, so a burst of changes goes up once.
+      // Upload a little later, so a burst of changes goes up once; a timer started, paused,
+      // switched or stopped goes up within seconds so the other caregivers see it.
+      final t = _timersStamp();
+      final timerChanged = t != _timerStamp;
+      _timerStamp = t;
       _relayTimer?.cancel();
-      _relayTimer = Timer(const Duration(seconds: 30), syncRelay);
+      _relayTimer = Timer(timerChanged ? const Duration(seconds: 3) : const Duration(seconds: 30), syncRelay);
     };
     api = local;
     _relayEvery?.cancel();
-    _relayEvery = Timer.periodic(const Duration(minutes: 5), (_) => syncRelay());
+    // Every 5 minutes, or every minute while a timer runs (to see it paused or stopped elsewhere).
+    _relayEvery = Timer.periodic(const Duration(minutes: 1), (_) {
+      final last = relay?.sync.lastSync;
+      final running = store.timers.values.any((t) => !t.deleted);
+      if (running || last == null || DateTime.now().difference(last) >= const Duration(minutes: 5)) syncRelay();
+    });
     _lifecycle?.dispose();
     _lifecycle = AppLifecycleListener(
       // Back in the app: catch up with the other phones right away.
