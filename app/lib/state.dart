@@ -8,6 +8,7 @@ import 'api/api.dart';
 import 'api/stream.dart';
 import 'format.dart';
 import 'models.dart';
+import 'timer_notifications.dart';
 
 /// Default server: on the web the app is usually served by the Nestling server itself.
 String defaultServer() => kIsWeb && Uri.base.scheme.startsWith('http') ? Uri.base.origin : '';
@@ -127,6 +128,7 @@ class AppState extends ChangeNotifier {
       await api?.post('/auth/logout');
     } catch (_) {}
     _stopStream();
+    TimerNotifications.sync(const [], null);
     await _prefs.remove('token');
     api = null;
     me = null;
@@ -199,6 +201,7 @@ class AppState extends ChangeNotifier {
     }
     revision++;
     if (notify) notifyListeners();
+    TimerNotifications.sync(timers, child?.name);
   }
 
   /// Reloads everything (families too), e.g. after a family/child change.
