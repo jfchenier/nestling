@@ -4,11 +4,15 @@ use std::convert::Infallible;
 
 use axum::{
     extract::{Path, State},
-    response::sse::{Event as SseEvent, KeepAlive, Sse},
+    http::{header::HeaderName, HeaderValue},
+    response::{
+        sse::{Event as SseEvent, KeepAlive, Sse},
+        IntoResponse,
+    },
     Json,
 };
 use chrono::{Duration, NaiveDate};
-use futures::stream::{self, Stream, StreamExt};
+use futures::stream::{self, StreamExt};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use tokio_stream::wrappers::BroadcastStream;
@@ -114,10 +118,12 @@ pub async fn summary(State(state): State<AppState>, user: AuthUser, Path(child_i
 /// Server-Sent Events stream of every change in a family.
 /// Each message has `event: change` and data `{"entity", "action", "data"}`.
 /// If a client falls behind, it receives `event: resync` and should call `/sync`.
-pub async fn stream(State(state): State<AppState>, user: AuthUser, Path(family_id): Path<String>) -> AppResult<Sse<impl Stream<Item = Result<SseEvent, Infallible>>>> {
+/// An `event: ping` is sent every [KEEP_ALIVE] so clients can tell a dead connection from a quiet
+/// one (a comment would be invisible to browsers' `EventSource`).
+pub async fn stream(State(state): State<AppState>, user: AuthUser, Path(family_id): Path<String>) -> AppResult<impl IntoResponse> {
     require_member(&state.db, &family_id, &user.id).await?;
     let rx = state.changes.subscribe();
-    let hello = stream::once(async { Ok(SseEvent::default().event("ready").data("{}")) });
+    let hello = stream::once(async { Ok::<_, Infallible>(SseEvent::default().event("ready").data("{}")) });
     let fid = family_id.clone();
     let changes = BroadcastStream::new(rx).filter_map(move |msg| {
         let fid = fid.clone();
@@ -132,5 +138,9 @@ pub async fn stream(State(state): State<AppState>, user: AuthUser, Path(family_i
             }
         }
     });
-    Ok(Sse::new(hello.chain(changes)).keep_alive(KeepAlive::default()))
+    let sse = Sse::new(hello.chain(changes)).keep_alive(KeepAlive::new().interval(KEEP_ALIVE).event(SseEvent::default().event("ping").data("{}")));
+    // nginx (and proxies built on it) would otherwise hold events back until its buffer fills.
+    Ok(([(HeaderName::from_static("x-accel-buffering"), HeaderValue::from_static("no"))], sse))
 }
+
+pub const KEEP_ALIVE: std::time::Duration = std::time::Duration::from_secs(15);

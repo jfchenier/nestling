@@ -30,6 +30,9 @@ pub fn api() -> Router<AppState> {
         .route("/me", get(accounts::me).patch(accounts::update_me))
         .route("/me/tokens", get(accounts::list_tokens).post(accounts::create_token))
         .route("/me/tokens/{id}", delete(accounts::delete_token))
+        .route("/push/config", get(accounts::push_config))
+        .route("/me/push-devices", post(accounts::add_push_device))
+        .route("/me/push-devices/{token}", delete(accounts::remove_push_device))
         .route("/admin/users", get(admin::list_users).post(admin::create_user))
         .route("/admin/users/{id}", patch(admin::update_user).delete(admin::delete_user))
         // Families & caregivers

@@ -31,6 +31,9 @@ Base URL: `http://<server>:8080/api/v1`. JSON in, JSON out.
 | `GET /me/tokens` | | sessions and API tokens |
 | `POST /me/tokens` | `{name}` | → `{id, name, token}` long-lived API token (Home Assistant, scripts) |
 | `DELETE /me/tokens/{id}` | | revoke |
+| `GET /push/config` | | `{enabled: false}`, or `{enabled: true, android: {api_key, app_id, project_id, sender_id}}`: the Firebase settings the Android app registers with |
+| `POST /me/push-devices` | `{token}` | this phone's Firebase token; it then gets a data message whenever a family timer starts, changes or stops (`{action: "show"\|"cancel", id, title, body, running, started_at, chip, seq}`). Forgotten when the session ends |
+| `DELETE /me/push-devices/{token}` | | stop notifications to that phone |
 
 ## Families and caregivers
 
@@ -168,6 +171,9 @@ Daily averages use complete days only.
 - `GET /families/{id}/stream` — Server-Sent Events. First an `event: ready`, then one `event: change` per change:
   `{"entity": "event"|"timer"|"child"|"family"|"import", "action": "created"|"updated"|"deleted", "data": {…}}`.
   If the client falls behind it gets `event: resync` and should call `/sync`.
+  An `event: ping` comes every 15 s: a client that hears nothing for longer should reconnect (then reload, since
+  changes made while it was disconnected aren't replayed). The response carries `X-Accel-Buffering: no` so nginx
+  passes events through at once; other reverse proxies need response buffering turned off for this path.
 - `GET /families/{id}/sync?since=<cursor>` — `{cursor, full, children, events, timers}`. Without `since` you get
   everything; with it, only events changed since, including deletions as `{"id", "deleted": true}`. Store `cursor`
   for next time.

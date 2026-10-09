@@ -105,6 +105,8 @@ Use HTTPS (Caddy, Traefik, Nginx Proxy Manager, Tailscale…) before opening it 
 | `NESTLING_BIND` | `0.0.0.0:8080` | Listen address |
 | `NESTLING_WEB_DIR` | unset (`/web` in Docker) | Folder with the web app to serve at `/` |
 | `NESTLING_OPEN_REGISTRATION` | `false` | Let anyone create an account (normally only admins do) |
+| `NESTLING_FCM_CREDENTIALS` | unset | Firebase service-account key (JSON file) for [notifications on phones](#notifications-on-phones) |
+| `NESTLING_FCM_APP_ID`, `NESTLING_FCM_API_KEY` | unset | The Firebase Android app's App ID and API key (same section) |
 | `RUST_LOG` | `nestling=info,tower_http=info` | Log level |
 
 ## Running it
@@ -155,8 +157,30 @@ location /api/v1/families/ {
 ```
 
 The server sends a keep-alive every 15 s, so idle timeouts (Cloudflare's included) don't cut the
-stream. Don't let the proxy cache the web app's files: the server already sends the right cache
+stream, and an `X-Accel-Buffering: no` header, which turns buffering off in Nginx by itself. Don't let the proxy cache the web app's files: the server already sends the right cache
 headers, and every release gets new file URLs.
+
+### Notifications on phones
+
+Optional. With it, when a caregiver starts, pauses or stops a timer, the other caregivers' Android
+phones show it in their notifications (with the live clock) even while the app is closed. Without
+it, they see it as soon as they open the app. It goes through Google's Firebase Cloud Messaging,
+in a free Firebase project of your own:
+
+1. At [console.firebase.google.com](https://console.firebase.google.com), create a project
+   (Google Analytics isn't needed).
+2. **Add app → Android**, package name `org.nestling.nestling`. Skip the `google-services.json`
+   and SDK steps. In **Project settings → General**, under the Android app, copy the **App ID**
+   (`1:…:android:…`) into `NESTLING_FCM_APP_ID`, and the **Web API key** into
+   `NESTLING_FCM_API_KEY`.
+3. **Project settings → Service accounts → Generate new private key**. Put the JSON file where the
+   container can read it (e.g. in the data volume as `/data/firebase.json`) and set
+   `NESTLING_FCM_CREDENTIALS=/data/firebase.json`. Keep this file private.
+4. Restart the server. The log says `notifications to phones are on`; each phone registers the next
+   time the app opens (and asks to allow notifications).
+
+The messages carry the timer's title (e.g. "Léa · Sleeping") through Google's servers; nothing else
+leaves your server.
 
 ### Exporting your data
 

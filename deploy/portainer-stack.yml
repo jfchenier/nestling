@@ -10,6 +10,10 @@ services:
       - nestling-data:/data
     environment:
       RUST_LOG: "nestling=info,tower_http=info"
+      # Notifications on phones (optional, see README "Notifications on phones"):
+      # NESTLING_FCM_CREDENTIALS: /data/firebase.json
+      # NESTLING_FCM_APP_ID: "1:000000000000:android:0000000000000000"
+      # NESTLING_FCM_API_KEY: "..."
     restart: unless-stopped # plain Compose
     deploy: # Swarm
       restart_policy:

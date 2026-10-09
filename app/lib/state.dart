@@ -15,6 +15,7 @@ import 'local/engine.dart';
 import 'local/peer_sync.dart';
 import 'local/store.dart';
 import 'models.dart';
+import 'push.dart';
 import 'timer_notifications.dart';
 
 /// Default server: on the web the app is usually served by the Nestling server itself.
@@ -33,7 +34,11 @@ class AppState extends ChangeNotifier {
       store.server ??= server;
       api = _syncApi(server, token);
     }
+    // A phone that was in the background may have lost the live connection without noticing.
+    _foreground = AppLifecycleListener(onResume: _resumed);
   }
+
+  late final AppLifecycleListener _foreground;
 
   final SharedPreferences _prefs;
 
@@ -85,15 +90,19 @@ class AppState extends ChangeNotifier {
       ..onMerged = (() => load().catchError((_) {}))
       ..onStatus = notifyListeners;
     relay = DriveRelay(store);
-    local.onChanged = () {
+    local.onChanged = (path) {
       peers?.changed();
-      // Upload a little later, so a burst of changes goes up once.
+      // Upload a little later, so a burst of changes goes up once. A timer started, switched or
+      // stopped goes up quickly so the other caregivers see what's happening now.
       _relayTimer?.cancel();
-      _relayTimer = Timer(const Duration(seconds: 30), syncRelay);
+      _relayTimer = Timer(Duration(seconds: path.contains('/timers') ? 3 : 30), syncRelay);
     };
     api = local;
     _relayEvery?.cancel();
-    _relayEvery = Timer.periodic(const Duration(minutes: 5), (_) => syncRelay());
+    // While the app is on screen; Drive only answers with files that changed.
+    _relayEvery = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) syncRelay();
+    });
     _lifecycle?.dispose();
     _lifecycle = AppLifecycleListener(
       // Back in the app: catch up with the other phones right away.
@@ -175,6 +184,10 @@ class AppState extends ChangeNotifier {
   StreamSubscription<String>? _stream;
   Timer? _reconnect;
   Timer? _debounce;
+  Timer? _watchdog;
+
+  /// The server sends a `ping` every 15 s: this long without one means the connection is dead.
+  static const _silenceLimit = Duration(seconds: 40);
 
   bool get signedIn => api?.token != null;
   Units get units => Units(me?.imperial ?? false);
@@ -258,6 +271,7 @@ class AppState extends ChangeNotifier {
     if (forget) await store.clear();
     _stopStream();
     TimerNotifications.sync(const [], null);
+    await PushRegistration.unregister();
     await _prefs.remove('token');
     api = null;
     me = null;
@@ -289,10 +303,11 @@ class AppState extends ChangeNotifier {
       childId = kids.any((c) => c.id == childId)
           ? childId
           : kids.where((c) => c.id == _prefs.getString('child')).firstOrNull?.id ?? kids.firstOrNull?.id;
-      _startStream();
+      _startStream(refresh: false);
       await refreshChild(notify: false);
       // Push anything logged offline last time, and bring the local copy up to date.
       unawaited(a.sync());
+      if (!serverless) unawaited(PushRegistration.register(a));
       if (serverless) {
         unawaited(peers?.start());
         unawaited(drive.backUpIfDue());
@@ -354,7 +369,7 @@ class AppState extends ChangeNotifier {
     childId = id;
     _prefs.setString('family', f.id);
     _prefs.setString('child', id);
-    if (familyChanged) _startStream();
+    if (familyChanged) _startStream(refresh: false);
     notifyListeners();
     refreshChild();
   }
@@ -367,7 +382,15 @@ class AppState extends ChangeNotifier {
 
   /// Runs an API call, then refreshes the home data. Returns the call's result.
   Future<T> act<T>(Future<T> Function(Api api) call, {bool families = false}) async {
-    final result = await call(api!);
+    final T result;
+    try {
+      result = await call(api!);
+    } on ApiException catch (e) {
+      // Another caregiver changed it first (this screen was out of date): show what's there now.
+      if (e.status != 404 && e.status != 409) rethrow;
+      await refreshChild().catchError((_) {});
+      throw _explain(e);
+    }
     if (families) {
       await load();
     } else {
@@ -376,27 +399,40 @@ class AppState extends ChangeNotifier {
     return result;
   }
 
+  /// A clearer message for a change that lost to another caregiver's.
+  static ApiException _explain(ApiException e) {
+    final message = switch (e.message) {
+      'timer not found' => 'This timer was already stopped on another phone. The screen is up to date now.',
+      final m when m.contains('timer is already running') => 'Someone already started this timer. It\'s shown now.',
+      _ => e.message,
+    };
+    return ApiException(e.code, message, e.status);
+  }
+
   // ---- live updates ----
 
-  void _startStream() {
+  /// Connects to the family's live stream. [refresh]: reload once connected, since whatever
+  /// changed while there was no connection was never announced (the caller reloads otherwise).
+  void _startStream({bool refresh = true}) {
     _stopStream();
     final a = api, f = familyId;
     if (a == null || f == null || serverless) return;
     _stream = familyStream(a.server, a.token!, f).listen(
       (event) {
+        _watchdog?.cancel();
+        _watchdog = Timer(_silenceLimit, _startStream);
         if (event == 'ready') {
           a.markOnline();
           live = true;
           notifyListeners();
+          if (refresh) _refreshSoon(f);
         } else if (event == 'change' || event == 'resync') {
-          _debounce?.cancel();
-          _debounce = Timer(const Duration(milliseconds: 400), () {
-            refreshChild().catchError((_) {});
-          });
+          _refreshSoon(f);
         }
       },
       onError: (_) {},
       onDone: () {
+        _watchdog?.cancel();
         live = false;
         notifyListeners();
         _reconnect?.cancel();
@@ -404,10 +440,30 @@ class AppState extends ChangeNotifier {
       },
       cancelOnError: false,
     );
+    // Nothing at all (not even `ready`) also means the connection is stuck.
+    _watchdog = Timer(_silenceLimit, _startStream);
+  }
+
+  /// Reloads the home data shortly (changes often come in bursts).
+  void _refreshSoon(String familyId) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () async {
+      final a = api;
+      // With changes still queued, screens read the local copy: bring it up to date first.
+      if (a != null && a.pending > 0) await a.pullSoon(familyId);
+      await refreshChild().catchError((_) {});
+    });
+  }
+
+  /// Back in the foreground: reconnect (and reload) rather than trust the old connection.
+  void _resumed() {
+    if (api == null || familyId == null || serverless) return;
+    _startStream();
   }
 
   void _stopStream() {
     _reconnect?.cancel();
+    _watchdog?.cancel();
     _stream?.cancel();
     _stream = null;
     live = false;
@@ -415,6 +471,7 @@ class AppState extends ChangeNotifier {
 
   @override
   void dispose() {
+    _foreground.dispose();
     _stopStream();
     _debounce?.cancel();
     super.dispose();

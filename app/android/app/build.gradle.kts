@@ -67,3 +67,10 @@ flutter {
     source = "../.."
 }
 
+dependencies {
+    // Notifications from the server (Push.kt); the Firebase project comes from the server at
+    // run time, so there is no google-services plugin or google-services.json.
+    implementation(platform("com.google.firebase:firebase-bom:34.0.0"))
+    implementation("com.google.firebase:firebase-messaging")
+}
+

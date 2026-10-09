@@ -227,3 +227,46 @@ pub async fn delete_token(State(state): State<AppState>, user: AuthUser, Path(id
     }
     Ok(StatusCode::NO_CONTENT)
 }
+
+/// Whether the server sends notifications, and the Firebase settings the app registers with.
+pub async fn push_config(State(state): State<AppState>, _user: AuthUser) -> Json<Value> {
+    Json(state.push.as_ref().map_or_else(|| json!({ "enabled": false }), |p| p.client_config()))
+}
+
+#[derive(Deserialize)]
+pub struct PushDeviceReq {
+    token: String,
+}
+
+/// Registers this phone for notifications (its Firebase token), tied to the current session.
+pub async fn add_push_device(State(state): State<AppState>, user: AuthUser, ApiJson(req): ApiJson<PushDeviceReq>) -> AppResult<StatusCode> {
+    let token = req.token.trim();
+    if token.is_empty() || token.len() > 4096 {
+        return bad("token is required");
+    }
+    let (session_id,): (String,) = sqlx::query_as("SELECT id FROM tokens WHERE token_hash = ?")
+        .bind(&user.token_hash)
+        .fetch_one(&state.db)
+        .await?;
+    sqlx::query(
+        "INSERT INTO push_devices (fcm_token, user_id, session_id, created_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT (fcm_token) DO UPDATE SET user_id = excluded.user_id, session_id = excluded.session_id",
+    )
+    .bind(token)
+    .bind(&user.id)
+    .bind(&session_id)
+    .bind(now_ms())
+    .execute(&state.db)
+    .await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Stops notifications to this phone.
+pub async fn remove_push_device(State(state): State<AppState>, user: AuthUser, Path(token): Path<String>) -> AppResult<StatusCode> {
+    sqlx::query("DELETE FROM push_devices WHERE fcm_token = ? AND user_id = ?")
+        .bind(&token)
+        .bind(&user.id)
+        .execute(&state.db)
+        .await?;
+    Ok(StatusCode::NO_CONTENT)
+}

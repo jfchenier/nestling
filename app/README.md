@@ -46,8 +46,8 @@ activity color. Colors live in
   (`lib/local/merge.dart`, `lib/local/peer_sync.dart`). For phones that aren't open at the same time
   or on the same Wi-Fi, Family → Sync through Google Drive keeps one encrypted, gzipped snapshot per
   phone in a Drive folder shared by link (`lib/local/relay.dart`, `lib/local/drive_relay.dart`;
-  the folder id travels in the family record). It syncs when the app opens, 30 s after a change,
-  when the app goes to the background, and every 5 minutes while open; only changed files are
+  the folder id travels in the family record). It syncs when the app opens, 30 s after a change (3 s after a timer change),
+  when the app goes to the background, and every minute while on screen; only changed files are
   downloaded and a phone uploads only after something changed. Everything between phones is encrypted with the family key from the
   QR code (AES-256-GCM). Phones find each other with a UDP announcement (port 47816) or their last
   address, and listen on port 47815. Phones that were apart catch up when they meet again. Google

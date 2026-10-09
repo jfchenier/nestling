@@ -4,6 +4,8 @@ use serde::Serialize;
 use sqlx::SqlitePool;
 use tokio::sync::broadcast;
 
+use crate::push::Push;
+
 #[derive(Debug, Clone)]
 pub struct Config {
     /// Allow anyone to create an account. The first account (the admin) can always be created;
@@ -50,12 +52,22 @@ pub struct AppState {
     pub db: SqlitePool,
     pub config: Arc<Config>,
     pub changes: broadcast::Sender<Change>,
+    /// Notifications to phones, when set up.
+    pub push: Option<Arc<Push>>,
 }
 
 impl AppState {
     pub fn new(db: SqlitePool, config: Config) -> Self {
         let (changes, _) = broadcast::channel(256);
-        AppState { db, config: Arc::new(config), changes }
+        AppState { db, config: Arc::new(config), changes, push: None }
+    }
+
+    /// Turns on notifications to phones (timer changes are sent from now on).
+    pub fn with_push(mut self, push: Push) -> Self {
+        let push = Arc::new(push);
+        self.push = Some(push.clone());
+        crate::push::spawn(self.clone(), push);
+        self
     }
 
     pub fn publish(&self, family_id: &str, entity: &'static str, action: &'static str, data: serde_json::Value) {
