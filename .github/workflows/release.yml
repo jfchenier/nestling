@@ -4,6 +4,7 @@
 # Or a manual run (Actions tab -> Release -> Run workflow) with "version" set (e.g. 0.2.0): same
 # release, and the workflow creates the v0.2.0 tag on the commit it built.
 # Manual run without a version: builds and uploads the APK as a workflow artifact only.
+# (CLI: gh workflow run release.yml -f version=0.1.0)
 #
 # Signing: set these repository secrets (Settings -> Secrets and variables -> Actions) so
 # every release is signed with the same key and installs as an update over the previous one:
