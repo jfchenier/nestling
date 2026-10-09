@@ -1,5 +1,8 @@
 # Nestling API v1
 
+The HTTP API of the Nestling server — what the app uses, and what scripts, Home Assistant or
+another client can use too.
+
 Base URL: `http://<server>:8080/api/v1`. JSON in, JSON out.
 
 ## Conventions
@@ -166,44 +169,46 @@ Daily averages use complete days only.
   everything; with it, only events changed since, including deletions as `{"id", "deleted": true}`. Store `cursor`
   for next time.
 
-## Nara import
+## History import
 
-Two ways in; both preview with `dry_run`, match records on Nara's id (re-running updates instead of
-duplicating) and keep the original record in each event's `raw` column.
+Brings over the history from the baby-tracking app a family used before. Two ways in; both preview
+with `dry_run`, match records on the source app's id (re-running updates instead of duplicating)
+and keep the original record in each event's `raw` column. Imported events have
+`"source": "nara"`.
 
-### From the Nara CSV export (recommended)
+### From a CSV export (recommended)
 
-`POST /families/{id}/import/nara-csv?dry_run=true&child_id=<id>` with the `.csv` file the Nara app exports
-as the raw request body (`content-type: text/csv`, up to 64 MB).
+`POST /families/{id}/import/nara-csv?dry_run=true&child_id=<id>` with the `.csv` file exported by the
+previous app as the raw request body (`content-type: text/csv`, up to 64 MB).
 
 - Reads every type in the export: Breastfeed, Bottle Feed, Diaper, Sleep, Growth, Medical (medicines and
   temperatures; a row with both becomes two events), Routine, plus the **Profile** row (child name,
-  birth date, sex). Children created by the import get the Nara name and birth date; an existing child
+  birth date, sex). Children created by the import get that name and birth date; an existing child
   gets a missing birth date / sex filled in.
 - Times come from the epoch columns (falling back to the local time + `Time Zone` columns). Units
   (ML/OZ, KG/LB, CM/IN, C/F) are converted to metric.
-- Child mapping as below; for several Nara children into several family children pass
-  `children=<nara profile key>:<child id>,…`.
+- Child mapping as below; for several exported children into several family children pass
+  `children=<profile key>:<child id>,…`.
 - Response like the account import, plus `nara_children: [{key, name, birth_date, events, child_id}]` and,
   for a dry run, `first_ms` / `last_ms` (date range).
 
-### From the Nara account
+### From the previous app's account
 
 `POST /families/{id}/import/nara`
 
 ```json
-{"email": "nara-login@example.com", "password": "…", "dry_run": true}
+{"email": "login@example.com", "password": "…", "dry_run": true}
 ```
 
 or upload an export instead of credentials: `{"tracks": <trackz object | full sync2 response | array of tracks>}`.
 
 - Credentials are used once to download your data and are never stored.
-- Children: with one child in the family (or none — one is created per Nara child), mapping is automatic.
-  Otherwise pass `"child_id": "<id>"` or `"children": {"<nara child key>": "<child id>"}`; the error lists the Nara keys found.
-- Re-running is safe: records are matched by Nara id and updated, not duplicated.
-- The original Nara record is kept on each event (`raw` column) so conversions can be redone later.
+- Children: with one child in the family (or none — one is created per exported child), mapping is automatic.
+  Otherwise pass `"child_id": "<id>"` or `"children": {"<source child key>": "<child id>"}`; the error lists the keys found.
+- Re-running is safe: records are matched by their source id and updated, not duplicated.
+- The original record is kept on each event (`raw` column) so conversions can be redone later.
 - Skipped: running timers / unfinished sleeps, deleted records, unknown types (counted in `skipped`).
 
 Response: `{"tracks": 2140, "imported": 2131, "updated": 0, "by_type": {"feed": 1200, …}, "skipped": {"sleep still in progress": 1}, "children_created": […]}`.
 
-Units are converted from Nara's `Num/Exp/Unit` fields (value = Num ÷ 10^Exp): fl oz → mL, lb/oz → g, in → cm, °F → °C.
+Quantities are converted from `Num/Exp/Unit` fields (value = Num ÷ 10^Exp): fl oz → mL, lb/oz → g, in → cm, °F → °C.

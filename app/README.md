@@ -23,29 +23,30 @@ activity color. Colors live in
 - **Home** — running-timer banners, today's totals, then two cards per row in a fixed order
   (Feed · Sleep / Diaper · Pump / Growth · Health / Routine · Firsts). Each card shows the latest
   entry and a big value ("next side", "dirty", "1h 06m"…), or the live clock of a running timer.
-  **Tap a card to log** (Feed asks Nursing / Bottle / Solids / Combo); the clock icon in its header
+  **Tap a card to log** (Feed asks Breastfeed / Bottle / Solids / Combo); the clock icon in its header
   opens its history. "Add a note" sits under the grid.
 - **Timers** — breastfeed (tap Left/Right to start, switch sides, pause), sleep (with location) and pump
   (left/right/both, asks for amounts at the end). Shared live with every caregiver. While one runs you can
-  correct its start time and its time (per side for nursing, total for sleep/pump) with the pencils;
+  correct its start time and its time (per side for breastfeeding, total for sleep/pump) with the pencils;
   ✕ closes the page and the timer keeps running, **Save** stores it, **Delete** throws it away;
   "Ended earlier…" trims the end.
 - **Times** use a 24-hour clock; date/time rows have separate day and time pills. Durations
   past 24 h read in days ("41d 11h").
 - **Forms** — a sheet with the activity's icon and title, label/value rows and a big Save button
   (medicines are picked from the child's recent ones, then a common list, or typed in):
-  nursing (manual), bottle, solids, sleep, diaper (wet/dirty/dry, color, consistency, rash,
+  breastfeeding (manual), bottle, solids, sleep, diaper (wet/dirty/dry, color, consistency, rash,
   blowout), pump, growth, health (medicine, temperature, vaccine, symptom, appointment), activity,
   milestone, note. Tap any entry to edit or delete it.
 - **Timeline** — everything, grouped by day, filter by type, infinite scroll.
-- **Calendar** — days at a glance (like Nara's History): one column per day, 00–24 top to
+- **Calendar** — days at a glance: one column per day, 00–24 top to
   bottom, night hours shaded, a colored bar per entry as tall as its duration, a line at the
   current time. Drag sideways to scroll back through time (loads 14 days at a time, snaps to
   days), filter by activity, tap a bar to edit it.
 - **Trends** — 7/14/30-day averages (feeds, feed interval, sleep, wake window, naps, diapers, bottle,
-  nursing, pumping) and daily charts.
+  breastfeeding, pumping) and daily charts.
 - **Family** — babies, caregivers, invite codes, join a family, units (metric/imperial), time zone,
-  Nara import (preview first), API token for Home Assistant, sign out.
+  history import from a previous tracker's CSV export (preview first), API token for Home
+  Assistant, change password, users (admins), sign out.
 
 Changes made by other caregivers appear within a second (Server-Sent Events from `/families/{id}/stream`;
 the green dot on Home shows the live connection).
@@ -141,6 +142,6 @@ lib/
   models.dart          Me, Family, Child, Event, TimerModel
   format.dart          units (metric/imperial), durations, event descriptions
   theme.dart           colors, per-activity look (Kind), Material theme
-  screens/             home, timer, event form, timeline, calendar, trends, family (+ Nara import), login, onboarding
+  screens/             home, timer, event form, timeline, calendar, trends, family (+ history import), users, login, onboarding
   widgets/             shared bits (badges, ticking rebuilds, chips, event row)
 ```

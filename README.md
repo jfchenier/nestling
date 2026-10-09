@@ -1,78 +1,144 @@
 # Nestling
 
-A self-hosted baby tracker server, written in Rust. It's an open replacement for the Nara Baby
-app's backend: feeds, sleep, diapers, pumping, growth and health, with live timers shared
-between caregivers, daily trends, and a one-shot importer for your Nara history.
+**A self-hosted baby tracker for the whole family.** Log feeds, sleep, diapers, pumping, growth
+and health from any phone, see what the other caregivers logged a second later, and keep every
+record on your own hardware.
 
-- **Any number of caregivers and children.** Families share data; invite people with a short code.
-- **Clean JSON API.** Metric units everywhere (mL, g, cm, °C, seconds), readable times, one call per action.
-- **Live timers.** Start a breastfeed on one phone, switch sides on the other.
-- **Live updates.** Server-Sent Events stream of every change, plus incremental `/sync` for offline clients.
-- **Trends.** Daily feed/sleep/diaper/pump totals and averages (feed interval, wake windows, naps).
-- **Nara import.** Pull everything from your Nara account (or an export) and keep it.
-- **Small.** One binary + one SQLite file. Runs happily on a NAS or next to Home Assistant.
+Nestling is two parts that ship together:
 
-The app (web + Android, built with Flutter) lives in [`app/`](app/README.md). The Docker image builds the
-web app and serves it at `http://<your-server>:8080/`.
+- **The app** — a Flutter app for the web (installable as a PWA) and Android, built for one-handed
+  use at 3 a.m.
+- **The server** — a small Rust service with one SQLite file that stores everything, keeps
+  caregivers in sync and serves the web app.
 
-## Run it
+| Home | Live timer | Calendar | Trends |
+|---|---|---|---|
+| <img src="docs/screenshots/home-light.png" width="200" alt="Home: today's totals and a card per activity"> | <img src="docs/screenshots/timer-light.png" width="200" alt="Breastfeeding timer with left and right sides"> | <img src="docs/screenshots/calendar-dark.png" width="200" alt="Calendar: a column per day with a bar per entry"> | <img src="docs/screenshots/trends-light.png" width="200" alt="Trends: daily averages and charts"> |
+
+## The app
+
+One codebase ([`app/`](app/README.md)) for the browser and Android.
+
+- **Home at a glance.** Today's totals (feeds with breast/bottle split, night sleep and naps,
+  wet/dirty diapers) and a card per activity: time since the last one and what matters next
+  ("next side: right", "awake 1h 20m", "130 mL pumped"). Tap a card to log.
+- **Live timers.** Breastfeeding (left/right, switch, pause), sleep and pumping. Start on one phone,
+  switch sides on the other. Correct the start time or any side's duration with a pencil; close the
+  screen and the timer keeps running.
+- **Quick forms** for bottles, solids, diapers (color, consistency, rash, blowout), growth,
+  temperature, medicine (your recent ones first), vaccines, routines and baby's firsts.
+- **Timeline** of everything, grouped by day and filterable; tap any entry to edit it.
+- **Calendar** with a column per day and a bar per entry: scroll back through weeks to see sleep
+  and feeding patterns.
+- **Trends** over 7, 14 or 30 days: feeds per day, feed interval, sleep and naps, wake windows,
+  diapers, bottle and pumping volumes, with daily charts.
+- **Family sharing.** Several babies and caregivers per family; changes appear on every device
+  within a second.
+- **Yours to adjust.** Light and dark themes (or follow the system), metric or imperial units,
+  24-hour clock.
+
+## The server
+
+A single Rust binary ([`src/`](src)) with an SQLite file — happy on a NAS, a Raspberry Pi or next
+to Home Assistant.
+
+- **Accounts.** The first account is the admin; admins create the other accounts (no public
+  sign-up).
+- **Families.** Any number of families, caregivers and children; invite codes to share a family.
+- **JSON API** ([`docs/API.md`](docs/API.md)). Metric units everywhere (mL, g, cm, °C, seconds),
+  times as `"now"`, local time or RFC 3339, one call per action.
+- **Shared timers** stored on the server, so every caregiver sees the same running clock.
+- **Live updates** over Server-Sent Events, plus incremental `/sync` for offline clients.
+- **Daily statistics** (day/night split, naps, feed intervals) computed on the server, so every
+  client shows the same numbers.
+- **History import** from a previous tracker's CSV export, with a preview before anything is saved.
+- **Home Assistant friendly.** Long-lived API tokens and a `/summary` endpoint for REST sensors.
+- **Serves the web app** at `/`, so one container is the whole install.
+
+```
+ phones / browsers ──HTTPS──▶ reverse proxy ──▶ nestling (Rust) ──▶ nestling.db (SQLite)
+   Flutter app                                    ├─ /           web app
+   (web, Android)                                 ├─ /api/v1     JSON API + live updates
+                                                  └─ /health
+```
+
+## Getting started
+
+### 1. Run the server
 
 ```bash
+git clone https://github.com/jfchenier/nestling && cd nestling
 docker compose up -d --build
-# Web app at http://<your-server>:8080/, API at /api/v1, health check at /health
 ```
 
-For the Android app, build the APK from [`app/`](app/README.md#android-app) and enter the server address
-on the sign-in screen.
+Or use the prebuilt image `ghcr.io/jfchenier/nestling:latest` (see
+[Deploy with Portainer](#deploy-with-portainer)). The web app is now at `http://<your-server>:8080/`.
 
-Data lives in `nestling.db` inside the `nestling-data` Docker volume. To back it up:
-`docker compose stop && docker run --rm -v nestling_nestling-data:/data -v "$PWD":/backup debian cp /data/nestling.db /backup/`.
+### 2. Create the admin account
 
-Without Docker:
+Open the web app. A new server asks for its **admin account** first. Then create your family and
+add your baby.
 
-```bash
-cargo run --release
-```
+### 3. Add the other caregivers
 
-### Configuration
+As the admin, go to **Family → Users → Add user**: name, email and a starting password, optionally
+added straight to your family. They sign in and can change the password under Family → Account.
+(Someone who already has an account on the server can join with an invite code from
+**Family → Invite a caregiver**.)
+
+### 4. Put it on your phones
+
+- **Any phone:** open the web app and choose **Add to Home screen** / **Install app**.
+- **Android:** install the APK (see [`app/README.md`](app/README.md#android-app)) and enter your
+  server's address on the sign-in screen.
+
+Use HTTPS (Caddy, Traefik, Nginx Proxy Manager, Tailscale…) before opening it to the internet.
+
+## Configuration
 
 | Variable | Default | |
 |---|---|---|
 | `NESTLING_DATABASE_URL` | `sqlite://nestling.db` (`sqlite:///data/nestling.db` in Docker) | SQLite file |
 | `NESTLING_BIND` | `0.0.0.0:8080` | Listen address |
-| `NESTLING_OPEN_REGISTRATION` | `false` | Let anyone create an account. Off: the first account (the admin) is created from the sign-in screen, then admins add accounts under Family → Users. |
 | `NESTLING_WEB_DIR` | unset (`/web` in Docker) | Folder with the web app to serve at `/` |
+| `NESTLING_OPEN_REGISTRATION` | `false` | Let anyone create an account (normally only admins do) |
 | `RUST_LOG` | `nestling=info,tower_http=info` | Log level |
 
-### Accounts
+## Running it
 
-A new server asks for its **admin account** on the sign-in screen (the first account). After
-that, sign-up is closed: admins add caregivers under **Family → Users** (optionally straight into
-their family), reset forgotten passwords and make other admins. Everyone can change their own
-password under Family → Account.
+### Accounts and recovery
 
-Locked out? From the host:
+Admins manage accounts under **Family → Users**: add users (standard or admin), set a new password
+for someone who forgot theirs, promote or remove accounts. The server always keeps at least one
+admin. If you lock yourself out, run this on the host:
 
 ```bash
 docker exec <container> nestling set-password me@example.com 'a new password'
 docker exec <container> nestling make-admin me@example.com
 ```
 
-Put it behind HTTPS (Caddy, Traefik, Nginx Proxy Manager, Tailscale…) before using it outside your home network.
+### Backups
 
-### Deploy with Portainer (prebuilt image)
+Everything is in one file, `nestling.db`, in the `nestling-data` volume:
 
-Every push to `main` publishes `ghcr.io/jfchenier/nestling:latest` (`.github/workflows/docker.yml`;
-version tags add `:0.2.0`-style tags). In Portainer: **Stacks → Add stack → Web editor**, paste
+```bash
+docker compose stop
+docker run --rm -v nestling_nestling-data:/data -v "$PWD":/backup debian cp /data/nestling.db /backup/
+docker compose start
+```
+
+### Deploy with Portainer
+
+Every push to `main` publishes `ghcr.io/jfchenier/nestling:latest` (version tags add `:0.2.0`-style
+tags). In Portainer: **Stacks → Add stack → Web editor**, paste
 [`deploy/portainer-stack.yml`](deploy/portainer-stack.yml) (port 8383 → 8080, data in the
-`nestling-data` volume) and deploy. The image is private along with the repo: either make the
-package public (GitHub → your profile → Packages → nestling → Package settings → Change visibility;
-the code stays private) or add ghcr.io under Portainer **Registries** with a GitHub token that has
-`read:packages`. To update: **Pull and redeploy** the stack.
+`nestling-data` volume) and deploy. To update, **Pull and redeploy** the stack.
 
-Nginx Proxy Manager: proxy host `nestling.example.com` → `http://<server>:8383`, SSL on. Under
-**Advanced**, add the lines below so live updates (Server-Sent Events) aren't buffered. The server sends
-a keep-alive every 15 s, so Cloudflare's idle timeout doesn't cut the stream.
+### Behind a reverse proxy
+
+Point your proxy host (e.g. `nestling.example.com`) at `http://<server>:8383`. Live updates use
+Server-Sent Events, so turn off response buffering for them. With Nginx (or Nginx Proxy Manager →
+Advanced):
 
 ```nginx
 location /api/v1/families/ {
@@ -84,3 +150,48 @@ location /api/v1/families/ {
     proxy_read_timeout 1h;
 }
 ```
+
+The server sends a keep-alive every 15 s, so idle timeouts (Cloudflare's included) don't cut the
+stream. Don't let the proxy cache the web app's files: the server already sends the right cache
+headers, and every release gets new file URLs.
+
+### Bringing your history over
+
+The import under **Family → Settings** reads the CSV export of your previous tracker app. It shows a preview (date
+range, number of records per type, anything skipped) before saving; re-importing the same file
+updates entries instead of duplicating them.
+
+### Home Assistant
+
+Create a long-lived token (**Family → Settings → API token**, or `POST /api/v1/me/tokens`) and use
+`GET /api/v1/children/{id}/summary` as a REST sensor: time since the last feed, diaper and sleep,
+running timers and today's totals.
+
+## Development
+
+```
+app/         Flutter app (web + Android) — see app/README.md
+src/         Rust server: routes/ (HTTP API), model.rs (event types), trends.rs (statistics)
+migrations/  SQLite schema
+tests/       end-to-end API tests
+docs/        API reference, screenshots
+deploy/      Portainer stack
+```
+
+```bash
+# Server
+cargo run --release                 # http://localhost:8080
+cargo test
+
+# App (needs Flutter 3.35+)
+cd app && flutter run -d chrome     # enter http://localhost:8080 on the sign-in screen
+```
+
+CI (`.github/workflows/`) runs the Rust and Flutter tests on every push, publishes the Docker
+image from `main`, and a `v*` tag builds a GitHub Release with the Android APK and the web app.
+
+## Documentation
+
+- [`app/README.md`](app/README.md) — the app: screens, design, building the web app and the APK,
+  release signing.
+- [`docs/API.md`](docs/API.md) — the server's HTTP API, for scripts and other clients.
