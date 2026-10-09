@@ -198,7 +198,7 @@ class _EventFormState extends State<EventForm> {
   @override
   Widget build(BuildContext context) => Column(
     children: [
-      SheetHeader(title: _title, color: kind.color, onSave: _busy ? null : _save),
+      SheetHeader(title: _title, color: kind.fill(context.pal), onSave: _busy ? null : _save),
       Expanded(
         child: Padding(
           padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -281,7 +281,7 @@ class _EventFormState extends State<EventForm> {
 
   Widget _chipsRow<T>(String label, Map<T, String> options, T? value, ValueChanged<T?> onChanged) => FormRow(
     label: label,
-    below: ChoiceChips<T>(options: options, value: value, color: kind.color, onChanged: onChanged),
+    below: ChoiceChips<T>(options: options, value: value, color: kind.fill(context.pal), onChanged: onChanged),
   );
 
   Widget _switchRow(String label, bool value, ValueChanged<bool> onChanged) => FormRow(
@@ -448,7 +448,7 @@ class _EventFormState extends State<EventForm> {
                   ChoiceChip(
                     label: Text(cap(a), style: TextStyle(color: _activityKind.text == a ? context.pal.bandInk : context.pal.ink)),
                     selected: _activityKind.text == a,
-                    selectedColor: kind.color,
+                    selectedColor: kind.fill(context.pal),
                     showCheckmark: false,
                     onSelected: (_) => setState(() => _activityKind.text = a),
                   ),

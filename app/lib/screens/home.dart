@@ -293,7 +293,7 @@ class _ActivityCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Container(
-                color: kind.color,
+                color: kind.fill(c),
                 padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
                 child: Row(
                   children: [
@@ -386,7 +386,7 @@ class _TimerBanner extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: k.color,
+        color: k.fill(c),
         borderRadius: BorderRadius.circular(20),
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
@@ -399,8 +399,11 @@ class _TimerBanner extends StatelessWidget {
                   Container(
                     width: 42,
                     height: 42,
-                    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.6), shape: BoxShape.circle),
-                    child: Icon(k.icon, color: c.bandInk),
+                    decoration: BoxDecoration(
+                      color: c.isDark ? Colors.black26 : Colors.white.withValues(alpha: 0.6),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(k.icon, color: k.iconOn(c)),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -565,9 +568,9 @@ class ChildAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (child.sex) {
-      'female' => Kind.pump.color,
-      'male' => Kind.sleep.color,
-      _ => Kind.growth.color,
+      'female' => Kind.pump.fill(context.pal),
+      'male' => Kind.sleep.fill(context.pal),
+      _ => Kind.growth.fill(context.pal),
     };
     return Container(
       width: size,
@@ -709,12 +712,7 @@ void showLogMenu(BuildContext context) {
                           padding: const EdgeInsets.symmetric(vertical: 6),
                           child: Column(
                             children: [
-                              Container(
-                                width: 54,
-                                height: 54,
-                                decoration: BoxDecoration(color: k.color, shape: BoxShape.circle),
-                                child: Icon(k.icon, color: context.pal.bandInk, size: 26),
-                              ),
+                              BlobIcon(k, size: 54),
                               const SizedBox(height: 6),
                               Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                             ],

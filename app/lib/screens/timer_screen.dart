@@ -155,7 +155,7 @@ class _TimerScreenState extends State<TimerScreen> {
     return Scaffold(
       body: Column(
         children: [
-          SheetHeader(title: title, color: kind.color, onSave: t == null || _busy ? null : () => _stop(t)),
+          SheetHeader(title: title, color: kind.fill(context.pal), onSave: t == null || _busy ? null : () => _stop(t)),
           Expanded(
             child: Constrained(
               child: Ticking(
@@ -201,7 +201,7 @@ class _TimerScreenState extends State<TimerScreen> {
                             'car': 'Car',
                           },
                           value: _location,
-                          color: kind.color,
+                          color: kind.fill(context.pal),
                           onChanged: (v) => setState(() => _location = v),
                         ),
                       ),
@@ -268,7 +268,10 @@ class _TimerScreenState extends State<TimerScreen> {
               child: lastSide == side || (t != null && t.side == side)
                   ? Container(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                      decoration: BoxDecoration(color: kind.color.withValues(alpha: 0.35), borderRadius: BorderRadius.circular(6)),
+                      decoration: BoxDecoration(
+                        color: kind.fill(context.pal).withValues(alpha: 0.6),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
                       child: Text(t == null ? 'last side' : (active ? 'now' : 'paused'), style: serifStyle(19)),
                     )
                   : null,
@@ -291,7 +294,7 @@ class _TimerScreenState extends State<TimerScreen> {
               ),
             ),
             const SizedBox(height: 22),
-            PillButton(label: action, active: active, color: kind.color, onTap: _busy ? null : () => _tapSide(t, side)),
+            PillButton(label: action, active: active, color: kind.fill(context.pal), onTap: _busy ? null : () => _tapSide(t, side)),
           ],
         ),
       );
@@ -335,7 +338,7 @@ class _TimerScreenState extends State<TimerScreen> {
         PillButton(
           label: t == null ? 'Start' : (running ? 'Pause' : 'Resume'),
           active: running,
-          color: kind.color,
+          color: kind.fill(context.pal),
           onTap: _busy ? null : () => _toggle(t),
         ),
       ],

@@ -60,9 +60,9 @@ class AppColors extends ThemeExtension<AppColors> {
     line: Color(0xFF3D3934),
     ink: Color(0xFFF0EAE1),
     muted: Color(0xFFA69E93),
-    bandInk: Color(0xFF24211E),
-    accent: Color(0xFF93C9B6),
-    onAccent: Color(0xFF1B1A18),
+    bandInk: Color(0xFFF0EAE1), // light text on the darker activity fills
+    accent: Color(0xFF4E8F7C),
+    onAccent: Colors.white,
     accentSoft: Color(0xFF2A3833),
     danger: Color(0xFFE59478),
     nav: Color(0xFF161513),
@@ -99,20 +99,27 @@ class Kind {
   /// Darker shade of the same hue, for text and marks on light backgrounds.
   final Color deepTone;
 
-  /// Accent that reads well on the current background.
+  /// Accent that reads well on the current background (text, chart marks).
   Color on(AppColors c) => c.isDark ? color : deepTone;
 
-  static const breast = Kind('Nursing', Icons.favorite_border_rounded, Color(0xFFF5C4A1), Color(0xFFB0602D)); // apricot
-  static const bottle = Kind('Bottle', Icons.local_drink_outlined, Color(0xFFF2DCA4), Color(0xFF94701C)); // honey
+  /// Fill for bands, icon circles and chips: the pastel in light mode, a muted dark shade of the
+  /// same hue in dark mode (text on it is `AppColors.bandInk`).
+  Color fill(AppColors c) => c.isDark ? Color.lerp(deepTone, c.background, 0.45)! : color;
+
+  /// Icon color on [fill].
+  Color iconOn(AppColors c) => c.isDark ? color : deepTone;
+
+  static const breast = Kind('Nursing', Icons.favorite_rounded, Color(0xFFF5C4A1), Color(0xFFB0602D)); // apricot
+  static const bottle = Kind('Bottle', Icons.local_drink_rounded, Color(0xFFF2DCA4), Color(0xFF94701C)); // honey
   static const solids = Kind('Solids', Icons.restaurant_rounded, Color(0xFFEFAE80), Color(0xFFA9532A)); // carrot
   static const combo = Kind('Combo', Icons.join_inner_rounded, Color(0xFFF5C4A1), Color(0xFFB0602D));
-  static const sleep = Kind('Sleep', Icons.bedtime_outlined, Color(0xFFD4CBEA), Color(0xFF65529C)); // dusk lilac
-  static const diaper = Kind('Diaper', Icons.baby_changing_station_outlined, Color(0xFFCADFBC), Color(0xFF4A763A)); // sage
-  static const pump = Kind('Pump', Icons.water_drop_outlined, Color(0xFFEDE29B), Color(0xFF7E7116)); // butter
+  static const sleep = Kind('Sleep', Icons.bedtime_rounded, Color(0xFFD4CBEA), Color(0xFF65529C)); // dusk lilac
+  static const diaper = Kind('Diaper', Icons.baby_changing_station_rounded, Color(0xFFCADFBC), Color(0xFF4A763A)); // sage
+  static const pump = Kind('Pump', Icons.water_drop_rounded, Color(0xFFEDE29B), Color(0xFF7E7116)); // butter
   static const growth = Kind('Growth', Icons.straighten_rounded, Color(0xFFE4D4BA), Color(0xFF7A5F3C)); // oat
-  static const health = Kind('Health', Icons.medical_services_outlined, Color(0xFFCBD19A), Color(0xFF616B26)); // moss
-  static const activity = Kind('Activity', Icons.wb_sunny_outlined, Color(0xFFB9E0D1), Color(0xFF2C755E)); // seafoam
-  static const milestone = Kind('Milestone', Icons.star_border_rounded, Color(0xFFEBC46E), Color(0xFF8A6210)); // marigold
+  static const health = Kind('Health', Icons.medical_services_rounded, Color(0xFFCBD19A), Color(0xFF616B26)); // moss
+  static const activity = Kind('Activity', Icons.wb_sunny_rounded, Color(0xFFB9E0D1), Color(0xFF2C755E)); // seafoam
+  static const milestone = Kind('Milestone', Icons.star_rounded, Color(0xFFEBC46E), Color(0xFF8A6210)); // marigold
   static const note = Kind('Note', Icons.edit_note_rounded, Color(0xFFDDD6CC), Color(0xFF6B6359)); // stone
 
   /// Look of an event (feeds are split by method).
