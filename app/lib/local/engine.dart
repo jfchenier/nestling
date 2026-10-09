@@ -112,6 +112,8 @@ class LocalEngine {
         case ('GET', ['families', final id, 'children']):
           return {'children': _family(id)['children']};
         case ('POST', ['families', final id, 'children']):
+          // Required for new babies, as on the server; the Nara import may still leave it unset.
+          if (b['birth_date'] == null) throw badRequest('birth_date is required');
           return createChild(id, b);
         case ('PATCH', ['children', final id]):
           return updateChild(id, b);

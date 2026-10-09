@@ -32,6 +32,7 @@ class _ChildFormState extends State<_ChildForm> {
   late DateTime? _birth = widget.child?.birthDate;
   late String? _sex = widget.child?.sex;
   bool _busy = false;
+  bool _birthMissing = false;
 
   // Photo changes, applied on Save.
   Uint8List? _newPhoto;
@@ -46,6 +47,8 @@ class _ChildFormState extends State<_ChildForm> {
 
   Future<void> _save() async {
     if (_name.text.trim().isEmpty) return showMessage(context, 'Enter a name');
+    // Required when adding; a baby saved earlier without one can still be edited.
+    if (_birth == null && widget.child == null) return setState(() => _birthMissing = true);
     setState(() => _busy = true);
     final body = {'name': _name.text.trim(), 'birth_date': _birth == null ? null : DateFormat('yyyy-MM-dd').format(_birth!), 'sex': _sex};
     final s = context.read<AppState>();
@@ -150,11 +153,19 @@ class _ChildFormState extends State<_ChildForm> {
                 firstDate: DateTime(2000),
                 lastDate: DateTime.now().add(const Duration(days: 300)),
               );
-              if (d != null) setState(() => _birth = d);
+              if (d != null) {
+                setState(() {
+                  _birth = d;
+                  _birthMissing = false;
+                });
+              }
             },
             child: InputDecorator(
-              decoration: const InputDecoration(labelText: 'Birth date (or due date)'),
-              child: Text(_birth == null ? 'Not set' : DateFormat.yMMMMd().format(_birth!)),
+              decoration: InputDecoration(
+                labelText: widget.child == null ? 'Birth date (or due date) *' : 'Birth date (or due date)',
+                errorText: _birthMissing ? 'Choose a birth date (or due date)' : null,
+              ),
+              child: Text(_birth == null ? (widget.child == null ? 'Tap to choose' : 'Not set') : DateFormat.yMMMMd().format(_birth!)),
             ),
           ),
           const SizedBox(height: 16),

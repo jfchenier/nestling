@@ -94,6 +94,8 @@ async fn full_flow() {
     let (s, fam) = c.call(Method::POST, "/families", Some(&mom), Some(json!({ "name": "Home", "timezone": "America/New_York" }))).await;
     assert_eq!(s, StatusCode::CREATED, "{fam}");
     let fid = fam["id"].as_str().unwrap().to_string();
+    let (s, err) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&mom), Some(json!({ "name": "Léa" }))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "birth date is required: {err}");
     let (s, child) = c
         .call(Method::POST, &format!("/families/{fid}/children"), Some(&mom), Some(json!({ "name": "Léa", "birth_date": "2026-06-01" })))
         .await;
@@ -191,7 +193,7 @@ async fn timers() {
     let t = c.register("a@example.com", "A").await;
     let (_, fam) = c.call(Method::POST, "/families", Some(&t), Some(json!({ "name": "F" }))).await;
     let fid = fam["id"].as_str().unwrap();
-    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&t), Some(json!({ "name": "B" }))).await;
+    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&t), Some(json!({ "name": "B", "birth_date": "2026-06-01" }))).await;
     let cid = child["id"].as_str().unwrap();
 
     // Breastfeed that started 20 minutes ago on the left
@@ -436,7 +438,7 @@ async fn child_photo() {
     let t = c.register("a@example.com", "A").await;
     let (_, fam) = c.call(Method::POST, "/families", Some(&t), Some(json!({ "name": "F" }))).await;
     let fid = fam["id"].as_str().unwrap();
-    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&t), Some(json!({ "name": "B" }))).await;
+    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&t), Some(json!({ "name": "B", "birth_date": "2026-06-01" }))).await;
     let cid = child["id"].as_str().unwrap();
     assert!(child["photo_version"].is_null());
 
@@ -537,7 +539,7 @@ async fn offline_push_and_conflicts() {
     let mom = c.register("mom@example.com", "Mom").await;
     let (_, fam) = c.call(Method::POST, "/families", Some(&mom), Some(json!({ "name": "F", "timezone": "America/New_York" }))).await;
     let fid = fam["id"].as_str().unwrap().to_string();
-    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&mom), Some(json!({ "name": "B" }))).await;
+    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&mom), Some(json!({ "name": "B", "birth_date": "2026-06-01" }))).await;
     let cid = child["id"].as_str().unwrap().to_string();
     let ago = |m: i64| (chrono::Utc::now() - chrono::Duration::minutes(m)).to_rfc3339();
     let push = |body: Value| {
@@ -629,7 +631,7 @@ async fn client_ids_make_retries_safe() {
     let t = c.register("a@example.com", "A").await;
     let (_, fam) = c.call(Method::POST, "/families", Some(&t), Some(json!({ "name": "F" }))).await;
     let fid = fam["id"].as_str().unwrap();
-    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&t), Some(json!({ "name": "B" }))).await;
+    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&t), Some(json!({ "name": "B", "birth_date": "2026-06-01" }))).await;
     let cid = child["id"].as_str().unwrap();
 
     let body = json!({ "id": "0199c5a0-0000-7000-8000-0000000000e1", "type": "diaper", "wet": true });

@@ -90,6 +90,10 @@ pub async fn create(State(state): State<AppState>, user: AuthUser, Path(family_i
     if req.name.trim().is_empty() {
         return bad("name is required");
     }
+    // Required for new babies; existing ones (and Nara imports) may still have none.
+    if req.birth_date.is_none() {
+        return bad("birth_date is required");
+    }
     check_sex(&req.sex)?;
     let id = insert_child(&state, &family_id, req.name.trim(), req.birth_date, req.sex).await?;
     let tz = family_tz(&state.db, &family_id).await?;

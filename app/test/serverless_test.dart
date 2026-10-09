@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nestling/api/api.dart';
 import 'package:nestling/local/engine.dart';
 import 'package:nestling/local/merge.dart';
 import 'package:nestling/local/pairing.dart';
@@ -50,6 +51,20 @@ Future<(LocalStore, LocalEngine)> phone(String name) async {
 
 void main() {
   setUp(() => PeerSync.every = const Duration(hours: 1));
+
+  test('adding a baby needs a birth date', () async {
+    final (_, a) = await phone('Mom');
+    final fam = a.createFamily({'name': 'Home', 'timezone': 'UTC'});
+    expect(
+      () => a.handle('POST', '/families/${fam['id']}/children', body: {'name': 'Léa'}),
+      throwsA(isA<ApiException>().having((e) => e.message, 'message', contains('birth_date'))),
+    );
+    final c = a.handle('POST', '/families/${fam['id']}/children', body: {'name': 'Léa', 'birth_date': '2026-06-01'});
+    expect(c['birth_date'], '2026-06-01');
+    // A baby saved earlier without one can still be edited.
+    final old = a.createChild(fam['id'], {'name': 'B'});
+    expect(a.handle('PATCH', '/children/${old['id']}', body: {'name': 'Bea', 'birth_date': null})['name'], 'Bea');
+  });
 
   test('pairing brings the family over, and changes flow both ways', () async {
     final wifi = FakeWifi();
