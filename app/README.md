@@ -129,9 +129,11 @@ Notes:
   debug key.
 - The application id is `org.nestling.nestling` (`android/app/build.gradle.kts`). Change it **before**
   publishing to a store; it can't change afterwards.
-- Launcher icon: an adaptive icon (Android 8+) with a monochrome layer for Android 13+ themed
-  icons, drawn as vectors by `tool/android_icon.py` (edit the script and re-run it from `app/`).
-  The PNGs in `mipmap-*/` remain for older Android versions.
+- Logo and launcher icon: a bird on a nest of three bars, apricot and oat on eucalyptus. An
+  adaptive icon (Android 8+) with a monochrome layer for Android 13+ themed icons. Shapes and
+  colors live in `tool/android_icon.py` (edit, then run it from `app/`): it writes the Android
+  vector drawables and the SVG masters in `assets/brand/`, from which the PNGs (web icons,
+  favicon, `assets/icon.png`, `mipmap-*/` for Android < 8) are rendered.
 - Plain `http://` servers on the home network are allowed (`usesCleartextTraffic`). Use HTTPS when
   the server is reachable from outside.
 
