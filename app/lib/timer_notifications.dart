@@ -19,8 +19,8 @@ class TimerNotifications {
 
   static Future<void> _init() async {
     if (_ready) return;
-    _ready = true;
     await _plugin.initialize(const InitializationSettings(android: AndroidInitializationSettings('ic_notification')));
+    _ready = true; // only once it worked, so a failure is retried on the next sync
   }
 
   static int _id(String kind) => switch (kind) {

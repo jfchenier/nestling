@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Release builds strip resources nothing references from Java/XML. The notification icon is
+     only named from Dart (lib/timer_notifications.dart), so keep it explicitly; without it
+     Android silently drops the running-timer notifications. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_notification" />
