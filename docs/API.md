@@ -53,7 +53,7 @@ everything; owners can also remove members and delete the family.
 | | | |
 |---|---|---|
 | `GET /families/{id}/children` | | |
-| `POST /families/{id}/children` | `{name, birth_date?: "2026-06-01", sex?: female\|male\|other}` | |
+| `POST /families/{id}/children` | `{name, birth_date: "2026-06-01", sex?: female\|male\|other}` | `birth_date` (or due date) is required |
 | `GET / PATCH / DELETE /children/{id}` | | `null` clears `birth_date`/`sex` |
 | `PUT /children/{id}/photo` | raw JPEG, PNG or WebP (≤ 5 MB) | profile picture; the child's `photo_version` changes (null: no photo) |
 | `GET / DELETE /children/{id}/photo` | | the image (`404` without one) / remove it |
