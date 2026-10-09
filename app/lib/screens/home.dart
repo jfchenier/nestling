@@ -79,8 +79,9 @@ class HomeScreen extends StatelessWidget {
         'solids' => _CardData(top: since(feed.start), value: 'Solids', caption: (feed['foods'] as String?) ?? ''),
         _ => _CardData(
           top: since(feed.start),
-          value: end == null ? 'Breastfeed' : (end == 'left' ? 'Right' : 'Left'),
-          caption: end == null ? '' : 'next side',
+          // The side the last feed ended on.
+          value: end == null ? 'Breastfeed' : (end == 'left' ? 'Left' : 'Right'),
+          caption: end == null ? '' : 'last side',
         ),
       };
     }();

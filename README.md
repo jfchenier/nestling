@@ -21,7 +21,7 @@ One codebase ([`app/`](app/README.md)) for the browser and Android.
 
 - **Home at a glance.** Today's totals (feeds with breast/bottle split, night sleep and naps,
   wet/dirty diapers) and a card per activity: time since the last one and what matters next
-  ("next side: right", "awake 1h 20m", "130 mL pumped"). Tap a card to log.
+  ("last side: left", "awake 1h 20m", "130 mL pumped"). Tap a card to log.
 - **Live timers.** Breastfeeding (left/right, switch, pause), sleep and pumping. Start on one phone,
   switch sides on the other. Correct the start time or any side's duration with a pencil; close the
   screen and the timer keeps running (on Android, a notification shows it with a live clock).

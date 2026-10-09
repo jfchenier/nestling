@@ -22,7 +22,7 @@ activity color. Colors live in
 
 - **Home** — running-timer banners, today's totals, then two cards per row in a fixed order
   (Feed · Sleep / Diaper · Pump / Growth · Health / Routine · Firsts). Each card shows the latest
-  entry and a big value ("next side", "dirty", "1h 06m"…), or the live clock of a running timer.
+  entry and a big value ("last side", "dirty", "1h 06m"…), or the live clock of a running timer.
   **Tap a card to log** (Feed asks Breastfeed / Bottle / Solids / Combo); the clock icon in its header
   opens its history. "Add a note" sits under the grid.
 - **Timers** — breastfeed (tap Left/Right to start, switch sides, pause), sleep (with location) and pump
