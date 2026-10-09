@@ -2,7 +2,7 @@
 name = "nestling"
 version = "0.1.0"
 edition = "2021"
-description = "Self-hosted baby tracker server (feeds, sleep, diapers, growth, health) with Nara Baby import"
+description = "Self-hosted baby tracker: the Nestling server (feeds, sleep, diapers, growth, health, live timers)"
 license = "MIT"
 
 [dependencies]

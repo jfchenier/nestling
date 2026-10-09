@@ -195,3 +195,7 @@ image from `main`, and a `v*` tag builds a GitHub Release with the Android APK a
 - [`app/README.md`](app/README.md) — the app: screens, design, building the web app and the APK,
   release signing.
 - [`docs/API.md`](docs/API.md) — the server's HTTP API, for scripts and other clients.
+
+## License
+
+[MIT](LICENSE).
