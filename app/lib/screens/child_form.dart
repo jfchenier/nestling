@@ -81,12 +81,16 @@ class _ChildFormState extends State<_ChildForm> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     return Padding(
-      padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + MediaQuery.viewInsetsOf(context).bottom),
+      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.viewInsetsOf(context).bottom),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(widget.child == null ? 'Add a baby' : 'Edit ${widget.child!.name}', style: t.titleLarge),
+          Text(
+            widget.child == null ? 'Add a baby' : 'Edit ${widget.child!.name}',
+            textAlign: TextAlign.center,
+            style: t.titleLarge,
+          ),
           const SizedBox(height: 16),
           // Profile picture: shown on Home instead of the initial.
           Row(
