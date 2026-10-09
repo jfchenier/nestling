@@ -16,12 +16,12 @@ Future<DateTime?> pickDate(BuildContext context, DateTime initial) async {
   return DateTime(date.year, date.month, date.day, initial.hour, initial.minute);
 }
 
-/// Pick a time on a 24-hour dial, keeping the day of [initial].
+/// Pick a time on the 24-hour dial (the keyboard icon switches to typing), keeping the day of [initial].
 Future<DateTime?> pickTime(BuildContext context, DateTime initial) async {
   final time = await showTimePicker(
     context: context,
     initialTime: TimeOfDay.fromDateTime(initial),
-    initialEntryMode: TimePickerEntryMode.input,
+    initialEntryMode: TimePickerEntryMode.dial,
     builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true), child: child!),
   );
   if (time == null) return null;
