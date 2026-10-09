@@ -79,12 +79,13 @@ extension AppColorsX on BuildContext {
   AppColors get pal => Theme.of(this).extension<AppColors>()!;
 }
 
-/// Serif family for titles and big numbers (Libre Caslon Text, bundled).
-const serif = 'Caslon';
+/// Display text (titles, big numbers): the platform sans-serif (Roboto), bold and slightly tight.
+/// No custom family, so it follows the theme on every platform.
+const String? serif = null;
 
-/// Serif text; without [color] it inherits the surrounding text color (so it follows the theme).
-TextStyle serifStyle(double size, {Color? color, FontWeight weight = FontWeight.w400, double? height}) =>
-    TextStyle(fontFamily: serif, fontSize: size, color: color, fontWeight: weight, height: height, letterSpacing: -0.2);
+/// Title / big-number text; without [color] it inherits the surrounding text color (follows the theme).
+TextStyle serifStyle(double size, {Color? color, FontWeight weight = FontWeight.w700, double? height}) =>
+    TextStyle(fontFamily: serif, fontSize: size, color: color, fontWeight: weight, height: height, letterSpacing: size >= 20 ? -0.4 : 0);
 
 /// Look of each kind of record: label, line icon, its pastel and a deep tone of the same hue.
 class Kind {

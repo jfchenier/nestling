@@ -517,10 +517,7 @@ class _Result extends StatelessWidget {
                 runSpacing: 8,
                 children: [
                   for (final e in byType.entries)
-                    Chip(
-                      avatar: BlobIcon(Kind.of(e.key), size: 22),
-                      label: Text('${_labels[e.key] ?? e.key} ${e.value}'),
-                    ),
+                    Chip(avatar: BlobIcon(Kind.of(e.key), size: 22), label: Text('${_labels[e.key] ?? e.key} ${e.value}')),
                 ],
               ),
             ],
