@@ -1,5 +1,7 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
@@ -318,18 +320,43 @@ class NaraImportScreen extends StatefulWidget {
   State<NaraImportScreen> createState() => _NaraImportScreenState();
 }
 
+enum _Source { csv, account }
+
+/// Bring history over from Nara: the app's CSV export (preferred) or the Nara account.
+/// Always previews first; importing again updates instead of duplicating.
 class _NaraImportScreenState extends State<NaraImportScreen> {
+  _Source _source = _Source.csv;
   final _email = TextEditingController();
   final _password = TextEditingController();
+  String? _fileName;
+  List<int>? _fileBytes;
   bool _busy = false;
   Map<String, dynamic>? _preview;
   Map<String, dynamic>? _done;
 
+  Future<void> _pickFile() async {
+    final files = await guard(context, () => FilePicker.pickFiles(type: FileType.custom, allowedExtensions: ['csv']));
+    if (files == null || files.isEmpty || !mounted) return;
+    final bytes = await guard(context, () => files.first.xFile.readAsBytes());
+    if (bytes == null || !mounted) return;
+    setState(() {
+      _fileName = files.first.name;
+      _fileBytes = bytes;
+      _preview = _done = null;
+    });
+    await _run(dryRun: true);
+  }
+
   Future<void> _run({required bool dryRun}) async {
     setState(() => _busy = true);
     final s = context.read<AppState>();
-    final body = {'email': _email.text.trim(), 'password': _password.text, 'dry_run': dryRun, 'child_id': ?s.childId};
-    final res = await guard(context, () => s.api!.post('/families/${s.familyId}/import/nara', body));
+    final res = await guard(context, () {
+      if (_source == _Source.csv) {
+        return s.api!.upload('/families/${s.familyId}/import/nara-csv', _fileBytes!, query: {'dry_run': '$dryRun', 'child_id': ?s.childId});
+      }
+      final body = {'email': _email.text.trim(), 'password': _password.text, 'dry_run': dryRun, 'child_id': ?s.childId};
+      return s.api!.post('/families/${s.familyId}/import/nara', body);
+    });
     if (!mounted) return;
     setState(() {
       _busy = false;
@@ -342,6 +369,8 @@ class _NaraImportScreenState extends State<NaraImportScreen> {
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
     final child = context.watch<AppState>().child;
+    final muted = t.bodyMedium?.copyWith(color: context.pal.muted, height: 1.5);
+    final canPreview = _source == _Source.csv ? _fileBytes != null : _email.text.isNotEmpty && _password.text.isNotEmpty;
     return Scaffold(
       appBar: AppBar(title: const Text('Import from Nara')),
       body: Constrained(
@@ -349,37 +378,77 @@ class _NaraImportScreenState extends State<NaraImportScreen> {
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            Text(
-              'Sign in with your Nara account to copy your history into ${child?.name ?? 'this family'}. '
-              'Your Nara password is used once and never stored. Running it again updates instead of duplicating.',
-              style: t.bodyMedium?.copyWith(color: context.pal.muted, height: 1.5),
+            SegmentedButton<_Source>(
+              segments: const [
+                ButtonSegment(value: _Source.csv, label: Text('Export file'), icon: Icon(Icons.description_outlined)),
+                ButtonSegment(value: _Source.account, label: Text('Nara account'), icon: Icon(Icons.login_rounded)),
+              ],
+              selected: {_source},
+              showSelectedIcon: false,
+              onSelectionChanged: (v) => setState(() {
+                _source = v.first;
+                _preview = _done = null;
+              }),
             ),
             const SizedBox(height: 20),
-            TextField(
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'Nara email'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _password,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Nara password'),
-            ),
-            const SizedBox(height: 20),
+            if (_source == _Source.csv) ...[
+              Text(
+                'Export your data from the Nara app (it gives you a .csv file), then pick that file here. '
+                'Everything goes into ${child?.name ?? 'this baby'}; importing the same file again updates instead of duplicating.',
+                style: muted,
+              ),
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: _busy ? null : _pickFile,
+                icon: const Icon(Icons.upload_file_rounded),
+                label: Text(_fileName == null ? 'Choose the CSV file' : 'Choose another file'),
+              ),
+              if (_fileName != null && _fileBytes != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    '$_fileName · ${(_fileBytes!.length / 1024).toStringAsFixed(0)} KB',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: context.pal.muted),
+                  ),
+                ),
+            ] else ...[
+              Text(
+                'Sign in with your Nara account to copy your history into ${child?.name ?? 'this baby'}. '
+                'Your Nara password is used once and never stored.',
+                style: muted,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _email,
+                keyboardType: TextInputType.emailAddress,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(labelText: 'Nara email'),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _password,
+                obscureText: true,
+                onChanged: (_) => setState(() {}),
+                decoration: const InputDecoration(labelText: 'Nara password'),
+              ),
+              const SizedBox(height: 16),
+              if (_done == null)
+                OutlinedButton(
+                  onPressed: _busy || !canPreview ? null : () => _run(dryRun: true),
+                  child: Text(_preview == null ? 'Preview (nothing is saved)' : 'Preview again'),
+                ),
+            ],
+            const SizedBox(height: 16),
             if (_done != null)
               _Result(title: 'Import complete', data: _done!)
-            else ...[
-              OutlinedButton(
-                onPressed: _busy ? null : () => _run(dryRun: true),
-                child: Text(_preview == null ? 'Preview (nothing is saved)' : 'Preview again'),
+            else if (_preview != null) ...[
+              _Result(title: 'Ready to import', data: _preview!),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: _busy || (_preview!['importable'] ?? 0) == 0 ? null : () => _run(dryRun: false),
+                child: Text('Import ${_preview!['importable']} records into ${child?.name ?? 'this baby'}'),
               ),
-              if (_preview != null) ...[
-                const SizedBox(height: 16),
-                _Result(title: 'Preview', data: _preview!),
-                const SizedBox(height: 16),
-                FilledButton(onPressed: _busy ? null : () => _run(dryRun: false), child: const Text('Import now')),
-              ],
             ],
             if (_busy)
               const Padding(
@@ -398,29 +467,65 @@ class _Result extends StatelessWidget {
   final String title;
   final Map<String, dynamic> data;
 
+  static const _labels = {
+    'feed': 'Feeds',
+    'sleep': 'Sleep',
+    'diaper': 'Diapers',
+    'pump': 'Pump',
+    'growth': 'Growth',
+    'health': 'Health',
+    'activity': 'Routine',
+    'milestone': 'Firsts',
+    'note': 'Notes',
+  };
+
   @override
   Widget build(BuildContext context) {
     final byType = (data['by_type'] as Map?) ?? {};
     final skipped = (data['skipped'] as Map?) ?? {};
+    final kids = (data['nara_children'] as List?) ?? [];
+    final first = data['first_ms'], last = data['last_ms'];
+    final dates = DateFormat.yMMMd();
+    final summary = data['dry_run'] == true ? '${data['importable']} records' : '${data['imported']} new · ${data['updated']} updated';
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Text(
-              '${data['tracks']} Nara records · '
-              '${data['importable'] ?? data['imported']} ${data['dry_run'] == true ? 'importable' : 'new'}'
-              '${data['updated'] != null ? ' · ${data['updated']} updated' : ''}',
-            ),
+            Text(title, style: serifStyle(22)),
+            const SizedBox(height: 4),
+            Text(summary, style: const TextStyle(fontWeight: FontWeight.w600)),
+            for (final k in kids)
+              if (k is Map && k['name'] != null)
+                Text(
+                  [
+                    'Nara profile: ${k['name']}',
+                    if (k['birth_date'] != null) 'born ${dates.format(DateTime.parse(k['birth_date']))}',
+                  ].join(' · '),
+                  style: TextStyle(color: context.pal.muted),
+                ),
+            if (first is int && last is int)
+              Text(
+                '${dates.format(DateTime.fromMillisecondsSinceEpoch(first))} – ${dates.format(DateTime.fromMillisecondsSinceEpoch(last))}',
+                style: TextStyle(color: context.pal.muted),
+              ),
             if (byType.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(spacing: 8, runSpacing: 8, children: [for (final e in byType.entries) Chip(label: Text('${e.key}: ${e.value}'))]),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final e in byType.entries)
+                    Chip(
+                      avatar: BlobIcon(Kind.of(e.key), size: 22),
+                      label: Text('${_labels[e.key] ?? e.key} ${e.value}'),
+                    ),
+                ],
+              ),
             ],
             if (skipped.isNotEmpty) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 'Skipped: ${skipped.entries.map((e) => '${e.key} (${e.value})').join(', ')}',
                 style: TextStyle(color: context.pal.muted),

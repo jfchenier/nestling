@@ -38,6 +38,20 @@ impl Client {
         (status, json)
     }
 
+    async fn call_csv(&self, path: &str, token: &str, csv: &str) -> (StatusCode, Value) {
+        let req = Request::builder()
+            .method(Method::POST)
+            .uri(format!("/api/v1{path}"))
+            .header("authorization", format!("Bearer {token}"))
+            .header("content-type", "text/csv")
+            .body(Body::from(csv.to_string()))
+            .unwrap();
+        let res = self.app.clone().oneshot(req).await.unwrap();
+        let status = res.status();
+        let bytes = res.into_body().collect().await.unwrap().to_bytes();
+        (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
+    }
+
     async fn register(&self, email: &str, name: &str) -> String {
         let (s, b) = self
             .call(Method::POST, "/auth/register", None, Some(json!({ "email": email, "password": "correct horse", "name": name })))
@@ -240,4 +254,49 @@ async fn nara_import_from_upload() {
     let feed = evs.iter().find(|e| e["type"] == "feed").unwrap();
     assert_eq!(feed["amount_ml"], 118.3);
     assert_eq!(feed["source"], "nara");
+}
+
+#[tokio::test]
+async fn nara_csv_import() {
+    let c = Client::new().await;
+    let t = c.register("csv@example.com", "C").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&t), Some(json!({ "name": "F", "timezone": "America/Toronto" }))).await;
+    let fid = fam["id"].as_str().unwrap();
+    // Subset of a Nara export's columns; the importer reads columns by name.
+    let csv = "\u{feff}\"Type\",\"Profile Name\",\"Start Date/time\",\"Start Date/time (Epoch)\",\"Note\",\"Time Zone\",\"[Breastfeed] Begin Side\",\"[Breastfeed] End Side\",\"[Breastfeed] Left Duration (Seconds)\",\"[Breastfeed] Right Duration (Seconds)\",\"[Diaper] Type\",\"[Profile] Birth Date\",\"[Profile] Sex\",\"_profileKey\",\"_activityKey\"
+\"Breastfeed\",\"Mia\",\"2026-10-07 18:30:00\",\"1791412200000\",\"sleepy\",\"America/Toronto\",\"LEFT\",\"LEFT.nonTimer\",\"600\",,,,,\"c-1\",\"t-1\"
+\"Diaper\",\"Mia\",\"2026-10-07 19:00:00\",\"1791414000000\",,\"America/Toronto\",,,,,\"Wet\",,,\"c-1\",\"t-2\"
+\"Profile\",\"Mia\",,,,,,,,,,\"2026-05-30\",\"FEMALE\",\"c-1\",
+";
+    let url = format!("/families/{fid}/import/nara-csv");
+
+    let (s, dry) = c.call_csv(&format!("{url}?dry_run=true"), &t, csv).await;
+    assert_eq!(s, StatusCode::OK, "{dry}");
+    assert_eq!(dry["importable"], 2);
+    assert_eq!(dry["children_to_create"], 1);
+    assert_eq!(dry["nara_children"][0]["name"], "Mia");
+
+    let (s, res) = c.call_csv(&url, &t, csv).await;
+    assert_eq!(s, StatusCode::OK, "{res}");
+    assert_eq!(res["imported"], 2);
+    assert_eq!(res["children_created"][0]["name"], "Mia");
+    let cid = res["children_created"][0]["id"].as_str().unwrap().to_string();
+    let (_, child) = c.call(Method::GET, &format!("/children/{cid}"), Some(&t), None).await;
+    assert_eq!(child["birth_date"], "2026-05-30");
+    assert_eq!(child["sex"], "female");
+
+    // Re-import updates instead of duplicating.
+    let (_, res2) = c.call_csv(&url, &t, csv).await;
+    assert_eq!((res2["imported"].clone(), res2["updated"].clone()), (json!(0), json!(2)));
+
+    let (_, list) = c.call(Method::GET, &format!("/children/{cid}/events"), Some(&t), None).await;
+    let evs = list["events"].as_array().unwrap();
+    assert_eq!(evs.len(), 2);
+    let feed = evs.iter().find(|e| e["type"] == "feed").unwrap();
+    assert_eq!((feed["method"].as_str(), feed["left_seconds"].as_i64(), feed["start_side"].as_str()), (Some("breast"), Some(600), Some("left")));
+    assert_eq!((feed["source"].as_str(), feed["note"].as_str()), (Some("nara"), Some("sleepy")));
+
+    // Not a Nara export.
+    let (s, _) = c.call_csv(&url, &t, "a,b\n1,2\n").await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
 }

@@ -7,12 +7,15 @@ pub mod insights;
 pub mod timers;
 
 use axum::{
+    extract::DefaultBodyLimit,
     routing::{delete, get, post},
     Json, Router,
 };
 use serde_json::json;
 
 use crate::state::AppState;
+
+const IMPORT_LIMIT: usize = 64 * 1024 * 1024;
 
 pub fn api() -> Router<AppState> {
     Router::new()
@@ -32,7 +35,9 @@ pub fn api() -> Router<AppState> {
         .route("/families/{id}/children", get(children::list).post(children::create))
         .route("/families/{id}/sync", get(events::sync))
         .route("/families/{id}/stream", get(insights::stream))
-        .route("/families/{id}/import/nara", post(import::import_nara))
+        // Imports can be large (a year of Nara history is several MB).
+        .route("/families/{id}/import/nara", post(import::import_nara).layer(DefaultBodyLimit::max(IMPORT_LIMIT)))
+        .route("/families/{id}/import/nara-csv", post(import::import_nara_csv).layer(DefaultBodyLimit::max(IMPORT_LIMIT)))
         // Children
         .route("/children/{id}", get(children::get).patch(children::update).delete(children::delete))
         .route("/children/{id}/events", get(events::list).post(events::create))

@@ -36,12 +36,28 @@ class Api {
   Future<dynamic> patch(String path, Object body) => _send('PATCH', path, body: body);
   Future<dynamic> delete(String path) => _send('DELETE', path);
 
-  Future<dynamic> _send(String method, String path, {Object? body, Map<String, String>? query}) async {
+  /// POST raw bytes (e.g. a CSV file) instead of JSON.
+  Future<dynamic> upload(String path, List<int> bytes, {String contentType = 'text/csv', Map<String, String>? query}) =>
+      _send('POST', path, query: query, raw: bytes, contentType: contentType, timeout: const Duration(minutes: 3));
+
+  Future<dynamic> _send(
+    String method,
+    String path, {
+    Object? body,
+    Map<String, String>? query,
+    List<int>? raw,
+    String? contentType,
+    Duration timeout = const Duration(seconds: 30),
+  }) async {
     final req = http.Request(method, uri(path, query))..headers.addAll(headers);
     if (body != null) req.body = jsonEncode(body);
+    if (raw != null) {
+      req.bodyBytes = raw;
+      req.headers['content-type'] = contentType ?? 'application/octet-stream';
+    }
     http.Response res;
     try {
-      res = await http.Response.fromStream(await _client.send(req).timeout(const Duration(seconds: 30)));
+      res = await http.Response.fromStream(await _client.send(req).timeout(timeout));
     } catch (e) {
       throw ApiException('network', 'Can\'t reach the server ($server). Check the address and your connection.');
     }

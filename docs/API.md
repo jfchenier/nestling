@@ -162,6 +162,27 @@ Daily averages use complete days only.
 
 ## Nara import
 
+Two ways in; both preview with `dry_run`, match records on Nara's id (re-running updates instead of
+duplicating) and keep the original record in each event's `raw` column.
+
+### From the Nara CSV export (recommended)
+
+`POST /families/{id}/import/nara-csv?dry_run=true&child_id=<id>` with the `.csv` file the Nara app exports
+as the raw request body (`content-type: text/csv`, up to 64 MB).
+
+- Reads every type in the export: Breastfeed, Bottle Feed, Diaper, Sleep, Growth, Medical (medicines and
+  temperatures; a row with both becomes two events), Routine, plus the **Profile** row (child name,
+  birth date, sex). Children created by the import get the Nara name and birth date; an existing child
+  gets a missing birth date / sex filled in.
+- Times come from the epoch columns (falling back to the local time + `Time Zone` columns). Units
+  (ML/OZ, KG/LB, CM/IN, C/F) are converted to metric.
+- Child mapping as below; for several Nara children into several family children pass
+  `children=<nara profile key>:<child id>,…`.
+- Response like the account import, plus `nara_children: [{key, name, birth_date, events, child_id}]` and,
+  for a dry run, `first_ms` / `last_ms` (date range).
+
+### From the Nara account
+
 `POST /families/{id}/import/nara`
 
 ```json

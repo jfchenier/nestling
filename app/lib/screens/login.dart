@@ -109,11 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 FilledButton(
                   onPressed: _busy ? null : _submit,
                   child: _busy
-                      ? SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(strokeWidth: 2.5, color: context.pal.onAccent),
-                        )
+                      ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: context.pal.onAccent))
                       : Text(_register ? 'Create account' : 'Sign in'),
                 ),
                 const SizedBox(height: 8),

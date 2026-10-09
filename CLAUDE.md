@@ -45,6 +45,10 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - `src/trends.rs` — pure daily stats (day/night split 06–18 local, sleep split at midnight).
 - `src/nara.rs` — Nara Firebase login/fetch + `convert()` of tracks. Quantities are
   `Num / 10^Exp` in `Unit` (same as the wrapper's trends.py).
+- `src/nara_csv.rs` — Nara's CSV export (`Type`, `[<Type>] <field>` columns, `_activityKey` = same
+  `t-…` id as the API). Both importers feed `routes/import.rs::apply()` (child mapping, upsert on
+  `source_id`). Check against a real export with
+  `NARA_CSV=export.csv cargo test real_export -- --ignored --nocapture` (never commit real exports).
 - `migrations/0001_init.sql`, `tests/api.rs` (end-to-end with in-memory SQLite), `docs/API.md`.
 - `app/` — Flutter client; see `app/README.md` for its layout. `AppState` (`app/lib/state.dart`)
   holds the session and home data and refreshes on SSE `change` events.
@@ -80,8 +84,10 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
       transaction and only insert if the timer delete affected a row.
 - [ ] **Offline/idempotent writes** (needed by the native app): let clients supply event ids
       (or an `Idempotency-Key`) so retried uploads don't duplicate.
-- [ ] **Nara child names:** importer creates "Baby" / "Baby N"; find where Nara stores child
-      profiles (names, birth dates) and import them.
+- [x] **Nara child names:** the CSV import reads the Profile row (name, birth date, sex). The
+      account import still creates "Baby" / "Baby N".
+- [x] **Nara CSV import** (`/import/nara-csv`, app: Family → Import from Nara → Export file); verified
+      on JF's real export (2,090 rows → 2,086 events, 4 empty medical rows skipped).
 - [ ] **Security basics:** rate-limit login/register; password reset without email (e.g. owner
       generates a reset code, or a CLI command on the server).
 - [ ] **Data export:** download everything as CSV/JSON (today: copy the SQLite file).
