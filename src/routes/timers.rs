@@ -526,6 +526,140 @@ pub async fn stop(State(state): State<AppState>, user: AuthUser, Path(id): Path<
     Ok((StatusCode::CREATED, Json(event_json)))
 }
 
+/// Segments rebuilt from a saved breastfeed / pump / sleep event, one after the other from its
+/// start (the event only keeps the time per side), moved back if they would end after `now`.
+fn segments_from_event(kind: TimerKind, start: i64, end: Option<i64>, details: &Details, now: i64) -> AppResult<Vec<Segment>> {
+    let ms = |s: Option<u32>| i64::from(s.unwrap_or(0)) * 1000;
+    let mut parts: Vec<(Option<Side>, i64)> = match (kind, details) {
+        (TimerKind::Breastfeed, Details::Feed(f)) if f.method == FeedMethod::Breast => {
+            let (left, right) = (ms(f.left_seconds), ms(f.right_seconds));
+            let first = f.start_side.unwrap_or(if left == 0 && right > 0 { Side::Right } else { Side::Left });
+            let (a, b) = if first == Side::Left { (left, right) } else { (right, left) };
+            let other = if first == Side::Left { Side::Right } else { Side::Left };
+            vec![(Some(first), a), (Some(other), b)]
+        }
+        (TimerKind::Pump, Details::Pump(p)) => {
+            let (left, right) = (ms(p.left_seconds), ms(p.right_seconds));
+            if left == right {
+                vec![(Some(Side::Both), left)]
+            } else {
+                vec![(Some(Side::Left), left), (Some(Side::Right), right)]
+            }
+        }
+        (TimerKind::Sleep, Details::Sleep(_)) => vec![(None, end.unwrap_or(start) - start)],
+        _ => return bad("only a breastfeed, pump or sleep entry can be continued"),
+    };
+    let first_side = parts[0].0;
+    parts.retain(|p| p.1 > 0);
+    let mut segs = Vec::new();
+    let mut at = start;
+    for (side, len) in parts {
+        segs.push(Segment { side, start: at, end: Some(at + len) });
+        at += len;
+    }
+    if segs.is_empty() {
+        // Nothing timed: keep the start time with an empty segment.
+        segs.push(Segment { side: first_side, start, end: Some(start) });
+    }
+    let over = at - now;
+    if over > 0 {
+        for s in segs.iter_mut() {
+            s.start -= over;
+            s.end = s.end.map(|e| e - over);
+        }
+    }
+    Ok(segs)
+}
+
+#[derive(Deserialize, Default)]
+pub struct ContinueReq {
+    /// Optional id for the new timer (a UUID), so a retried request doesn't fail.
+    #[serde(default)]
+    timer_id: Option<String>,
+    #[serde(default)]
+    side: Option<Side>,
+}
+
+/// Continue a saved breastfeed / pump / sleep entry (e.g. stopped by mistake, or the baby wanted
+/// more): the entry goes back to being a running timer with the time it had, plus a new segment
+/// from now. Returns the timer.
+pub async fn continue_event(State(state): State<AppState>, user: AuthUser, Path(event_id): Path<String>, body: axum::body::Bytes) -> AppResult<(StatusCode, Json<Value>)> {
+    let req: ContinueReq = if body.iter().all(|b| b.is_ascii_whitespace()) {
+        ContinueReq::default()
+    } else {
+        serde_json::from_slice(&body).map_err(|e| AppError::BadRequest(format!("invalid JSON: {e}")))?
+    };
+    if let Some(id) = &req.timer_id {
+        if uuid::Uuid::parse_str(id).is_err() {
+            return bad("timer_id must be a UUID");
+        }
+        // Already done by this same request (its answer got lost): return that timer.
+        if let Ok((row, tz)) = accessible(&state, id, &user).await {
+            return Ok((StatusCode::OK, Json(row.to_json(tz)?)));
+        }
+    }
+    let event = get_row(&state.db, &event_id).await?;
+    let ctx = child_access(&state.db, &event.child_id, &user.id).await.map_err(|_| AppError::NotFound("event"))?;
+    if event.deleted_at.is_some() {
+        return Err(AppError::NotFound("event"));
+    }
+    let kind = match event.kind.as_str() {
+        "feed" => TimerKind::Breastfeed,
+        "pump" => TimerKind::Pump,
+        "sleep" => TimerKind::Sleep,
+        _ => return bad("only a breastfeed, pump or sleep entry can be continued"),
+    };
+    let now = now_ms();
+    let mut segs = segments_from_event(kind, event.start_at, event.end_at, &event.details()?, now)?;
+    let last_side = segs.iter().rev().find_map(|s| s.side);
+    let side = check_side(kind, req.side.or(last_side))?;
+    segs.push(Segment { side, start: now, end: None });
+
+    let mut tx = state.db.begin().await?;
+    let existing: Option<(String,)> = sqlx::query_as("SELECT id FROM timers WHERE child_id = ? AND kind = ?")
+        .bind(&event.child_id)
+        .bind(kind.as_str())
+        .fetch_optional(&mut *tx)
+        .await?;
+    if let Some((id,)) = existing {
+        return Err(AppError::Conflict(format!("a {} timer is already running ({id})", kind.as_str())));
+    }
+    let gone = sqlx::query("UPDATE events SET deleted_at = ?, updated_at = ?, updated_by = ?, changed_at = NULL WHERE id = ? AND deleted_at IS NULL")
+        .bind(now)
+        .bind(now)
+        .bind(&user.id)
+        .bind(&event.id)
+        .execute(&mut *tx)
+        .await?
+        .rows_affected()
+        == 0;
+    if gone {
+        return Err(AppError::NotFound("event"));
+    }
+    let id = req.timer_id.unwrap_or_else(new_id);
+    sqlx::query("INSERT INTO timers (id, family_id, child_id, kind, segments, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(&id)
+        .bind(&event.family_id)
+        .bind(&event.child_id)
+        .bind(kind.as_str())
+        .bind(serde_json::to_string(&segs)?)
+        .bind(&user.id)
+        .bind(now)
+        .bind(now)
+        .execute(&mut *tx)
+        .await?;
+    tx.commit().await?;
+    let json = load(&state, &id).await?.to_json(ctx.tz)?;
+    state.publish(
+        &event.family_id,
+        "event",
+        "deleted",
+        json!({ "id": event.id, "child_id": event.child_id, "deleted": true, "updated_at": fmt_time(now, ctx.tz) }),
+    );
+    state.publish(&event.family_id, "timer", "created", json.clone());
+    Ok((StatusCode::CREATED, Json(json)))
+}
+
 /// Throw the timer away without saving an event.
 pub async fn discard(State(state): State<AppState>, user: AuthUser, Path(id): Path<String>) -> AppResult<StatusCode> {
     let (row, _) = accessible(&state, &id, &user).await?;

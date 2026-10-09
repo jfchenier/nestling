@@ -66,6 +66,7 @@ pub fn api() -> Router<AppState> {
         .route("/timers/{id}/resume", post(timers::resume))
         .route("/timers/{id}/switch", post(timers::switch))
         .route("/timers/{id}/stop", post(timers::stop))
+        .route("/events/{id}/continue", post(timers::continue_event))
         .fallback(|| async {
             (
                 axum::http::StatusCode::NOT_FOUND,

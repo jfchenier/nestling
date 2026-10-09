@@ -293,6 +293,55 @@ async fn timers() {
     // The right side came first in time, so the earlier start went to it: 300 + 600 s.
     assert_eq!(ev["right_seconds"], 900);
     assert!(ev["left_seconds"].as_i64().unwrap() >= 600);
+
+    // Continue that saved feed: it's a running timer again with the same time per side.
+    let eid = ev["id"].as_str().unwrap();
+    let tid = "0192f000-0000-7000-8000-000000000001";
+    let (s, ct) = c
+        .call(Method::POST, &format!("/events/{eid}/continue"), Some(&t), Some(json!({ "timer_id": tid, "side": "right" })))
+        .await;
+    assert_eq!(s, StatusCode::CREATED, "{ct}");
+    assert_eq!(ct["kind"], "breastfeed");
+    assert_eq!(ct["running"], true);
+    assert_eq!(ct["side"], "right");
+    assert_eq!(ct["started_at"], ev["start"]);
+    assert!((900..=901).contains(&ct["right_seconds"].as_i64().unwrap()), "{ct}");
+    let (s, _) = c.call(Method::GET, &format!("/events/{eid}"), Some(&t), None).await;
+    assert_eq!(s, StatusCode::NOT_FOUND, "the entry became the timer");
+    // A retry returns the same timer; another entry can't be continued while it runs.
+    let (s, again) = c.call(Method::POST, &format!("/events/{eid}/continue"), Some(&t), Some(json!({ "timer_id": tid }))).await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(again["id"], tid);
+    let (_, bottle) = c
+        .call(Method::POST, &format!("/children/{cid}/events"), Some(&t), Some(json!({ "type": "feed", "method": "bottle", "amount_ml": 90 })))
+        .await;
+    let (s, _) = c.call(Method::POST, &format!("/events/{}/continue", bottle["id"].as_str().unwrap()), Some(&t), None).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "only timed entries");
+    let (s, ev2) = c.call(Method::POST, &format!("/timers/{tid}/stop"), Some(&t), None).await;
+    assert_eq!(s, StatusCode::CREATED, "{ev2}");
+    assert_eq!(ev2["start"], ev["start"]);
+    assert_eq!(ev2["start_side"], ev["start_side"]);
+    assert!(ev2["right_seconds"].as_i64().unwrap() >= 900);
+
+    // A sleep keeps its length; a second continue of a running kind is refused.
+    let (_, sl) = c
+        .call(
+            Method::POST,
+            &format!("/children/{cid}/events"),
+            Some(&t),
+            Some(json!({ "type": "sleep", "start": (chrono::Utc::now() - chrono::Duration::minutes(40)).to_rfc3339(), "end": (chrono::Utc::now() - chrono::Duration::minutes(10)).to_rfc3339() })),
+        )
+        .await;
+    let (s, st) = c.call(Method::POST, &format!("/events/{}/continue", sl["id"].as_str().unwrap()), Some(&t), None).await;
+    assert_eq!(s, StatusCode::CREATED, "{st}");
+    assert!((1800..=1801).contains(&st["elapsed_seconds"].as_i64().unwrap()), "{st}");
+    let (s, _) = c.call(Method::POST, &format!("/events/{}/continue", ev2["id"].as_str().unwrap()), Some(&t), None).await;
+    assert_eq!(s, StatusCode::CREATED);
+    let (_, sl2) = c
+        .call(Method::POST, &format!("/children/{cid}/events"), Some(&t), Some(json!({ "type": "sleep", "start": "2026-01-01T10:00", "end": "2026-01-01T11:00" })))
+        .await;
+    let (s, _) = c.call(Method::POST, &format!("/events/{}/continue", sl2["id"].as_str().unwrap()), Some(&t), None).await;
+    assert_eq!(s, StatusCode::CONFLICT);
 }
 
 #[tokio::test]
