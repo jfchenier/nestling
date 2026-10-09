@@ -172,7 +172,19 @@ class FamilyScreen extends StatelessWidget {
                   ListTile(
                     leading: Icon(Icons.logout, color: context.pal.danger),
                     title: Text('Sign out', style: TextStyle(color: context.pal.danger)),
-                    onTap: s.signOut,
+                    onTap: () async {
+                      final n = s.pendingChanges;
+                      if (n > 0 &&
+                          !await confirm(
+                            context,
+                            'Sign out anyway?',
+                            '$n change${n == 1 ? '' : 's'} made offline ${n == 1 ? 'hasn\'t' : 'haven\'t'} reached the server yet and will be lost.',
+                            action: 'Sign out',
+                          )) {
+                        return;
+                      }
+                      await s.signOut();
+                    },
                   ),
                 ],
               ),

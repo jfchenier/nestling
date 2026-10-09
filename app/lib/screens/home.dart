@@ -33,7 +33,7 @@ class HomeScreen extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
               children: [
-                _Header(child: s.child!, live: s.live),
+                _Header(child: s.child!, live: s.live, offline: s.offline, pending: s.pendingChanges),
                 const SizedBox(height: 16),
                 for (final t in s.timers) _TimerBanner(timer: t),
                 // Rolling last 24 hours (older servers: the calendar day).
@@ -435,9 +435,13 @@ class _TimerBanner extends StatelessWidget {
 }
 
 class _Header extends StatelessWidget {
-  const _Header({required this.child, required this.live});
+  const _Header({required this.child, required this.live, required this.offline, required this.pending});
   final Child child;
   final bool live;
+
+  /// The server can't be reached; [pending] changes wait to be synced.
+  final bool offline;
+  final int pending;
 
   @override
   Widget build(BuildContext context) => Row(
@@ -466,12 +470,30 @@ class _Header extends StatelessWidget {
                   ),
                   const SizedBox(width: 8),
                   Tooltip(
-                    message: live ? 'Live — changes from other caregivers appear instantly' : 'Reconnecting…',
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(color: live ? Color(0xFF7BC68F) : context.pal.line, shape: BoxShape.circle),
-                    ),
+                    message: offline
+                        ? 'Offline — keep logging; ${pending > 0 ? '$pending change${pending == 1 ? '' : 's'} will sync' : 'changes sync'} when the server is back'
+                        : pending > 0
+                        ? 'Syncing changes made offline…'
+                        : live
+                        ? 'Live — changes from other caregivers appear instantly'
+                        : 'Reconnecting…',
+                    child: offline || pending > 0
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(offline ? Icons.cloud_off_rounded : Icons.cloud_sync_rounded, size: 14, color: context.pal.muted),
+                              const SizedBox(width: 4),
+                              Text(
+                                offline ? (pending > 0 ? 'offline · $pending to sync' : 'offline') : 'syncing',
+                                style: TextStyle(color: context.pal.muted, fontSize: 12),
+                              ),
+                            ],
+                          )
+                        : Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(color: live ? Color(0xFF7BC68F) : context.pal.line, shape: BoxShape.circle),
+                          ),
                   ),
                 ],
               ),

@@ -92,11 +92,12 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - [ ] Nara import **dry run** on the real account to verify the assumptions above.
 
 ### 2. Known server gaps
-- [ ] **Timer stop race:** `timers::stop` inserts the event, then deletes the timer, outside a
-      transaction. Two caregivers stopping at once can create duplicate events. Do it in one
-      transaction and only insert if the timer delete affected a row.
-- [ ] **Offline/idempotent writes** (needed by the native app): let clients supply event ids
-      (or an `Idempotency-Key`) so retried uploads don't duplicate.
+- [x] **Timer stop race:** `timers::stop` deletes the timer and saves the event in one transaction.
+- [x] **Offline/idempotent writes:** clients may supply event/timer ids (`id`, stop's `event_id`);
+      offline changes are pushed to `POST /families/{id}/sync` (`src/routes/sync.rs`; last writer
+      wins on the device's `changed_at`, deletions final, earlier timer start wins). The app keeps a
+      local copy (`app/lib/local/`) and queues changes in `SyncApi` (`app/lib/api/sync_api.dart`).
+      Its Dart ports of validation/timers/trends must follow any change to the Rust rules.
 - [x] **Nara child names:** the CSV import reads the Profile row (name, birth date, sex). The
       account import still creates "Baby" / "Baby N".
 - [x] **Nara CSV import** (`/import/nara-csv`, app: Family → Import from Nara → Export file); verified
@@ -124,5 +125,6 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - [ ] Pick the final application id (now `org.nestling.nestling`) before the first public release.
 
 ### 4. Native mobile app (Android first, same Flutter codebase)
-- [ ] Offline logging + `/sync`, home-screen widgets, ongoing notification for running timers.
+- [x] Offline logging + `/sync`.
+- [ ] Home-screen widgets.
 - [ ] Distribution: Play Store vs sideloading (undecided).

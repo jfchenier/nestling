@@ -6,7 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api/api.dart';
 import 'api/stream.dart';
+import 'api/sync_api.dart';
 import 'format.dart';
+import 'local/store.dart';
 import 'models.dart';
 import 'timer_notifications.dart';
 
@@ -16,14 +18,20 @@ String defaultServer() => kIsWeb && Uri.base.scheme.startsWith('http') ? Uri.bas
 /// App-wide state: session, families, the selected child and its home-screen data.
 /// Refreshes itself when the family's live stream reports a change.
 class AppState extends ChangeNotifier {
-  AppState(this._prefs) {
+  AppState(this._prefs, this.store) {
     server = _prefs.getString('server') ?? defaultServer();
     themeMode = ThemeMode.values.where((m) => m.name == _prefs.getString('theme')).firstOrNull ?? ThemeMode.system;
     final token = _prefs.getString('token');
-    if (server.isNotEmpty && token != null) api = Api(server, token);
+    if (server.isNotEmpty && token != null) {
+      store.server ??= server;
+      api = _syncApi(server, token);
+    }
   }
 
   final SharedPreferences _prefs;
+
+  /// This device's copy of the family's data, used while the server can't be reached.
+  final LocalStore store;
   String server = '';
 
   /// Light / dark / follow the system; stored on this device.
@@ -35,7 +43,29 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Api? api;
+  SyncApi? api;
+
+  /// The server can't be reached right now: changes are saved here and synced later.
+  bool get offline => api?.offline ?? false;
+
+  /// Changes made offline that the server hasn't received yet.
+  int get pendingChanges => api?.pending ?? 0;
+
+  /// A message for the user (e.g. an offline change the server didn't keep); shown once.
+  String? notice;
+
+  SyncApi _syncApi(String server, String token) => SyncApi(server, token, store)
+    ..onStatus = _syncStatus
+    ..onSynced = () => refreshChild().catchError((_) {});
+
+  void _syncStatus() {
+    final notices = api?.notices;
+    if (notices != null && notices.isNotEmpty) {
+      notice = notices.toSet().join('\n');
+      notices.clear();
+    }
+    notifyListeners();
+  }
 
   Me? me;
   List<Family> families = [];
@@ -90,11 +120,16 @@ class AppState extends ChangeNotifier {
     final res = register
         ? await a.post('/auth/register', {'email': email.trim(), 'password': password, 'name': name?.trim()})
         : await a.post('/auth/login', {'email': email.trim(), 'password': password});
-    a.token = res['token'];
-    api = a;
+    final user = res['user'];
+    // Another account or server: this device's copy isn't theirs.
+    final sameAccount = store.server == server && user is Map && store.me?['id'] == user['id'];
+    if (!sameAccount) await store.clear();
+    store.server = server;
+    api?.close();
+    api = _syncApi(server, res['token']);
     this.server = server;
     await _prefs.setString('server', server);
-    await _prefs.setString('token', a.token!);
+    await _prefs.setString('token', api!.token!);
     await load();
   }
 
@@ -123,10 +158,14 @@ class AppState extends ChangeNotifier {
     return cached?.$2;
   }
 
-  Future<void> signOut() async {
+  /// Signs out. [forget] also removes this device's copy of the data (kept when the session
+  /// merely expired, so changes made offline still sync after signing in again).
+  Future<void> signOut({bool forget = true}) async {
     try {
       await api?.post('/auth/logout');
     } catch (_) {}
+    api?.close();
+    if (forget) await store.clear();
     _stopStream();
     TimerNotifications.sync(const [], null);
     await _prefs.remove('token');
@@ -162,9 +201,11 @@ class AppState extends ChangeNotifier {
           : kids.where((c) => c.id == _prefs.getString('child')).firstOrNull?.id ?? kids.firstOrNull?.id;
       _startStream();
       await refreshChild(notify: false);
+      // Push anything logged offline last time, and bring the local copy up to date.
+      unawaited(a.sync());
     } on ApiException catch (e) {
       if (e.unauthorized) {
-        await signOut();
+        await signOut(forget: false);
         return;
       }
       error = e.message;
@@ -202,6 +243,7 @@ class AppState extends ChangeNotifier {
     revision++;
     if (notify) notifyListeners();
     TimerNotifications.sync(timers, child?.name);
+    unawaited(a?.pullSoon(familyId));
   }
 
   /// Reloads everything (families too), e.g. after a family/child change.
@@ -245,6 +287,7 @@ class AppState extends ChangeNotifier {
     _stream = familyStream(a.server, a.token!, f).listen(
       (event) {
         if (event == 'ready') {
+          a.markOnline();
           live = true;
           notifyListeners();
         } else if (event == 'change' || event == 'resync') {

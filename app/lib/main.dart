@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'local/store.dart';
 import 'screens/calendar.dart';
 import 'screens/family.dart';
 import 'screens/home.dart';
@@ -11,10 +12,11 @@ import 'screens/timeline.dart';
 import 'screens/trends.dart';
 import 'state.dart';
 import 'theme.dart';
+import 'widgets/common.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final state = AppState(await SharedPreferences.getInstance());
+  final state = AppState(await SharedPreferences.getInstance(), await LocalStore.open());
   if (state.signedIn) state.load();
   runApp(ChangeNotifierProvider.value(value: state, child: const NestlingApp()));
 }
@@ -74,7 +76,19 @@ class _ShellState extends State<Shell> {
   int _tab = 0;
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) {
+    final notice = context.select<AppState, String?>((s) => s.notice);
+    if (notice != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        context.read<AppState>().notice = null;
+        showMessage(context, notice);
+      });
+    }
+    return _scaffold();
+  }
+
+  Widget _scaffold() => Scaffold(
     body: IndexedStack(index: _tab, children: const [HomeScreen(), TimelineScreen(), CalendarScreen(), TrendsScreen(), FamilyScreen()]),
     bottomNavigationBar: NavigationBar(
       selectedIndex: _tab,
