@@ -15,6 +15,8 @@ import 'home.dart' show ChildAvatar;
 Future<String?> showChildForm(BuildContext context, {required String familyId, Child? child}) => showModalBottomSheet<String>(
   context: context,
   isScrollControlled: true,
+  // Like the entry sheets, so the fields stand out from the sheet.
+  backgroundColor: context.pal.background,
   builder: (_) => _ChildForm(familyId: familyId, child: child),
 );
 
@@ -164,13 +166,14 @@ class _ChildFormState extends State<_ChildForm> {
               decoration: InputDecoration(
                 labelText: widget.child == null ? 'Birth date (or due date) *' : 'Birth date (or due date)',
                 errorText: _birthMissing ? 'Choose a birth date (or due date)' : null,
+                suffixIcon: Icon(Icons.calendar_today_rounded, color: context.pal.muted),
               ),
               child: Text(_birth == null ? (widget.child == null ? 'Tap to choose' : 'Not set') : DateFormat.yMMMMd().format(_birth!)),
             ),
           ),
           const SizedBox(height: 16),
           ChoiceChips<String>(
-            options: const {'female': 'Girl', 'male': 'Boy', 'other': 'Other'},
+            options: const {'female': 'Girl', 'male': 'Boy', 'other': 'Unknown'},
             value: _sex,
             onChanged: (v) => setState(() => _sex = v),
           ),
