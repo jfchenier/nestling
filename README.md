@@ -24,7 +24,7 @@ One codebase ([`app/`](app/README.md)) for the browser and Android.
   ("next side: right", "awake 1h 20m", "130 mL pumped"). Tap a card to log.
 - **Live timers.** Breastfeeding (left/right, switch, pause), sleep and pumping. Start on one phone,
   switch sides on the other. Correct the start time or any side's duration with a pencil; close the
-  screen and the timer keeps running.
+  screen and the timer keeps running (on Android, a notification shows it with a live clock).
 - **Quick forms** for bottles, solids, diapers (color, consistency, rash, blowout), growth,
   temperature, medicine (your recent ones first), vaccines, routines and baby's firsts.
 - **Timeline** of everything, grouped by day and filterable; tap any entry to edit it.

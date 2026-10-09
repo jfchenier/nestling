@@ -38,6 +38,10 @@ activity color. Colors live in
   blowout), pump, growth, health (medicine, temperature, vaccine, symptom, appointment), activity,
   milestone, note. Tap any entry to edit or delete it.
 - **Timeline** — everything, grouped by day, filter by type, infinite scroll.
+- **Running-timer notifications** (Android) — while a timer runs, an ongoing notification shows it
+  with a live clock that Android keeps counting with the app closed; paused timers say so; it goes
+  away when the timer is saved or deleted (`lib/timer_notifications.dart`). Asked for once on
+  Android 13+.
 - **Calendar** — days at a glance: one column per day, 00–24 top to
   bottom, night hours shaded, a colored bar per entry as tall as its duration, a line at the
   current time. Drag sideways to scroll back through time (loads 14 days at a time, snaps to
