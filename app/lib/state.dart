@@ -34,10 +34,10 @@ class AppState extends ChangeNotifier {
       api = _syncApi(server, token);
     }
     // A phone that was in the background may have lost the live connection without noticing.
-    _lifecycle = AppLifecycleListener(onResume: _resumed);
+    _foreground = AppLifecycleListener(onResume: _resumed);
   }
 
-  late final AppLifecycleListener _lifecycle;
+  late final AppLifecycleListener _foreground;
 
   final SharedPreferences _prefs;
 
@@ -89,15 +89,19 @@ class AppState extends ChangeNotifier {
       ..onMerged = (() => load().catchError((_) {}))
       ..onStatus = notifyListeners;
     relay = DriveRelay(store);
-    local.onChanged = () {
+    local.onChanged = (path) {
       peers?.changed();
-      // Upload a little later, so a burst of changes goes up once.
+      // Upload a little later, so a burst of changes goes up once. A timer started, switched or
+      // stopped goes up quickly so the other caregivers see what's happening now.
       _relayTimer?.cancel();
-      _relayTimer = Timer(const Duration(seconds: 30), syncRelay);
+      _relayTimer = Timer(Duration(seconds: path.contains('/timers') ? 3 : 30), syncRelay);
     };
     api = local;
     _relayEvery?.cancel();
-    _relayEvery = Timer.periodic(const Duration(minutes: 5), (_) => syncRelay());
+    // While the app is on screen; Drive only answers with files that changed.
+    _relayEvery = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) syncRelay();
+    });
     _lifecycle?.dispose();
     _lifecycle = AppLifecycleListener(
       // Back in the app: catch up with the other phones right away.
@@ -446,7 +450,7 @@ class AppState extends ChangeNotifier {
 
   @override
   void dispose() {
-    _lifecycle.dispose();
+    _foreground.dispose();
     _stopStream();
     _debounce?.cancel();
     super.dispose();

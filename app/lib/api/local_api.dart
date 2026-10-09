@@ -12,8 +12,8 @@ class LocalApi extends SyncApi {
     engine.serverless = true;
   }
 
-  /// A change was saved here (paired phones should hear about it).
-  void Function()? onChanged;
+  /// A change was saved here (paired phones should hear about it), with the request path.
+  void Function(String path)? onChanged;
 
   static const _needsServer = 'This needs a Nestling server. In serverless mode everything stays on your phones.';
 
@@ -29,7 +29,7 @@ class LocalApi extends SyncApi {
   }) async {
     if (!LocalEngine.handles(method, path, serverless: true)) throw ApiException('server_only', _needsServer, 404);
     final res = engine.handle(method, path, query: {...?query, 'content_type': ?contentType}, body: raw ?? body);
-    if (method != 'GET') onChanged?.call();
+    if (method != 'GET') onChanged?.call(path);
     return res;
   }
 
