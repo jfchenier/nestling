@@ -19,6 +19,7 @@ use sqlx::{
 use tower_http::{
     cors::CorsLayer,
     services::{ServeDir, ServeFile},
+    set_header::SetResponseHeader,
     trace::TraceLayer,
 };
 
@@ -43,7 +44,14 @@ pub fn app(state: AppState, web_dir: Option<PathBuf>) -> Router {
         .with_state(state);
     if let Some(dir) = web_dir {
         let index = dir.join("index.html");
-        router = router.fallback_service(ServeDir::new(dir).fallback(ServeFile::new(index)));
+        // Flutter's file names don't change between releases (main.dart.js…), so browsers and
+        // proxies must revalidate them (cheap: ETag / Last-Modified) or they keep an old app.
+        let files = ServeDir::new(dir).fallback(ServeFile::new(index));
+        router = router.fallback_service(SetResponseHeader::overriding(
+            files,
+            axum::http::header::CACHE_CONTROL,
+            axum::http::HeaderValue::from_static("no-cache"),
+        ));
     }
     router.layer(CorsLayer::permissive()).layer(TraceLayer::new_for_http())
 }
