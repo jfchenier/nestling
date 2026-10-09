@@ -42,6 +42,9 @@ class Child {
   String get id => json['id'];
   String get familyId => json['family_id'];
   String get name => json['name'] ?? 'Baby';
+
+  /// Changes when the profile picture does; null without one.
+  int? get photoVersion => toInt(json['photo_version']);
   String? get sex => json['sex'];
   DateTime? get birthDate => json['birth_date'] is String ? DateTime.tryParse(json['birth_date']) : null;
 

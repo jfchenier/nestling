@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -39,6 +40,23 @@ class Api {
   /// POST raw bytes (e.g. a CSV file) instead of JSON.
   Future<dynamic> upload(String path, List<int> bytes, {String contentType = 'text/csv', Map<String, String>? query}) =>
       _send('POST', path, query: query, raw: bytes, contentType: contentType, timeout: const Duration(minutes: 3));
+
+  /// PUT raw bytes (e.g. a photo).
+  Future<dynamic> putBytes(String path, List<int> bytes, {required String contentType}) =>
+      _send('PUT', path, raw: bytes, contentType: contentType, timeout: const Duration(minutes: 1));
+
+  /// GET a binary resource (e.g. a photo).
+  Future<Uint8List> getBytes(String path) async {
+    final req = http.Request('GET', uri(path))..headers.addAll(headers);
+    http.Response res;
+    try {
+      res = await http.Response.fromStream(await _client.send(req).timeout(const Duration(seconds: 30)));
+    } catch (e) {
+      throw ApiException('network', 'Can\'t reach the server ($server).');
+    }
+    if (res.statusCode >= 400) throw ApiException('http_${res.statusCode}', 'Server error (${res.statusCode})', res.statusCode);
+    return res.bodyBytes;
+  }
 
   Future<dynamic> _send(
     String method,

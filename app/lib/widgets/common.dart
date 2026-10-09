@@ -446,3 +446,72 @@ class ChoiceChips<T> extends StatelessWidget {
     ],
   );
 }
+
+/// Like [confirm], for things that can't be undone: the button only works once [expected]
+/// (e.g. the family's name) is typed exactly.
+Future<bool> confirmByTyping(
+  BuildContext context,
+  String title,
+  String message, {
+  required String expected,
+  String action = 'Delete',
+}) async {
+  final ok = await showDialog<bool>(context: context, builder: (_) => _TypeToConfirm(title, message, expected, action));
+  return ok == true;
+}
+
+class _TypeToConfirm extends StatefulWidget {
+  const _TypeToConfirm(this.title, this.message, this.expected, this.action);
+  final String title, message, expected, action;
+
+  @override
+  State<_TypeToConfirm> createState() => _TypeToConfirmState();
+}
+
+class _TypeToConfirmState extends State<_TypeToConfirm> {
+  final _typed = TextEditingController();
+
+  bool get _matches => _typed.text.trim() == widget.expected.trim();
+
+  @override
+  Widget build(BuildContext context) => AlertDialog(
+    title: Text(widget.title),
+    content: Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(widget.message),
+        const SizedBox(height: 16),
+        Text.rich(
+          TextSpan(
+            children: [
+              const TextSpan(text: 'Type '),
+              TextSpan(
+                text: widget.expected,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              const TextSpan(text: ' to confirm.'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _typed,
+          autofocus: true,
+          autocorrect: false,
+          decoration: InputDecoration(hintText: widget.expected),
+          onChanged: (_) => setState(() {}),
+          onSubmitted: (_) => _matches ? Navigator.pop(context, true) : null,
+        ),
+      ],
+    ),
+    actions: [
+      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+      FilledButton(
+        onPressed: _matches ? () => Navigator.pop(context, true) : null,
+        style: FilledButton.styleFrom(backgroundColor: context.pal.danger, foregroundColor: Colors.white),
+        child: Text(widget.action),
+      ),
+    ],
+  );
+}

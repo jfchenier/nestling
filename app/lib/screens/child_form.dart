@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -6,6 +8,8 @@ import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/photo.dart';
+import 'home.dart' show ChildAvatar;
 
 /// Add or edit a child. Returns the saved child's id.
 Future<String?> showChildForm(BuildContext context, {required String familyId, Child? child}) => showModalBottomSheet<String>(
@@ -29,6 +33,17 @@ class _ChildFormState extends State<_ChildForm> {
   late String? _sex = widget.child?.sex;
   bool _busy = false;
 
+  // Photo changes, applied on Save.
+  Uint8List? _newPhoto;
+  bool _removePhoto = false;
+
+  bool get _hasPhoto => _newPhoto != null || (!_removePhoto && widget.child?.photoVersion != null);
+
+  Future<void> _choosePhoto() async {
+    final photo = await guard(context, pickSquarePhoto);
+    if (photo != null && mounted) setState(() => _newPhoto = photo);
+  }
+
   Future<void> _save() async {
     if (_name.text.trim().isEmpty) return showMessage(context, 'Enter a name');
     setState(() => _busy = true);
@@ -43,6 +58,17 @@ class _ChildFormState extends State<_ChildForm> {
         families: true,
       ),
     );
+    if (res != null && mounted) {
+      final id = res['id'] as String;
+      if (_newPhoto != null) {
+        await guard(
+          context,
+          () => s.act((api) => api.putBytes('/children/$id/photo', _newPhoto!, contentType: 'image/png'), families: true),
+        );
+      } else if (_removePhoto && widget.child?.photoVersion != null) {
+        await guard(context, () => s.act((api) => api.delete('/children/$id/photo'), families: true));
+      }
+    }
     if (!mounted) return;
     setState(() => _busy = false);
     if (res != null) Navigator.pop(context, res['id'] as String);
@@ -58,7 +84,56 @@ class _ChildFormState extends State<_ChildForm> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(widget.child == null ? 'Add a baby' : 'Edit ${widget.child!.name}', style: t.titleLarge),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          // Profile picture: shown on Home instead of the initial.
+          Row(
+            children: [
+              Semantics(
+                button: true,
+                label: 'Choose a photo',
+                child: GestureDetector(
+                  onTap: _busy ? null : _choosePhoto,
+                  child: _hasPhoto || widget.child != null
+                      ? ChildAvatar(
+                          child: widget.child ?? Child({'id': '', 'name': _name.text}),
+                          size: 72,
+                          photo: _newPhoto,
+                          showPhoto: _hasPhoto,
+                        )
+                      : CircleAvatar(
+                          radius: 36,
+                          backgroundColor: context.pal.raised,
+                          child: Icon(Icons.add_a_photo_outlined, color: context.pal.muted),
+                        ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Wrap(
+                  spacing: 4,
+                  children: [
+                    TextButton.icon(
+                      onPressed: _busy ? null : _choosePhoto,
+                      icon: const Icon(Icons.photo_camera_outlined),
+                      label: Text(_hasPhoto ? 'Change photo' : 'Add a photo'),
+                    ),
+                    if (_hasPhoto)
+                      TextButton(
+                        style: TextButton.styleFrom(foregroundColor: context.pal.danger),
+                        onPressed: _busy
+                            ? null
+                            : () => setState(() {
+                                _newPhoto = null;
+                                _removePhoto = true;
+                              }),
+                        child: const Text('Remove'),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           TextField(
             controller: _name,
             autofocus: widget.child == null,

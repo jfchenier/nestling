@@ -44,6 +44,10 @@ pub fn api() -> Router<AppState> {
         .route("/families/{id}/import/nara-csv", post(import::import_nara_csv).layer(DefaultBodyLimit::max(IMPORT_LIMIT)))
         // Children
         .route("/children/{id}", get(children::get).patch(children::update).delete(children::delete))
+        .route(
+            "/children/{id}/photo",
+            get(children::get_photo).put(children::put_photo).delete(children::delete_photo).layer(DefaultBodyLimit::max(children::PHOTO_LIMIT)),
+        )
         .route("/children/{id}/events", get(events::list).post(events::create))
         .route("/children/{id}/timers", get(timers::list).post(timers::start))
         .route("/children/{id}/summary", get(insights::summary))

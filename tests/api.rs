@@ -56,6 +56,21 @@ impl Client {
         (status, serde_json::from_slice(&bytes).unwrap_or(Value::Null))
     }
 
+    /// Raw-bytes request; returns the status, the content type and the body bytes.
+    async fn call_raw(&self, method: Method, path: &str, token: &str, body: Vec<u8>) -> (StatusCode, String, Vec<u8>) {
+        let req = Request::builder()
+            .method(method)
+            .uri(format!("/api/v1{path}"))
+            .header("authorization", format!("Bearer {token}"))
+            .header("content-type", "application/octet-stream")
+            .body(Body::from(body))
+            .unwrap();
+        let res = self.app.clone().oneshot(req).await.unwrap();
+        let status = res.status();
+        let ct = res.headers().get("content-type").map(|v| v.to_str().unwrap().to_string()).unwrap_or_default();
+        (status, ct, res.into_body().collect().await.unwrap().to_bytes().to_vec())
+    }
+
     async fn register(&self, email: &str, name: &str) -> String {
         let (s, b) = self
             .call(Method::POST, "/auth/register", None, Some(json!({ "email": email, "password": "correct horse", "name": name })))
@@ -403,4 +418,36 @@ async fn admin_creates_accounts() {
     assert_eq!(s, StatusCode::BAD_REQUEST, "last admin");
     let (s, _) = c.call(Method::DELETE, &format!("/admin/users/{uid}"), Some(&admin), None).await;
     assert_eq!(s, StatusCode::NO_CONTENT);
+}
+
+#[tokio::test]
+async fn child_photo() {
+    let c = Client::new().await;
+    let t = c.register("a@example.com", "A").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&t), Some(json!({ "name": "F" }))).await;
+    let fid = fam["id"].as_str().unwrap();
+    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&t), Some(json!({ "name": "B" }))).await;
+    let cid = child["id"].as_str().unwrap();
+    assert!(child["photo_version"].is_null());
+
+    let png = b"\x89PNG\r\n\x1a\nnot really a png".to_vec();
+    let (s, _, body) = c.call_raw(Method::PUT, &format!("/children/{cid}/photo"), &t, png.clone()).await;
+    assert_eq!(s, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let (_, child) = c.call(Method::GET, &format!("/children/{cid}"), Some(&t), None).await;
+    assert!(child["photo_version"].is_i64(), "{child}");
+    let (s, ct, body) = c.call_raw(Method::GET, &format!("/children/{cid}/photo"), &t, vec![]).await;
+    assert_eq!((s, ct.as_str(), body), (StatusCode::OK, "image/png", png));
+
+    let (s, _, _) = c.call_raw(Method::PUT, &format!("/children/{cid}/photo"), &t, b"<svg/>".to_vec()).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+
+    // Someone outside the family can't see it.
+    let other = c.register("b@example.com", "B").await;
+    let (s, _, _) = c.call_raw(Method::GET, &format!("/children/{cid}/photo"), &other, vec![]).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+
+    let (s, _, _) = c.call_raw(Method::DELETE, &format!("/children/{cid}/photo"), &t, vec![]).await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    let (s, _, _) = c.call_raw(Method::GET, &format!("/children/{cid}/photo"), &t, vec![]).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
 }

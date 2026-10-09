@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -535,13 +537,22 @@ class _SquareButton extends StatelessWidget {
   );
 }
 
+/// The child's profile picture in a ring, or their initial on a pastel circle.
 class ChildAvatar extends StatelessWidget {
-  const ChildAvatar({super.key, required this.child, this.size = 48});
+  const ChildAvatar({super.key, required this.child, this.size = 48, this.photo, this.showPhoto = true});
   final Child child;
   final double size;
 
+  /// Shown instead of the saved picture (e.g. a new one not uploaded yet).
+  final Uint8List? photo;
+
+  /// False shows the initial even if there is a saved picture (e.g. "Remove" before Save).
+  final bool showPhoto;
+
   @override
   Widget build(BuildContext context) {
+    final saved = context.watch<AppState>().photoFor(child);
+    final picture = showPhoto ? photo ?? saved : null;
     final color = switch (child.sex) {
       'female' => Kind.pump.fill(context.pal),
       'male' => Kind.sleep.fill(context.pal),
@@ -556,14 +567,18 @@ class ChildAvatar extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: context.pal.line),
       ),
-      child: Container(
-        alignment: Alignment.center,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        child: Text(
-          child.name.isEmpty ? '?' : child.name.characters.first.toUpperCase(),
-          style: serifStyle(size * 0.46, color: context.pal.bandInk),
-        ),
-      ),
+      child: picture != null
+          ? ClipOval(
+              child: Image.memory(picture, fit: BoxFit.cover, gaplessPlayback: true, semanticLabel: child.name),
+            )
+          : Container(
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              child: Text(
+                child.name.isEmpty ? '?' : child.name.characters.first.toUpperCase(),
+                style: serifStyle(size * 0.46, color: context.pal.bandInk),
+              ),
+            ),
     );
   }
 }

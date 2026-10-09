@@ -97,6 +97,31 @@ class AppState extends ChangeNotifier {
     await load();
   }
 
+  // Profile pictures by child id, with the version they were downloaded for.
+  final Map<String, (int, Uint8List)> _photos = {};
+  final Set<String> _photoLoads = {};
+
+  /// The child's profile picture once downloaded (null: none, or not loaded yet). Downloads it
+  /// on first use and again when `photo_version` changes; the old one shows meanwhile.
+  Uint8List? photoFor(Child child) {
+    final version = child.photoVersion, a = api;
+    final cached = _photos[child.id];
+    if (version == null || a == null) return null;
+    if (cached?.$1 == version) return cached!.$2;
+    final key = '${child.id}@$version';
+    if (_photoLoads.add(key)) {
+      () async {
+        try {
+          _photos[child.id] = (version, await a.getBytes('/children/${child.id}/photo'));
+          notifyListeners();
+        } catch (_) {
+          // Shown as the initial; retried on the next change.
+        }
+      }();
+    }
+    return cached?.$2;
+  }
+
   Future<void> signOut() async {
     try {
       await api?.post('/auth/logout');
@@ -162,6 +187,12 @@ class AppState extends ChangeNotifier {
         a.get('/children/$id/events', {'type': 'growth,health,activity,milestone', 'limit': '100'}),
       ]);
       summary = results[0];
+      // Keep the family's copy of this child current (name, photo changed on another device).
+      final fresh = summary!['child'], kids = family?.json['children'];
+      if (fresh is Map<String, dynamic> && kids is List) {
+        final i = kids.indexWhere((c) => c is Map && c['id'] == fresh['id']);
+        if (i >= 0) kids[i] = fresh;
+      }
       timers = [for (final t in (summary!['timers'] as List)) TimerModel(t)];
       recent = [for (final e in (results[1]['events'] as List)) Event(e)];
       others = [for (final e in (results[2]['events'] as List)) Event(e)];

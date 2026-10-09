@@ -176,10 +176,12 @@ class FamilyScreen extends StatelessWidget {
               TextButton(
                 style: TextButton.styleFrom(foregroundColor: context.pal.danger),
                 onPressed: () async {
-                  if (!await confirm(
+                  if (!await confirmByTyping(
                     context,
                     'Delete ${f.name}?',
-                    'This permanently deletes the family, its babies and everything logged.',
+                    'This permanently deletes the family, its babies and everything logged, for every caregiver. '
+                        'It can\'t be undone.',
+                    expected: f.name,
                   )) {
                     return;
                   }

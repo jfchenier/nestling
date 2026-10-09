@@ -32,8 +32,8 @@ One codebase ([`app/`](app/README.md)) for the browser and Android.
   and feeding patterns.
 - **Trends** over 7, 14 or 30 days: feeds per day, feed interval, sleep and naps, wake windows,
   diapers, bottle and pumping volumes, with daily charts.
-- **Family sharing.** Several babies and caregivers per family; changes appear on every device
-  within a second.
+- **Family sharing.** Several babies (each with a profile picture) and caregivers per family;
+  changes appear on every device within a second.
 - **Yours to adjust.** Light and dark themes (or follow the system), metric or imperial units,
   24-hour clock.
 
