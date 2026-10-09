@@ -168,6 +168,9 @@ Daily averages use complete days only.
 - `GET /families/{id}/stream` — Server-Sent Events. First an `event: ready`, then one `event: change` per change:
   `{"entity": "event"|"timer"|"child"|"family"|"import", "action": "created"|"updated"|"deleted", "data": {…}}`.
   If the client falls behind it gets `event: resync` and should call `/sync`.
+  An `event: ping` comes every 15 s: a client that hears nothing for longer should reconnect (then reload, since
+  changes made while it was disconnected aren't replayed). The response carries `X-Accel-Buffering: no` so nginx
+  passes events through at once; other reverse proxies need response buffering turned off for this path.
 - `GET /families/{id}/sync?since=<cursor>` — `{cursor, full, children, events, timers}`. Without `since` you get
   everything; with it, only events changed since, including deletions as `{"id", "deleted": true}`. Store `cursor`
   for next time.

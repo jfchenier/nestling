@@ -110,7 +110,8 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - [ ] **OpenAPI spec** so the web and native clients can generate their API code.
 - [ ] Optional: reminders ("no feed in 3 h"), photos on milestones, Home Assistant integration
       (`/children/{id}/summary` already works as a REST sensor).
-- Note: SSE behind a reverse proxy needs response buffering disabled.
+- Note: SSE behind a reverse proxy needs response buffering disabled (the stream sends `X-Accel-Buffering: no`,
+  which covers nginx). The app reconnects after 40 s without the 15 s `ping`, on resume, and reloads on reconnect.
 
 ### 3. App (Flutter, `app/`) — web served by the server via `NESTLING_WEB_DIR`
 - [x] Nara-like home: big buttons, "time since" cards, live timers, today's totals, latest entries.

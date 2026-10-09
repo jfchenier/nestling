@@ -659,3 +659,40 @@ async fn client_ids_make_retries_safe() {
     let (_, list) = c.call(Method::GET, &format!("/children/{cid}/events"), Some(&t), None).await;
     assert_eq!(list["events"].as_array().unwrap().len(), 2);
 }
+
+#[tokio::test]
+async fn timer_started_by_one_caregiver_reaches_the_others_live() {
+    let c = Client::new().await;
+    let mom = c.register("mom@example.com", "Mom").await;
+    let dad = c.register("dad@example.com", "Dad").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&mom), Some(json!({ "name": "Home" }))).await;
+    let fid = fam["id"].as_str().unwrap().to_string();
+    let (_, child) = c
+        .call(Method::POST, &format!("/families/{fid}/children"), Some(&mom), Some(json!({ "name": "Léa", "birth_date": "2026-06-01" })))
+        .await;
+    let cid = child["id"].as_str().unwrap().to_string();
+    let (_, inv) = c.call(Method::POST, &format!("/families/{fid}/invites"), Some(&mom), None).await;
+    c.call(Method::POST, &format!("/invites/{}/accept", inv["code"].as_str().unwrap()), Some(&dad), None).await;
+
+    let req = Request::builder()
+        .uri(format!("/api/v1/families/{fid}/stream"))
+        .header("authorization", format!("Bearer {dad}"))
+        .body(Body::empty())
+        .unwrap();
+    let res = c.app.clone().oneshot(req).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    // Reverse proxies (nginx) must pass events through as they come.
+    assert_eq!(res.headers()["x-accel-buffering"], "no");
+    let mut body = res.into_body();
+    let mut next = async || {
+        let frame = tokio::time::timeout(std::time::Duration::from_secs(2), body.frame()).await.expect("no event").unwrap().unwrap();
+        String::from_utf8(frame.into_data().unwrap().to_vec()).unwrap()
+    };
+    assert!(next().await.starts_with("event: ready"));
+
+    let (s, timer) = c.call(Method::POST, &format!("/children/{cid}/timers"), Some(&mom), Some(json!({ "kind": "sleep" }))).await;
+    assert_eq!(s, StatusCode::CREATED, "{timer}");
+    let msg = next().await;
+    assert!(msg.starts_with("event: change"), "{msg}");
+    assert!(msg.contains(timer["id"].as_str().unwrap()), "{msg}");
+}

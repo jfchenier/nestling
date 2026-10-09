@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
-/// Opens the family event stream. Emits the SSE event name (`ready`, `change`, `resync`)
+/// Opens the family event stream. Emits the SSE event name (`ready`, `change`, `resync`, `ping`)
 /// for each message; the stream ends (or errors) when the connection drops.
 Stream<String> familyStream(String server, String token, String familyId) {
   final client = http.Client();
