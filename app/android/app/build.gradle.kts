@@ -16,14 +16,13 @@ val keyProperties = Properties().apply {
 
 android {
     namespace = "org.nestling.nestling"
-    compileSdk = flutter.compileSdkVersion
+    // 36 (Android 16) at least: the running-timer notification uses Live Update APIs.
+    compileSdk = maxOf(flutter.compileSdkVersion, 36)
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        // Required by flutter_local_notifications (running-timer notifications).
-        isCoreLibraryDesugaringEnabled = true
     }
 
     defaultConfig {
@@ -68,10 +67,3 @@ flutter {
     source = "../.."
 }
 
-dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-    // Avoids a crash some Flutter apps hit on Android 12L+ once desugaring is on
-    // (flutter_local_notifications README, flutter/flutter#110658).
-    implementation("androidx.window:window:1.0.0")
-    implementation("androidx.window:window-java:1.0.0")
-}

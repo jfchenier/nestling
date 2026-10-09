@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Talk to the Nestling server; cleartext allowed for http:// servers on the home network. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Running-timer notifications; on Android 16+ promoted to a status-bar chip (Live Update). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS"/>
     <application
         android:label="Nestling"
         android:usesCleartextTraffic="true"
