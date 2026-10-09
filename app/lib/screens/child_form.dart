@@ -86,11 +86,7 @@ class _ChildFormState extends State<_ChildForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            widget.child == null ? 'Add a baby' : 'Edit ${widget.child!.name}',
-            textAlign: TextAlign.center,
-            style: t.titleLarge,
-          ),
+          Text(widget.child == null ? 'Add a baby' : 'Edit ${widget.child!.name}', style: t.titleLarge),
           const SizedBox(height: 16),
           // Profile picture: shown on Home instead of the initial.
           Row(
