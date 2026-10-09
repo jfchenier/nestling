@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../format.dart';
@@ -7,6 +6,8 @@ import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/date_time.dart';
+import '../widgets/medicine_picker.dart';
 
 /// Log a new event of [type] (feeds also take a [method]) or edit [event].
 Future<void> showEventForm(BuildContext context, {String? type, String? method, Event? event}) => showModalBottomSheet(
@@ -38,7 +39,7 @@ class _EventFormState extends State<EventForm> {
   bool _busy = false;
 
   // feed
-  late String _method = widget.method ?? 'breast';
+  late final String _method = widget.method ?? 'breast';
   late final _left = _minutes(e?['left_seconds']);
   late final _right = _minutes(e?['right_seconds']);
   late String? _startSide = e?['start_side'];
@@ -269,17 +270,20 @@ class _EventFormState extends State<EventForm> {
     );
   }
 
+  /// Medicine list (recent first, then common, or a custom name); fills the last dose used.
+  Future<void> _chooseMedicine() async {
+    final m = await showMedicinePicker(context);
+    if (m == null || !mounted) return;
+    setState(() {
+      _name.text = m.name;
+      if (m.dose != null && _dose.text.isEmpty) _dose.text = m.dose == m.dose!.roundToDouble() ? '${m.dose!.round()}' : '${m.dose}';
+      if (m.unit != null) _doseUnit.text = m.unit!;
+    });
+  }
+
   Widget _timeRow(String label, DateTime? value, ValueChanged<DateTime> set, {String placeholder = 'Add'}) => FormRow(
     label: label,
-    onTap: () => pickDateTime(context, value ?? DateTime.now()).then((v) => v == null ? null : set(v)),
-    child: Text(
-      value == null ? placeholder : '${dayLabel(value)}   ${DateFormat.jm().format(value)}',
-      style: TextStyle(
-        fontSize: 17,
-        color: value == null ? context.pal.accent : context.pal.ink,
-        fontWeight: value == null ? FontWeight.w600 : null,
-      ),
-    ),
+    child: DateTimeValue(value: value, onChanged: set, placeholder: placeholder),
   );
 
   Widget _numRow(String label, TextEditingController c, String? unit) => FormRow(
@@ -325,23 +329,6 @@ class _EventFormState extends State<EventForm> {
     switch (widget.type) {
       case 'feed':
         return [
-          if (_method != 'combo')
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
-              child: SegmentedButton<String>(
-                segments: const [
-                  ButtonSegment(value: 'breast', label: Text('Breast')),
-                  ButtonSegment(value: 'bottle', label: Text('Bottle')),
-                  ButtonSegment(value: 'solids', label: Text('Solids')),
-                ],
-                selected: {_method},
-                onSelectionChanged: (v) => setState(() {
-                  _method = v.first;
-                  if (_method == 'bottle') _milk ??= 'formula';
-                }),
-                showSelectedIcon: false,
-              ),
-            ),
           _timeRow('Start Time', _start, (v) => setState(() => _start = v)),
           if (_method == 'breast' || _method == 'combo') ...[
             _numRow('Left', _left, 'min'),
@@ -454,16 +441,34 @@ class _EventFormState extends State<EventForm> {
           if (_healthKind == 'temperature')
             _numRow('Temperature', _temp, u.tempUnit)
           else ...[
-            _textRow(
-              switch (_healthKind) {
-                'medicine' => 'Medicine',
+            if (_healthKind == 'medicine')
+              FormRow(
+                label: 'Medicine',
+                onTap: _chooseMedicine,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        _name.text.isEmpty ? 'Choose' : _name.text,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 17,
+                          color: _name.text.isEmpty ? context.pal.accent : context.pal.ink,
+                          fontWeight: _name.text.isEmpty ? FontWeight.w600 : null,
+                        ),
+                      ),
+                    ),
+                    Icon(Icons.chevron_right_rounded, color: context.pal.muted),
+                  ],
+                ),
+              )
+            else
+              _textRow(switch (_healthKind) {
                 'vaccine' => 'Vaccine',
                 'appointment' => 'Doctor',
                 _ => 'Symptom',
-              },
-              _name,
-              hint: _healthKind == 'medicine' ? 'Vitamin D…' : '',
-            ),
+              }, _name),
             if (_healthKind == 'medicine') ...[_numRow('Dose', _dose, null), _textRow('Unit', _doseUnit)],
           ],
         ];
@@ -572,18 +577,4 @@ class _EventFormState extends State<EventForm> {
       ],
     );
   }
-}
-
-Future<DateTime?> pickDateTime(BuildContext context, DateTime initial) async {
-  final now = DateTime.now();
-  final date = await showDatePicker(
-    context: context,
-    initialDate: initial.isAfter(now) ? now : initial,
-    firstDate: DateTime(2000),
-    lastDate: now,
-  );
-  if (date == null || !context.mounted) return null;
-  final time = await showTimePicker(context: context, initialTime: TimeOfDay.fromDateTime(initial));
-  if (time == null) return null;
-  return DateTime(date.year, date.month, date.day, time.hour, time.minute);
 }

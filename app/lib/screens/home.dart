@@ -577,13 +577,22 @@ class _TodayStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final feed = today['feed'] as Map? ?? {}, sleep = today['sleep'] as Map? ?? {};
     final diaper = today['diaper'] as Map? ?? {};
-    Widget stat(String value, String label) => Expanded(
+    Widget stat(String value, String label, [Widget? extra]) => Expanded(
       child: Column(
         children: [
           Text(value, style: serifStyle(24)),
           const SizedBox(height: 2),
           Text(label, style: TextStyle(color: context.pal.muted, fontSize: 12)),
+          ?extra,
         ],
+      ),
+    );
+    // Wet / dirty split under the diaper count (a diaper can be both).
+    final diaperSplit = Padding(
+      padding: const EdgeInsets.only(top: 3),
+      child: Text(
+        '${toInt(diaper['wet']) ?? 0} wet · ${toInt(diaper['dirty']) ?? 0} dirty',
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Kind.diaper.on(context.pal)),
       ),
     );
     return Container(
@@ -591,10 +600,11 @@ class _TodayStrip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(color: context.pal.accentSoft, borderRadius: BorderRadius.circular(14)),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           stat('${feed['count'] ?? 0}', 'feeds today'),
           stat(duration(toInt(sleep['total_seconds']) ?? 0), 'sleep today'),
-          stat('${diaper['count'] ?? 0}', 'diapers today'),
+          stat('${diaper['count'] ?? 0}', 'diapers today', diaperSplit),
         ],
       ),
     );

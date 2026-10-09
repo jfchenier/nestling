@@ -334,7 +334,14 @@ class Ticking extends StatefulWidget {
 }
 
 class _TickingState extends State<Ticking> {
-  late final Timer _timer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+  // Not a lazy `late final` initializer: nothing would read it before dispose, so it never started.
+  late final Timer _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+  }
 
   @override
   void dispose() {

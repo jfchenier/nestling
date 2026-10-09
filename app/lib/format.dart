@@ -46,9 +46,10 @@ class Units {
   }
 }
 
-/// "1h 05m", "12m", "45s".
+/// "2d 5h", "1h 05m", "12m", "45s".
 String duration(int? seconds, {bool showSeconds = false}) {
   if (seconds == null) return '';
+  if (seconds >= 86400) return '${seconds ~/ 86400}d ${(seconds % 86400) ~/ 3600}h';
   final h = seconds ~/ 3600, m = (seconds % 3600) ~/ 60, s = seconds % 60;
   if (h > 0) return '${h}h ${m.toString().padLeft(2, '0')}m';
   if (m > 0) return showSeconds ? '${m}m ${s.toString().padLeft(2, '0')}s' : '${m}m';
@@ -71,7 +72,8 @@ String ago(int? seconds) {
   return '${duration(seconds)} ago';
 }
 
-String timeOfDay(DateTime t) => DateFormat.jm().format(t);
+/// 24-hour clock: "07:05", "23:40".
+String timeOfDay(DateTime t) => DateFormat.Hm().format(t);
 
 String dayLabel(DateTime t) {
   final now = DateTime.now();

@@ -7,6 +7,7 @@ void main() {
     expect(duration(45), '<1m');
     expect(duration(45, showSeconds: true), '45s');
     expect(duration(3900), '1h 05m');
+    expect(duration(41 * 86400 + 11 * 3600 + 120), '41d 11h');
     expect(clock(65), '01:05');
     expect(clock(3725), '1:02:05');
     expect(ago(30), 'just now');

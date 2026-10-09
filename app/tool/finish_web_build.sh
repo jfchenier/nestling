@@ -10,6 +10,7 @@ set -eu
 cd "$(dirname "$0")/.."
 web=build/web
 assets=$(cd "$web" && find assets canvaskit -type f | sort | xargs sha256sum | sha256sum | cut -c1-12)
+rm -rf "$web/v" # left over from a previous build in the same folder
 mkdir -p "$web/v/$assets"
 mv "$web/assets" "$web/canvaskit" "$web/v/$assets/"
 sed -i "s|__ASSET_VERSION__|$assets|" "$web/flutter_bootstrap.js"

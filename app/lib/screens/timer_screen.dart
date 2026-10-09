@@ -7,6 +7,7 @@ import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/date_time.dart';
 import 'event_form.dart';
 
 /// Live timer for `breastfeed`, `sleep` or `pump`, shared with every caregiver.
@@ -52,8 +53,7 @@ class _TimerScreenState extends State<TimerScreen> {
     if (mounted) setState(() => _busy = false);
   }
 
-  Future<void> _start(AppState s, String? side) =>
-      s.act(
+  Future<void> _start(AppState s, String? side) => s.act(
     (api) => api.post('/children/${s.childId}/timers', {
       'kind': widget.kind,
       'side': ?side,
@@ -62,22 +62,22 @@ class _TimerScreenState extends State<TimerScreen> {
   );
 
   /// Start Time row: before starting, remembers the time; afterwards moves the running timer.
-  Future<void> _editStart(TimerModel? t) async {
-    final picked = await pickDateTime(context, t?.startedAt ?? _startAt ?? DateTime.now());
-    if (picked == null || !mounted) return;
+  Future<void> _editStart(TimerModel? t, DateTime picked) async {
     if (picked.isAfter(DateTime.now())) return showMessage(context, 'The start can\'t be in the future.');
     if (t == null) return setState(() => _startAt = picked);
     await _call((s) => s.act((api) => api.patch('/timers/${t.id}', {'start': formatTime(picked)})));
   }
 
-  /// Pencil under a side (breastfeed) or on Total Time (sleep, pump): correct the time.
-  Future<void> _editTime(TimerModel t, [String? side]) async {
+  /// Pencil under a side (breastfeed) or on Total Time (sleep, pump): correct the time. Before
+  /// anything runs, it creates the timer with that time and leaves it paused.
+  Future<void> _editTime(TimerModel? t, [String? side]) async {
     final secs = switch (side) {
-      'left' => t.left,
-      'right' => t.right,
-      _ => t.elapsed,
+      'left' => t?.left ?? 0,
+      'right' => t?.right ?? 0,
+      _ => t?.elapsed ?? 0,
     };
-    TextEditingController ctl(int v) => TextEditingController(text: '$v')..selection = TextSelection(baseOffset: 0, extentOffset: '$v'.length);
+    TextEditingController ctl(int v) =>
+        TextEditingController(text: '$v')..selection = TextSelection(baseOffset: 0, extentOffset: '$v'.length);
     final min = ctl(secs ~/ 60), sec = ctl(secs % 60);
     Widget field(TextEditingController c, String label, {bool autofocus = false, int digits = 3}) {
       // Typing replaces the current value: select it all when the field gets focus.
@@ -88,30 +88,27 @@ class _TimerScreenState extends State<TimerScreen> {
         }
       });
       return Expanded(
-      child: TextField(
-        controller: c,
-        focusNode: focus,
-        autofocus: autofocus,
-        keyboardType: TextInputType.number,
-        inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(digits)],
-        textAlign: TextAlign.center,
-        style: serifStyle(28),
-        decoration: InputDecoration(labelText: label),
-      ),
-    );
+        child: TextField(
+          controller: c,
+          focusNode: focus,
+          autofocus: autofocus,
+          keyboardType: TextInputType.number,
+          inputFormatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(digits)],
+          textAlign: TextAlign.center,
+          style: serifStyle(28),
+          decoration: InputDecoration(labelText: label),
+        ),
+      );
     }
 
     final total = await showDialog<int>(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text(
-          switch (side) {
-            'left' => 'Left side',
-            'right' => 'Right side',
-            _ => widget.kind == 'sleep' ? 'Time asleep' : 'Total time',
-          },
-          style: serifStyle(22),
-        ),
+        title: Text(switch (side) {
+          'left' => 'Left side',
+          'right' => 'Right side',
+          _ => widget.kind == 'sleep' ? 'Time asleep' : 'Total time',
+        }, style: serifStyle(22)),
         content: Row(children: [field(min, 'Minutes', autofocus: true), const SizedBox(width: 12), field(sec, 'Seconds', digits: 2)]),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
@@ -123,7 +120,26 @@ class _TimerScreenState extends State<TimerScreen> {
       ),
     );
     if (total == null || !mounted) return;
-    await _call((s) => s.act((api) => api.patch('/timers/${t.id}', {side == null ? 'seconds' : '${side}_seconds': total})));
+    final key = side == null ? 'seconds' : '${side}_seconds';
+    if (t != null) {
+      await _call((s) => s.act((api) => api.patch('/timers/${t.id}', {key: total})));
+      return;
+    }
+    if (total == 0) return;
+    final startAt = _startAt;
+    await _call(
+      (s) => s.act((api) async {
+        final created = await api.post('/children/${s.childId}/timers', {
+          'kind': widget.kind,
+          'side': ?(side ?? (widget.kind == 'pump' ? _pumpSide : null)),
+          'start': formatTime(startAt ?? DateTime.now().subtract(Duration(seconds: total))),
+        });
+        await api.post('/timers/${created['id']}/pause');
+        // A start time picked beforehand stays; the duration is then set on top of it.
+        if (startAt != null) await api.patch('/timers/${created['id']}', {key: total});
+      }),
+    );
+    if (mounted) setState(() => _startAt = null);
   }
 
   /// A side's button: start, pause (same side), switch (other side) or resume.
@@ -203,9 +219,12 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
+  /// Only asks for the time: a time later than now means yesterday.
   Future<void> _stopEarlier(TimerModel t) async {
-    final end = await pickDateTime(context, DateTime.now().subtract(const Duration(minutes: 5)));
+    final now = DateTime.now();
+    var end = await pickTime(context, now.subtract(const Duration(minutes: 5)));
     if (end == null || !mounted) return;
+    if (end.isAfter(now)) end = end.subtract(const Duration(days: 1));
     if (!end.isAfter(t.startedAt)) return showMessage(context, 'The end must be after the start (${timeOfDay(t.startedAt)}).');
     await _stop(t, end: end);
   }
@@ -282,10 +301,7 @@ class _TimerScreenState extends State<TimerScreen> {
                 ),
                 const SizedBox(height: 28),
                 if (widget.kind == 'breastfeed')
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [_side(t, 'left'), _side(t, 'right')],
-                  )
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [_side(t, 'left'), _side(t, 'right')])
                 else ...[
                   if (widget.kind == 'pump') ...[
                     Padding(padding: const EdgeInsets.symmetric(horizontal: 24), child: _pumpSides(t)),
@@ -340,7 +356,10 @@ class _TimerScreenState extends State<TimerScreen> {
                   ),
                   Center(
                     child: TextButton(
-                      style: TextButton.styleFrom(foregroundColor: c.danger, textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: c.danger,
+                        textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+                      ),
                       onPressed: _busy ? null : () => _delete(t),
                       child: const Text('Delete'),
                     ),
@@ -387,21 +406,20 @@ class _TimerScreenState extends State<TimerScreen> {
         children: [
           FormRow(
             label: widget.kind == 'sleep' ? 'Fell asleep' : 'Start Time',
-            onTap: _busy ? null : () => _editStart(t),
-            child: Text(
-              start == null ? 'Now' : '${dayLabel(start)}   ${timeOfDay(start)}',
-              style: TextStyle(fontSize: 17, color: start == null ? c.accent : c.ink, fontWeight: start == null ? FontWeight.w600 : null),
-            ),
+            child: DateTimeValue(value: start, placeholder: 'Now', enabled: !_busy, onChanged: (v) => _editStart(t, v)),
           ),
+          // Breastfeed time is the sum of the sides (edited with their pencils), so it's read-only.
           FormRow(
             label: 'Total Time',
-            onTap: t == null || _busy || widget.kind == 'breastfeed' ? null : () => _editTime(t),
+            onTap: _busy || widget.kind == 'breastfeed' ? null : () => _editTime(t),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(duration(t?.elapsed ?? 0, showSeconds: true), style: TextStyle(fontSize: 17, color: c.ink)),
-                // Breastfeed time is the sum of the sides, edited with their pencils.
-                if (t != null && widget.kind != 'breastfeed') ...[
+                Text(
+                  duration(t?.elapsed ?? 0, showSeconds: true),
+                  style: TextStyle(fontSize: 17, color: widget.kind == 'breastfeed' ? c.muted : c.ink),
+                ),
+                if (widget.kind != 'breastfeed') ...[
                   const SizedBox(width: 8),
                   Icon(Icons.edit_rounded, size: 20, color: kind.on(c), semanticLabel: 'Edit total time'),
                 ],
@@ -429,15 +447,11 @@ class _TimerScreenState extends State<TimerScreen> {
               '${seconds ~/ 60}m ${(seconds % 60).toString().padLeft(2, '0')}s',
               style: serifStyle(20, weight: FontWeight.w600).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
             ),
-            // Only once there's a timer to correct; keeps its space so nothing jumps.
-            Visibility.maintain(
-              visible: t != null,
-              child: IconButton(
-                tooltip: 'Edit $name time',
-                visualDensity: VisualDensity.compact,
-                icon: Icon(Icons.edit_rounded, size: 20, color: kind.on(c)),
-                onPressed: t == null || _busy ? null : () => _editTime(t, side),
-              ),
+            IconButton(
+              tooltip: 'Edit $name time',
+              visualDensity: VisualDensity.compact,
+              icon: Icon(Icons.edit_rounded, size: 20, color: kind.on(c)),
+              onPressed: _busy ? null : () => _editTime(t, side),
             ),
           ],
         ),

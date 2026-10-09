@@ -30,14 +30,18 @@ activity color. Colors live in
   correct its start time and its time (per side for nursing, total for sleep/pump) with the pencils;
   ✕ closes the page and the timer keeps running, **Save** stores it, **Delete** throws it away;
   "Ended earlier…" trims the end.
-- **Forms** — a sheet with the activity's icon and title, label/value rows and a big Save button:
+- **Times** use a 24-hour clock; date/time rows have separate day and time pills. Durations
+  past 24 h read in days ("41d 11h").
+- **Forms** — a sheet with the activity's icon and title, label/value rows and a big Save button
+  (medicines are picked from the child's recent ones, then a common list, or typed in):
   nursing (manual), bottle, solids, sleep, diaper (wet/dirty/dry, color, consistency, rash,
   blowout), pump, growth, health (medicine, temperature, vaccine, symptom, appointment), activity,
   milestone, note. Tap any entry to edit or delete it.
 - **Timeline** — everything, grouped by day, filter by type, infinite scroll.
-- **Calendar** — a week at a glance (like Nara's History): one column per day, 00–24 top to
+- **Calendar** — days at a glance (like Nara's History): one column per day, 00–24 top to
   bottom, night hours shaded, a colored bar per entry as tall as its duration, a line at the
-  current time. Filter by activity, arrows or swipe for other weeks, tap a bar to edit it.
+  current time. Drag sideways to scroll back through time (loads 14 days at a time, snaps to
+  days), filter by activity, tap a bar to edit it.
 - **Trends** — 7/14/30-day averages (feeds, feed interval, sleep, wake window, naps, diapers, bottle,
   nursing, pumping) and daily charts.
 - **Family** — babies, caregivers, invite codes, join a family, units (metric/imperial), time zone,
