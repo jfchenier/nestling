@@ -74,6 +74,28 @@ void main() {
     expect(t['averages']['days'], 2);
   });
 
+  test('feed sides, day/night and the previous period (same case as trends.rs)', () {
+    TrendEvent ev(String start, Map<String, dynamic> d) => TrendEvent(ms(start), null, d);
+    Map<String, dynamic> breast(int l, int r) => {'type': 'feed', 'method': 'breast', 'left_seconds': l, 'right_seconds': r};
+    final events = [
+      ev('2026-10-01T10:00', breast(100, 100)),
+      ev('2026-10-02T10:00', breast(600, 300)),
+      ev('2026-10-02T22:00', breast(60, 120)),
+      ev('2026-10-02T12:00', {'type': 'feed', 'method': 'bottle', 'amount_ml': 90.0, 'milk': 'formula'}),
+      ev('2026-10-02T20:00', {'type': 'diaper', 'wet': true, 'dirty': true}),
+    ];
+    final now = ms('2026-10-05T00:00');
+    final t = computeTrendsWithPrevious(events, DateTime(2026, 10, 2), 1, now);
+    final a = t['averages'];
+    expect((a['breast_left_seconds_per_day'], a['breast_right_seconds_per_day']), (660.0, 420.0));
+    expect((a['day_breast_left_seconds_per_day'], a['day_breast_right_seconds_per_day']), (600.0, 300.0));
+    expect((a['night_breast_left_seconds_per_day'], a['night_breast_right_seconds_per_day']), (60.0, 120.0));
+    expect((a['breast_feeds_per_day'], a['bottle_feeds_per_day'], a['formula_ml_per_day']), (2.0, 1.0, 90.0));
+    expect((a['night_diapers_per_day'], a['night_wet_per_day'], a['day_diapers_per_day']), (1.0, 1.0, 0.0));
+    expect((t['previous']['feeds_per_day'], t['previous']['breast_seconds_per_day']), (1.0, 200.0));
+    expect(computeTrendsWithPrevious(events, DateTime(2026, 10, 1), 1, now)['previous'], isNull);
+  });
+
   test('last 24 hours cross midnight', () {
     TrendEvent ev(String start, String? end, Map<String, dynamic> d) => TrendEvent(ms(start), end == null ? null : ms(end), d);
     final events = [

@@ -41,7 +41,14 @@ class _TrendsScreenState extends State<TrendsScreen> {
     final data = _data;
     final days = [for (final d in (data?['days'] as List? ?? [])) d as Map<String, dynamic>];
     final avg = data?['averages'] as Map<String, dynamic>? ?? {};
+    final prev = data?['previous'] as Map<String, dynamic>?;
     final u = s.units;
+    // Formats for each kind of value (also used for the change since the previous period).
+    String count(dynamic v) => (toDouble(v) ?? 0).toStringAsFixed(1);
+    String time(dynamic v) => duration(toInt(v), showSeconds: true).ifEmpty('—');
+    String volume(dynamic v) => u.volume(toDouble(v)).ifEmpty('—');
+    bool either(String key) => (toDouble(avg[key]) ?? 0) > 0 || (toDouble(prev?[key]) ?? 0) > 0;
+    final feedColors = [Kind.breast.on(context.pal), Kind.bottle.color, Kind.solids.deepTone];
 
     return Scaffold(
       appBar: AppBar(title: const Text('Trends')),
@@ -77,45 +84,70 @@ class _TrendsScreenState extends State<TrendsScreen> {
                   child: Center(child: CircularProgressIndicator()),
                 )
               else ...[
-                SectionTitle(
-                  'Daily averages',
-                  trailing: Text('${avg['days'] ?? 0} full days', style: TextStyle(color: context.pal.muted, fontSize: 12)),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 14, 4, 0),
+                  child: Text(
+                    'Daily averages over ${avg['days'] ?? 0} full days. '
+                    '${prev == null ? 'Nothing logged in the $_days days before to compare with.' : 'Arrows compare with the $_days days before.'}',
+                    style: TextStyle(color: context.pal.muted, fontSize: 12),
+                  ),
                 ),
+                const SectionTitle('Feed'),
                 _AverageGrid(
                   items: [
-                    (Kind.breast, 'Feeds', (toDouble(avg['feeds_per_day']) ?? 0).toStringAsFixed(1), 'per day'),
-                    (Kind.breast, 'Feed interval', duration(toInt(avg['feed_interval_seconds'])).ifEmpty('—'), 'between feeds'),
-                    (Kind.sleep, 'Sleep', duration(toInt(avg['sleep_seconds_per_day']) ?? 0), 'per day'),
-                    (Kind.sleep, 'Wake window', duration(toInt(avg['wake_window_seconds'])).ifEmpty('—'), 'average'),
-                    (
-                      Kind.sleep,
-                      'Naps',
-                      (toDouble(avg['naps_per_day']) ?? 0).toStringAsFixed(1),
-                      'avg ${duration(toInt(avg['avg_nap_seconds'])).ifEmpty('—')}',
+                    _Stat(
+                      Kind.breast,
+                      'Feeds',
+                      'feeds_per_day',
+                      'per day',
+                      count,
+                      lines: [
+                        if (either('breast_feeds_per_day')) ('Breastfeed', count(avg['breast_feeds_per_day'])),
+                        if (either('bottle_feeds_per_day')) ('Bottle', count(avg['bottle_feeds_per_day'])),
+                        if (either('solids_per_day')) ('Solids', count(avg['solids_per_day'])),
+                      ],
+                      lineColors: feedColors,
                     ),
-                    (Kind.diaper, 'Diapers', (toDouble(avg['diapers_per_day']) ?? 0).toStringAsFixed(1), 'per day'),
-                    if (avg['avg_bottle_ml'] != null)
-                      (
+                    if (either('breast_seconds_per_day')) ...[
+                      for (final (key, title) in [
+                        ('', 'Breastfeeding'),
+                        ('day_', 'Daytime breastfeeding'),
+                        ('night_', 'Nighttime breastfeeding'),
+                      ])
+                        _Stat(
+                          Kind.breast,
+                          title,
+                          '${key}breast_seconds_per_day',
+                          'per day',
+                          time,
+                          lines: [
+                            ('Left', time(avg['${key}breast_left_seconds_per_day'])),
+                            ('Right', time(avg['${key}breast_right_seconds_per_day'])),
+                          ],
+                        ),
+                      _Stat(Kind.breast, 'Breastfeed length', 'avg_breastfeed_seconds', 'average', time),
+                    ],
+                    if (either('bottle_ml_per_day')) ...[
+                      _Stat(
                         Kind.bottle,
                         'Bottle',
-                        u.volume(toDouble(avg['avg_bottle_ml'])),
-                        '${u.volume(toDouble(avg['bottle_ml_per_day']) ?? 0)} / day',
+                        'bottle_ml_per_day',
+                        'per day',
+                        volume,
+                        lines: [
+                          if (either('breast_milk_ml_per_day')) ('Breast milk', volume(avg['breast_milk_ml_per_day'])),
+                          if (either('formula_ml_per_day')) ('Formula', volume(avg['formula_ml_per_day'])),
+                          if (either('mixed_ml_per_day')) ('Mixed', volume(avg['mixed_ml_per_day'])),
+                        ],
                       ),
-                    if (avg['avg_breastfeed_seconds'] != null)
-                      (Kind.breast, 'Breastfeed', duration(toInt(avg['avg_breastfeed_seconds'])), 'per feed'),
-                    if ((toDouble(avg['pumped_ml_per_day']) ?? 0) > 0)
-                      (Kind.pump, 'Pumped', u.volume(toDouble(avg['pumped_ml_per_day'])), 'per day'),
+                      _Stat(Kind.bottle, 'Bottle size', 'avg_bottle_ml', 'average', volume),
+                    ],
+                    _Stat(Kind.breast, 'Time between feeds', 'feed_interval_seconds', 'average', time),
                   ],
+                  previous: prev,
+                  current: avg,
                 ),
-                const SectionTitle('Sleep'),
-                _Chart(
-                  days: days,
-                  kind: Kind.sleep,
-                  legend: const ['Night', 'Day'],
-                  stacks: (d) => [(toDouble(d['sleep']['night_seconds']) ?? 0) / 3600, (toDouble(d['sleep']['day_seconds']) ?? 0) / 3600],
-                  label: (v) => '${v.toStringAsFixed(1)} h',
-                ),
-                const SectionTitle('Feeds'),
+                const SizedBox(height: 10),
                 _Chart(
                   days: days,
                   kind: Kind.breast,
@@ -126,7 +158,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                     (toDouble(d['feed']['solids_count']) ?? 0),
                   ],
                   label: (v) => v.toStringAsFixed(0),
-                  colors: [Kind.breast.on(context.pal), Kind.bottle.color, Kind.solids.deepTone],
+                  colors: feedColors,
                 ),
                 if (days.any((d) => (toDouble(d['feed']['bottle_ml']) ?? 0) > 0)) ...[
                   SectionTitle('Bottle (${u.volumeUnit})'),
@@ -137,7 +169,44 @@ class _TrendsScreenState extends State<TrendsScreen> {
                     label: (v) => v.toStringAsFixed(0),
                   ),
                 ],
-                const SectionTitle('Diapers'),
+                if (either('pumps_per_day')) ...[
+                  const SectionTitle('Pump'),
+                  _AverageGrid(
+                    items: [
+                      _Stat(Kind.pump, 'Pump sessions', 'pumps_per_day', 'per day', count),
+                      _Stat(Kind.pump, 'Amount pumped', 'pumped_ml_per_day', 'per day', volume),
+                      _Stat(Kind.pump, 'Pump time', 'pump_seconds_per_day', 'per day', time),
+                    ],
+                    previous: prev,
+                    current: avg,
+                  ),
+                  if (days.any((d) => (toDouble(d['pump']['total_ml']) ?? 0) > 0)) ...[
+                    const SizedBox(height: 10),
+                    _Chart(
+                      days: days,
+                      kind: Kind.pump,
+                      stacks: (d) => [u.volumeIn(toDouble(d['pump']['total_ml']) ?? 0)],
+                      label: (v) => v.toStringAsFixed(0),
+                    ),
+                  ],
+                ],
+                const SectionTitle('Diaper'),
+                _AverageGrid(
+                  items: [
+                    for (final (key, title) in [('', 'Diapers'), ('day_', 'Daytime diapers'), ('night_', 'Nighttime diapers')])
+                      _Stat(
+                        Kind.diaper,
+                        title,
+                        '${key}diapers_per_day',
+                        'per day',
+                        count,
+                        lines: [('Wet', count(avg['${key}wet_per_day'])), ('Dirty', count(avg['${key}dirty_per_day']))],
+                      ),
+                  ],
+                  previous: prev,
+                  current: avg,
+                ),
+                const SizedBox(height: 10),
                 _Chart(
                   days: days,
                   kind: Kind.diaper,
@@ -148,15 +217,28 @@ class _TrendsScreenState extends State<TrendsScreen> {
                   },
                   label: (v) => v.toStringAsFixed(0),
                 ),
-                if (days.any((d) => (toDouble(d['pump']['total_ml']) ?? 0) > 0)) ...[
-                  SectionTitle('Pumped (${u.volumeUnit})'),
-                  _Chart(
-                    days: days,
-                    kind: Kind.pump,
-                    stacks: (d) => [u.volumeIn(toDouble(d['pump']['total_ml']) ?? 0)],
-                    label: (v) => v.toStringAsFixed(0),
-                  ),
-                ],
+                const SectionTitle('Sleep'),
+                _AverageGrid(
+                  items: [
+                    _Stat(Kind.sleep, 'Sleep', 'sleep_seconds_per_day', 'per day', time),
+                    _Stat(Kind.sleep, 'Daytime sleep', 'day_sleep_seconds_per_day', 'per day', time),
+                    _Stat(Kind.sleep, 'Nighttime sleep', 'night_sleep_seconds_per_day', 'per day', time),
+                    _Stat(Kind.sleep, 'Longest sleep', 'longest_sleep_seconds', 'average', time),
+                    _Stat(Kind.sleep, 'Naps', 'naps_per_day', 'per day', count),
+                    _Stat(Kind.sleep, 'Nap length', 'avg_nap_seconds', 'average', time),
+                    _Stat(Kind.sleep, 'Wake window', 'wake_window_seconds', 'average', time),
+                  ],
+                  previous: prev,
+                  current: avg,
+                ),
+                const SizedBox(height: 10),
+                _Chart(
+                  days: days,
+                  kind: Kind.sleep,
+                  legend: const ['Night', 'Day'],
+                  stacks: (d) => [(toDouble(d['sleep']['night_seconds']) ?? 0) / 3600, (toDouble(d['sleep']['day_seconds']) ?? 0) / 3600],
+                  label: (v) => '${v.toStringAsFixed(1)} h',
+                ),
               ],
             ],
           ),
@@ -170,48 +252,42 @@ extension on String {
   String ifEmpty(String other) => isEmpty ? other : this;
 }
 
+/// One average: [key] in `averages` (and `previous`), shown with [format]; [lines] break it down.
+class _Stat {
+  const _Stat(this.kind, this.title, this.key, this.sub, this.format, {this.lines = const [], this.lineColors});
+  final Kind kind;
+  final String title;
+  final String key;
+  final String sub;
+  final String Function(dynamic) format;
+  final List<(String, String)> lines;
+  final List<Color>? lineColors;
+}
+
 class _AverageGrid extends StatelessWidget {
-  const _AverageGrid({required this.items});
-  final List<(Kind, String, String, String)> items;
+  const _AverageGrid({required this.items, required this.current, this.previous});
+  final List<_Stat> items;
+  final Map<String, dynamic> current;
+  final Map<String, dynamic>? previous;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, box) {
       final cols = box.maxWidth > 500 ? 3 : 2;
-      final w = (box.maxWidth - 10 * (cols - 1)) / cols;
-      return Wrap(
-        spacing: 10,
-        runSpacing: 10,
+      // Rows of equal-height cards.
+      return Column(
         children: [
-          for (final (k, title, value, sub) in items)
-            SizedBox(
-              width: w,
-              child: Card(
-                clipBehavior: Clip.antiAlias,
-                child: Column(
+          for (var i = 0; i < items.length; i += cols)
+            Padding(
+              padding: EdgeInsets.only(top: i == 0 ? 0 : 10),
+              child: IntrinsicHeight(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Same colored band as the home cards.
-                    Container(
-                      color: k.fill(context.pal),
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: context.pal.bandInk, fontWeight: FontWeight.w700, fontSize: 14),
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(value, style: serifStyle(24)),
-                          Text(sub, style: TextStyle(color: context.pal.muted, fontSize: 13)),
-                        ],
-                      ),
-                    ),
+                    for (var j = i; j < i + cols; j++) ...[
+                      if (j > i) const SizedBox(width: 10),
+                      Expanded(child: j < items.length ? _card(context, items[j]) : const SizedBox()),
+                    ],
                   ],
                 ),
               ),
@@ -220,6 +296,99 @@ class _AverageGrid extends StatelessWidget {
       );
     },
   );
+
+  Widget _card(BuildContext context, _Stat st) {
+    final pal = context.pal;
+    final cur = toDouble(current[st.key]), prev = toDouble(previous?[st.key]);
+    final colors = st.lineColors ?? [st.kind.on(pal), Color.lerp(st.kind.on(pal), pal.surface, 0.5)!];
+    return Card(
+      margin: EdgeInsets.zero,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Same colored band as the home cards.
+          Container(
+            color: st.kind.fill(pal),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+            child: Text(
+              st.title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: pal.bandInk, fontWeight: FontWeight.w700, fontSize: 14),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(st.format(current[st.key]), style: serifStyle(24)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(st.sub, style: TextStyle(color: pal.muted, fontSize: 13)),
+                    ),
+                    if (cur != null && prev != null) _Change(st.kind, cur - prev, st.format),
+                  ],
+                ),
+                if (st.lines.isNotEmpty) const SizedBox(height: 8),
+                for (final (k, (label, value)) in st.lines.indexed)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 10,
+                          height: 10,
+                          decoration: BoxDecoration(color: colors[k % colors.length], shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(label, style: TextStyle(color: pal.muted, fontSize: 13)),
+                        ),
+                        Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13)),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Change since the previous period: "↑ 21m 10s" on the kind's color. Nothing when it rounds to zero.
+class _Change extends StatelessWidget {
+  const _Change(this.kind, this.diff, this.format);
+  final Kind kind;
+  final double diff;
+  final String Function(dynamic) format;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = format(diff.abs());
+    if (RegExp(r'^[0.]+$|^0s$|^0 ').hasMatch(text) || text == '—') return const SizedBox.shrink();
+    final pal = context.pal;
+    return Container(
+      margin: const EdgeInsets.only(left: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(color: kind.fill(pal), borderRadius: BorderRadius.circular(6)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(diff > 0 ? Icons.arrow_upward_rounded : Icons.arrow_downward_rounded, size: 12, color: pal.bandInk),
+          const SizedBox(width: 2),
+          Text(
+            text,
+            style: TextStyle(color: pal.bandInk, fontWeight: FontWeight.w700, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Stacked daily bars. The first stack uses the deep color, the rest lighter shades.

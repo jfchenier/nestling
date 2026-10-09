@@ -602,8 +602,8 @@ class LocalEngine {
     if (days < 1 || days > 90) throw badRequest('days must be between 1 and 90');
     final to = q['to'] == null ? dateOnly(DateTime.now()) : DateTime.tryParse(q['to']!) ?? (throw badRequest('invalid date'));
     final from = DateTime(to.year, to.month, to.day - days + 1);
-    final (r0, r1) = rangeMs(from, days);
-    return computeTrends(_trendEvents(childId, r0, r1), from, days, nowMs());
+    final (r0, r1) = rangeMs(DateTime(from.year, from.month, from.day - days), days * 2);
+    return computeTrendsWithPrevious(_trendEvents(childId, r0, r1), from, days, nowMs());
   }
 
   // ---- timers ----

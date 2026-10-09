@@ -159,12 +159,17 @@ Timer shape: `{id, child_id, kind, started_at, running, side, elapsed_seconds, l
     "pump":   {"count": 1, "total_ml": 150, "total_seconds": 900}
   }],
   "averages": {"days": 6, "feeds_per_day": 8.2, "sleep_seconds_per_day": 51000, "feed_interval_seconds": 10200,
-               "wake_window_seconds": 5400, "avg_nap_seconds": 4100, "avg_bottle_ml": 115, …}
+               "wake_window_seconds": 5400, "avg_nap_seconds": 4100, "avg_bottle_ml": 115, …},
+  "previous": { same keys as averages } | null
 }
 ```
 
 Days are calendar days in the family timezone; daytime is 06:00–18:00. Sleep crossing midnight is split between days.
 Daily averages use complete days only.
+Feeds and diapers count as daytime by their start time; feed days also carry `breast_left_seconds` /
+`breast_right_seconds`, their `day_…` parts and bottle amounts by milk (`breast_milk_ml`, `formula_ml`, `mixed_ml`).
+`previous` holds the same `averages` for the `days` days just before `from` (for "↑ 1.1 vs last week"), or
+`null` when nothing was logged then.
 
 ## Live updates and sync
 

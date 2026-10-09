@@ -318,9 +318,24 @@ class _Extra {
 }
 
 (Map<String, dynamic>, _Extra) _windowStats(List<TrendEvent> events, DateTime date, int w0, int w1, List<(int, int)> daytimes, int now) {
-  final feed = <String, num>{'count': 0, 'breast_count': 0, 'breast_seconds': 0, 'bottle_count': 0, 'bottle_ml': 0.0, 'solids_count': 0};
+  final feed = <String, num>{
+    'count': 0,
+    'breast_count': 0,
+    'breast_seconds': 0,
+    'breast_left_seconds': 0,
+    'breast_right_seconds': 0,
+    'day_breast_seconds': 0,
+    'day_breast_left_seconds': 0,
+    'day_breast_right_seconds': 0,
+    'bottle_count': 0,
+    'bottle_ml': 0.0,
+    'breast_milk_ml': 0.0,
+    'formula_ml': 0.0,
+    'mixed_ml': 0.0,
+    'solids_count': 0,
+  };
   final sleep = <String, num>{'total_seconds': 0, 'day_seconds': 0, 'night_seconds': 0, 'nap_count': 0, 'longest_seconds': 0};
-  final diaper = <String, num>{'count': 0, 'wet': 0, 'dirty': 0, 'day_count': 0, 'night_count': 0};
+  final diaper = <String, num>{'count': 0, 'wet': 0, 'dirty': 0, 'day_count': 0, 'night_count': 0, 'day_wet': 0, 'day_dirty': 0};
   final pump = <String, num>{'count': 0, 'total_ml': 0.0, 'total_seconds': 0};
   final extra = _Extra();
   void add(Map<String, num> m, String k, num v) => m[k] = m[k]! + v;
@@ -333,13 +348,29 @@ class _Extra {
         add(feed, 'count', 1);
         final method = d['method'];
         if (method == 'breast' || method == 'combo') {
+          final left = _num(d['left_seconds']).round(), right = _num(d['right_seconds']).round();
           add(feed, 'breast_count', 1);
-          add(feed, 'breast_seconds', _num(d['left_seconds']).round() + _num(d['right_seconds']).round());
+          add(feed, 'breast_seconds', left + right);
+          add(feed, 'breast_left_seconds', left);
+          add(feed, 'breast_right_seconds', right);
+          if (daytime) {
+            add(feed, 'day_breast_seconds', left + right);
+            add(feed, 'day_breast_left_seconds', left);
+            add(feed, 'day_breast_right_seconds', right);
+          }
         }
         if (method == 'bottle' || method == 'combo') {
           add(feed, 'bottle_count', 1);
           final ml = _num(d['amount_ml']);
           add(feed, 'bottle_ml', ml);
+          switch (d['milk']) {
+            case 'breast_milk':
+              add(feed, 'breast_milk_ml', ml);
+            case 'formula':
+              add(feed, 'formula_ml', ml);
+            case 'mixed':
+              add(feed, 'mixed_ml', ml);
+          }
           if (ml > 0) {
             extra.bottleMl += ml;
             extra.bottles++;
@@ -367,6 +398,8 @@ class _Extra {
         if (d['wet'] == true) add(diaper, 'wet', 1);
         if (d['dirty'] == true) add(diaper, 'dirty', 1);
         add(diaper, daytime ? 'day_count' : 'night_count', 1);
+        if (daytime && d['wet'] == true) add(diaper, 'day_wet', 1);
+        if (daytime && d['dirty'] == true) add(diaper, 'day_dirty', 1);
       case 'pump' when startsIn:
         add(pump, 'count', 1);
         add(pump, 'total_ml', _num(d['left_ml']) + _num(d['right_ml']));
@@ -432,21 +465,55 @@ Map<String, dynamic> computeTrends(List<TrendEvent> events, DateTime from, int d
     'averages': {
       'days': basis.length,
       'feeds_per_day': avg((d) => d['feed']['count']),
+      'breast_feeds_per_day': avg((d) => d['feed']['breast_count']),
+      'bottle_feeds_per_day': avg((d) => d['feed']['bottle_count']),
+      'solids_per_day': avg((d) => d['feed']['solids_count']),
       'breast_seconds_per_day': avg((d) => d['feed']['breast_seconds']),
+      'breast_left_seconds_per_day': avg((d) => d['feed']['breast_left_seconds']),
+      'breast_right_seconds_per_day': avg((d) => d['feed']['breast_right_seconds']),
+      'day_breast_seconds_per_day': avg((d) => d['feed']['day_breast_seconds']),
+      'day_breast_left_seconds_per_day': avg((d) => d['feed']['day_breast_left_seconds']),
+      'day_breast_right_seconds_per_day': avg((d) => d['feed']['day_breast_right_seconds']),
+      'night_breast_seconds_per_day': avg((d) => d['feed']['breast_seconds'] - d['feed']['day_breast_seconds']),
+      'night_breast_left_seconds_per_day': avg((d) => d['feed']['breast_left_seconds'] - d['feed']['day_breast_left_seconds']),
+      'night_breast_right_seconds_per_day': avg((d) => d['feed']['breast_right_seconds'] - d['feed']['day_breast_right_seconds']),
       'bottle_ml_per_day': avg((d) => d['feed']['bottle_ml']),
+      'breast_milk_ml_per_day': avg((d) => d['feed']['breast_milk_ml']),
+      'formula_ml_per_day': avg((d) => d['feed']['formula_ml']),
+      'mixed_ml_per_day': avg((d) => d['feed']['mixed_ml']),
       'sleep_seconds_per_day': avg((d) => d['sleep']['total_seconds']),
       'day_sleep_seconds_per_day': avg((d) => d['sleep']['day_seconds']),
       'night_sleep_seconds_per_day': avg((d) => d['sleep']['night_seconds']),
       'naps_per_day': avg((d) => d['sleep']['nap_count']),
+      'longest_sleep_seconds': avg((d) => d['sleep']['longest_seconds']),
       'diapers_per_day': avg((d) => d['diaper']['count']),
       'wet_per_day': avg((d) => d['diaper']['wet']),
       'dirty_per_day': avg((d) => d['diaper']['dirty']),
+      'day_diapers_per_day': avg((d) => d['diaper']['day_count']),
+      'day_wet_per_day': avg((d) => d['diaper']['day_wet']),
+      'day_dirty_per_day': avg((d) => d['diaper']['day_dirty']),
+      'night_diapers_per_day': avg((d) => d['diaper']['night_count']),
+      'night_wet_per_day': avg((d) => d['diaper']['wet'] - d['diaper']['day_wet']),
+      'night_dirty_per_day': avg((d) => d['diaper']['dirty'] - d['diaper']['day_dirty']),
+      'pumps_per_day': avg((d) => d['pump']['count']),
       'pumped_ml_per_day': avg((d) => d['pump']['total_ml']),
+      'pump_seconds_per_day': avg((d) => d['pump']['total_seconds']),
       'feed_interval_seconds': meanS(gaps),
       'wake_window_seconds': meanS(wakes),
       'avg_breastfeed_seconds': bfN > 0 ? bfTotal ~/ bfN : null,
       'avg_bottle_ml': bottleN > 0 ? (bottleTotal / bottleN * 10).round() / 10 : null,
       'avg_nap_seconds': napN > 0 ? napTotal ~/ napN : null,
     },
+    'previous': null,
   };
+}
+
+/// [computeTrends] plus `previous`: the averages of the [days] days before [from] (`src/trends.rs`
+/// `compute_with_previous`). [events] must cover both periods.
+Map<String, dynamic> computeTrendsWithPrevious(List<TrendEvent> events, DateTime from, int days, int now) {
+  final t = computeTrends(events, from, days, now);
+  final prevFrom = DateTime(from.year, from.month, from.day - days);
+  final (p0, p1) = rangeMs(prevFrom, days);
+  if (events.any((e) => e.start >= p0 && e.start < p1)) t['previous'] = computeTrends(events, prevFrom, days, now)['averages'];
+  return t;
 }

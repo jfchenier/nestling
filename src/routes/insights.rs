@@ -64,9 +64,10 @@ pub async fn get_trends(State(state): State<AppState>, user: AuthUser, Path(chil
     let today = chrono::Utc::now().with_timezone(&ctx.tz).date_naive();
     let to = q.to.unwrap_or(today);
     let from = to - Duration::days(days as i64 - 1);
-    let (r0, r1) = trends::range_ms(ctx.tz, from, days);
+    // From the start of the previous period, for the comparison.
+    let (r0, r1) = trends::range_ms(ctx.tz, from - Duration::days(days as i64), days * 2);
     let events = trend_events(&state, &child_id, r0, r1).await?;
-    Ok(Json(serde_json::to_value(trends::compute(&events, ctx.tz, from, days, now))?))
+    Ok(Json(serde_json::to_value(trends::compute_with_previous(&events, ctx.tz, from, days, now))?))
 }
 
 /// Everything a home screen needs: last feed/sleep/diaper/pump, running timers, today's totals.
