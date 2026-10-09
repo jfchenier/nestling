@@ -109,7 +109,7 @@ class Kind {
   /// Icon color on [fill].
   Color iconOn(AppColors c) => c.isDark ? color : deepTone;
 
-  static const breast = Kind('Nursing', Icons.favorite_rounded, Color(0xFFF5C4A1), Color(0xFFB0602D)); // apricot
+  static const breast = Kind('Breastfeeding', Icons.favorite_rounded, Color(0xFFF5C4A1), Color(0xFFB0602D)); // apricot
   static const bottle = Kind('Bottle', Icons.local_drink_rounded, Color(0xFFF2DCA4), Color(0xFF94701C)); // honey
   static const solids = Kind('Solids', Icons.restaurant_rounded, Color(0xFFEFAE80), Color(0xFFA9532A)); // carrot
   static const combo = Kind('Combo', Icons.join_inner_rounded, Color(0xFFF5C4A1), Color(0xFFB0602D));

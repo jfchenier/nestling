@@ -44,7 +44,7 @@ void main() {
       'start_side': 'left',
     });
     expect(e.endSide, 'right');
-    expect(describe(e, const Units(false)), ('Nursing', 'L 10m · R 5m · ended R'));
+    expect(describe(e, const Units(false)), ('Breastfeeding', 'L 10m · R 5m · ended R'));
     final diaper = Event({
       'id': '2',
       'child_id': 'c',

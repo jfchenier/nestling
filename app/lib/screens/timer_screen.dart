@@ -38,7 +38,7 @@ class _TimerScreenState extends State<TimerScreen> {
   String get title => switch (widget.kind) {
     'sleep' => 'Sleep',
     'pump' => 'Pump',
-    _ => 'Nursing',
+    _ => 'Breastfeeding',
   };
 
   TimerModel? _timer(AppState s) => s.timers.where((t) => t.kind == widget.kind).firstOrNull;
@@ -70,7 +70,7 @@ class _TimerScreenState extends State<TimerScreen> {
     await _call((s) => s.act((api) => api.patch('/timers/${t.id}', {'start': formatTime(picked)})));
   }
 
-  /// Pencil under a side (nursing) or on Total Time (sleep, pump): correct the time.
+  /// Pencil under a side (breastfeeding) or on Total Time (sleep, pump): correct the time.
   Future<void> _editTime(TimerModel t, [String? side]) async {
     final secs = switch (side) {
       'left' => t.left,
@@ -235,8 +235,9 @@ class _TimerScreenState extends State<TimerScreen> {
         // Closing never stops the timer: it keeps running (for every caregiver) until saved or deleted.
         leading: IconButton(icon: const Icon(Icons.close_rounded), tooltip: 'Close', onPressed: () => Navigator.pop(context)),
         title: Text(title),
+        centerTitle: true,
         actions: [
-          if (t == null) TextButton(onPressed: _manual, child: const Text('Log past')),
+          if (t == null) ...[TextButton(onPressed: _manual, child: const Text('Log past')), const SizedBox(width: 8)],
           if (t != null) ...[
             FilledButton(
               style: FilledButton.styleFrom(
@@ -248,13 +249,7 @@ class _TimerScreenState extends State<TimerScreen> {
               onPressed: _busy ? null : () => _stop(t),
               child: const Text('Save'),
             ),
-            PopupMenuButton<String>(
-              tooltip: 'More',
-              onSelected: (_) => _stopEarlier(t),
-              itemBuilder: (_) => [
-                PopupMenuItem(value: 'earlier', child: Text(widget.kind == 'sleep' ? 'Woke up earlier…' : 'Ended earlier…')),
-              ],
-            ),
+            const SizedBox(width: 12),
           ],
         ],
       ),
@@ -338,6 +333,13 @@ class _TimerScreenState extends State<TimerScreen> {
                   const SizedBox(height: 8),
                   Center(
                     child: TextButton(
+                      style: TextButton.styleFrom(textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                      onPressed: _busy ? null : () => _stopEarlier(t),
+                      child: Text(widget.kind == 'sleep' ? 'Woke up earlier…' : 'Ended earlier…'),
+                    ),
+                  ),
+                  Center(
+                    child: TextButton(
                       style: TextButton.styleFrom(foregroundColor: c.danger, textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
                       onPressed: _busy ? null : () => _delete(t),
                       child: const Text('Delete'),
@@ -398,7 +400,7 @@ class _TimerScreenState extends State<TimerScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(duration(t?.elapsed ?? 0, showSeconds: true), style: TextStyle(fontSize: 17, color: c.ink)),
-                // Nursing time is the sum of the sides, edited with their pencils.
+                // Breastfeeding time is the sum of the sides, edited with their pencils.
                 if (t != null && widget.kind != 'breastfeed') ...[
                   const SizedBox(width: 8),
                   Icon(Icons.edit_rounded, size: 20, color: kind.on(c), semanticLabel: 'Edit total time'),

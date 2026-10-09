@@ -91,7 +91,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                         '${u.volume(toDouble(avg['bottle_ml_per_day']) ?? 0)} / day',
                       ),
                     if (avg['avg_breastfeed_seconds'] != null)
-                      (Kind.breast, 'Nursing', duration(toInt(avg['avg_breastfeed_seconds'])), 'per feed'),
+                      (Kind.breast, 'Breastfeeding', duration(toInt(avg['avg_breastfeed_seconds'])), 'per feed'),
                     if ((toDouble(avg['pumped_ml_per_day']) ?? 0) > 0)
                       (Kind.pump, 'Pumped', u.volume(toDouble(avg['pumped_ml_per_day'])), 'per day'),
                   ],
@@ -108,7 +108,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                 _Chart(
                   days: days,
                   kind: Kind.breast,
-                  legend: const ['Nursing', 'Bottle', 'Solids'],
+                  legend: const ['Breastfeeding', 'Bottle', 'Solids'],
                   stacks: (d) => [
                     (toDouble(d['feed']['breast_count']) ?? 0),
                     (toDouble(d['feed']['bottle_count']) ?? 0),

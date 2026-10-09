@@ -67,7 +67,7 @@ class HomeScreen extends StatelessWidget {
     final feed = last('feed'), nursing = timer('breastfeed');
     final feedCard = () {
       if (nursing != null) {
-        return _CardData.live(nursing, nursing.running ? 'nursing · ${nursing.side == 'right' ? 'right' : 'left'}' : 'paused');
+        return _CardData.live(nursing, nursing.running ? 'breastfeeding · ${nursing.side == 'right' ? 'right' : 'left'}' : 'paused');
       }
       if (feed == null) return const _CardData();
       final end = feed.endSide;
@@ -76,7 +76,7 @@ class HomeScreen extends StatelessWidget {
         'solids' => _CardData(top: since(feed.start), value: 'Solids', caption: (feed['foods'] as String?) ?? ''),
         _ => _CardData(
           top: since(feed.start),
-          value: end == null ? 'Nursing' : (end == 'left' ? 'Right' : 'Left'),
+          value: end == null ? 'Breastfeeding' : (end == 'left' ? 'Right' : 'Left'),
           caption: end == null ? '' : 'next side',
         ),
       };
@@ -356,7 +356,7 @@ class _TimerBanner extends StatelessWidget {
     final label = switch (timer.kind) {
       'sleep' => 'Sleeping',
       'pump' => 'Pumping',
-      _ => 'Nursing',
+      _ => 'Breastfeeding',
     };
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -604,7 +604,7 @@ class _TodayStrip extends StatelessWidget {
 /// Feed card: pick the kind of feed.
 void showFeedPicker(BuildContext context) {
   final options = <(Kind, String, VoidCallback)>[
-    (Kind.breast, 'Nursing', () => TimerScreen.open(context, 'breastfeed')),
+    (Kind.breast, 'Breastfeeding', () => TimerScreen.open(context, 'breastfeed')),
     (Kind.bottle, 'Bottle', () => showEventForm(context, type: 'feed', method: 'bottle')),
     (Kind.solids, 'Solids', () => showEventForm(context, type: 'feed', method: 'solids')),
     (Kind.combo, 'Combo', () => showEventForm(context, type: 'feed', method: 'combo')),
