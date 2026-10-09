@@ -96,6 +96,19 @@ void main() {
     expect(computeTrendsWithPrevious(events, DateTime(2026, 10, 1), 1, now)['previous'], isNull);
   });
 
+  test('custom daytime hours (same case as trends.rs)', () {
+    final events = [
+      TrendEvent(ms('2026-10-02T07:00'), null, {'type': 'diaper', 'wet': true}),
+      TrendEvent(ms('2026-10-02T07:00'), ms('2026-10-02T09:00'), {'type': 'sleep'}),
+    ];
+    final day = dayWindowOf({'day_start': '08:00', 'day_end': '20:30'});
+    expect(day, (start: 480, end: 1230));
+    final d = (computeTrends(events, DateTime(2026, 10, 2), 1, ms('2026-10-05T00:00'), day: day)['days'] as List).first;
+    expect((d['diaper']['day_count'], d['diaper']['night_count']), (0, 1));
+    expect((d['sleep']['day_seconds'], d['sleep']['night_seconds'], d['sleep']['nap_count']), (3600, 3600, 0));
+    expect(dayWindowOf({'day_start': '21:00', 'day_end': '20:00'}), defaultDay);
+  });
+
   test('last 24 hours cross midnight', () {
     TrendEvent ev(String start, String? end, Map<String, dynamic> d) => TrendEvent(ms(start), end == null ? null : ms(end), d);
     final events = [

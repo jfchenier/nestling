@@ -296,8 +296,32 @@ void setSide(List<Segment> segs, String? side, int target, int now) {
 
 // ---- daily stats ----
 
-const dayStartHour = 6;
-const nightStartHour = 18;
+/// When daytime starts and ends, in minutes after local midnight (the family's `day_start` /
+/// `day_end`; `DayWindow` in `src/trends.rs`).
+typedef DayWindow = ({int start, int end});
+
+const defaultDay = (start: 6 * 60, end: 18 * 60);
+
+/// "06:30" → 390; null unless a valid time of day (up to "24:00").
+int? parseHhmm(dynamic s) {
+  final m = s is String ? RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(s) : null;
+  if (m == null) return null;
+  final h = int.parse(m[1]!), min = int.parse(m[2]!);
+  return min < 60 && h * 60 + min <= 24 * 60 ? h * 60 + min : null;
+}
+
+String hhmm(int minutes) => '${(minutes ~/ 60).toString().padLeft(2, '0')}:${(minutes % 60).toString().padLeft(2, '0')}';
+
+/// The family's day window (the default when unset or invalid).
+DayWindow dayWindowOf(Map<String, dynamic>? family) {
+  final start = parseHhmm(family?['day_start']), end = parseHhmm(family?['day_end']);
+  return start != null && end != null && start < end ? (start: start, end: end) : defaultDay;
+}
+
+(int, int) _daytime(DateTime d, DayWindow w) => (
+  DateTime(d.year, d.month, d.day, 0, w.start).millisecondsSinceEpoch,
+  DateTime(d.year, d.month, d.day, 0, w.end).millisecondsSinceEpoch,
+);
 
 /// What the stats need from an event.
 class TrendEvent {
@@ -411,36 +435,34 @@ class _Extra {
 }
 
 /// The 24 hours up to [now] (rolling).
-Map<String, dynamic> last24h(List<TrendEvent> events, int now) {
+Map<String, dynamic> last24h(List<TrendEvent> events, int now, {DayWindow day = defaultDay}) {
   final today = dateOnly(DateTime.fromMillisecondsSinceEpoch(now));
   final yesterday = DateTime(today.year, today.month, today.day - 1);
-  final daytimes = [for (final d in [yesterday, today]) (localMs(d, dayStartHour), localMs(d, nightStartHour))];
-  final (day, _) = _windowStats(events, today, now - 24 * 3600 * 1000, now, daytimes, now);
-  day['complete'] = false;
-  return day;
+  final daytimes = [for (final d in [yesterday, today]) _daytime(d, day)];
+  final (stats, _) = _windowStats(events, today, now - 24 * 3600 * 1000, now, daytimes, now);
+  stats['complete'] = false;
+  return stats;
 }
 
 /// Epoch ms covering [days] days from [from] (local midnight to midnight).
 (int, int) rangeMs(DateTime from, int days) => (localMs(from), localMs(DateTime(from.year, from.month, from.day + days)));
 
 /// Same output as `GET /children/{id}/trends`.
-Map<String, dynamic> computeTrends(List<TrendEvent> events, DateTime from, int days, int now) {
+Map<String, dynamic> computeTrends(List<TrendEvent> events, DateTime from, int days, int now, {DayWindow day = defaultDay}) {
   final out = <Map<String, dynamic>>[];
   var napTotal = 0, napN = 0, bfTotal = 0, bfN = 0, bottleN = 0;
   var bottleTotal = 0.0;
   for (var i = 0; i < days; i++) {
     final date = DateTime(from.year, from.month, from.day + i);
     final next = DateTime(date.year, date.month, date.day + 1);
-    final (day, extra) = _windowStats(events, date, localMs(date), localMs(next), [
-      (localMs(date, dayStartHour), localMs(date, nightStartHour)),
-    ], now);
+    final (stats, extra) = _windowStats(events, date, localMs(date), localMs(next), [_daytime(date, day)], now);
     napTotal += extra.napSeconds;
     napN += extra.naps;
-    bfTotal += (day['feed']['breast_seconds'] as num).toInt();
-    bfN += (day['feed']['breast_count'] as num).toInt();
+    bfTotal += (stats['feed']['breast_seconds'] as num).toInt();
+    bfN += (stats['feed']['breast_count'] as num).toInt();
     bottleTotal += extra.bottleMl;
     bottleN += extra.bottles;
-    out.add(day);
+    out.add(stats);
   }
   final complete = out.where((d) => d['complete'] == true).toList();
   final basis = complete.isEmpty ? out : complete;
@@ -510,10 +532,10 @@ Map<String, dynamic> computeTrends(List<TrendEvent> events, DateTime from, int d
 
 /// [computeTrends] plus `previous`: the averages of the [days] days before [from] (`src/trends.rs`
 /// `compute_with_previous`). [events] must cover both periods.
-Map<String, dynamic> computeTrendsWithPrevious(List<TrendEvent> events, DateTime from, int days, int now) {
-  final t = computeTrends(events, from, days, now);
+Map<String, dynamic> computeTrendsWithPrevious(List<TrendEvent> events, DateTime from, int days, int now, {DayWindow day = defaultDay}) {
+  final t = computeTrends(events, from, days, now, day: day);
   final prevFrom = DateTime(from.year, from.month, from.day - days);
   final (p0, p1) = rangeMs(prevFrom, days);
-  if (events.any((e) => e.start >= p0 && e.start < p1)) t['previous'] = computeTrends(events, prevFrom, days, now)['averages'];
+  if (events.any((e) => e.start >= p0 && e.start < p1)) t['previous'] = computeTrends(events, prevFrom, days, now, day: day)['averages'];
   return t;
 }

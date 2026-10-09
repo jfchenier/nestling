@@ -87,7 +87,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 14, 4, 0),
                   child: Text(
-                    'Daily averages over ${avg['days'] ?? 0} full days. '
+                    'Daily averages over ${avg['days'] ?? 0} full days; daytime is ${s.family?.dayStart ?? '06:00'}–${s.family?.dayEnd ?? '18:00'}. '
                     '${prev == null ? 'Nothing logged in the $_days days before to compare with.' : 'Arrows compare with the $_days days before.'}',
                     style: TextStyle(color: context.pal.muted, fontSize: 12),
                   ),

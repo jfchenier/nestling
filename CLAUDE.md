@@ -55,7 +55,8 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - `src/routes/` — accounts, families (members, invites), children, events (CRUD, list, sync),
   timers (breastfeed/pump/sleep with segments; `PATCH` corrects start/durations; stop → event), insights (summary, trends, SSE
   stream), import (Nara).
-- `src/trends.rs` — pure daily stats (day/night split 06–18 local, sleep split at midnight).
+- `src/trends.rs` — pure daily stats (day/night split by the family's `day_start`/`day_end`, 06–18 local by
+  default; app: Family → Day and night), sleep split at midnight; `previous` = the period before.
 - `src/nara.rs` — Nara Firebase login/fetch + `convert()` of tracks. Quantities are
   `Num / 10^Exp` in `Unit` (same as the wrapper's trends.py).
 - `src/nara_csv.rs` — Nara's CSV export (`Type`, `[<Type>] <field>` columns, `_activityKey` = same

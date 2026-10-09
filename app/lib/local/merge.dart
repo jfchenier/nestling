@@ -79,7 +79,7 @@ bool mergeFamily(LocalStore store, Map<String, dynamic> snap) {
     theirsNewer = true;
   }
   if (theirsNewer) {
-    for (final k in ['name', 'timezone', 'created_at', 'drive_folder']) {
+    for (final k in ['name', 'timezone', 'created_at', 'drive_folder', 'day_start', 'day_end']) {
       f[k] = theirFamily[k];
     }
   }

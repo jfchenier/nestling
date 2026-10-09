@@ -1,5 +1,5 @@
 //! Daily statistics. Days are calendar days in the family's timezone;
-//! "daytime" is 06:00-18:00 local (same split the Nara app uses).
+//! "daytime" is the family's day window, 06:00-18:00 local by default (same split the Nara app uses).
 
 use chrono::{Duration, NaiveDate, TimeZone};
 use chrono_tz::Tz;
@@ -7,8 +7,40 @@ use serde::Serialize;
 
 use crate::model::{Details, FeedMethod, Milk};
 
-pub const DAY_START_HOUR: u32 = 6;
-pub const NIGHT_START_HOUR: u32 = 18;
+/// When daytime starts and ends, in minutes after local midnight (`start < end`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DayWindow {
+    pub start: u32,
+    pub end: u32,
+}
+
+impl Default for DayWindow {
+    fn default() -> Self {
+        DayWindow { start: 6 * 60, end: 18 * 60 }
+    }
+}
+
+impl DayWindow {
+    /// Checks a window from the API.
+    pub fn new(start: u32, end: u32) -> Option<Self> {
+        (start < end && end <= 24 * 60).then_some(DayWindow { start, end })
+    }
+
+    fn on(self, tz: Tz, date: NaiveDate) -> (i64, i64) {
+        (local_ms(tz, date, self.start), local_ms(tz, date, self.end))
+    }
+}
+
+/// "06:30" ↔ 390.
+pub fn hhmm(minutes: u32) -> String {
+    format!("{:02}:{:02}", minutes / 60, minutes % 60)
+}
+
+pub fn parse_hhmm(s: &str) -> Option<u32> {
+    let (h, m) = s.split_once(':')?;
+    let (h, m): (u32, u32) = (h.parse().ok()?, m.parse().ok()?);
+    (m < 60 && h * 60 + m <= 24 * 60).then_some(h * 60 + m)
+}
 
 pub struct TrendEvent {
     pub start: i64,
@@ -134,8 +166,9 @@ pub struct Trends {
     pub previous: Option<Averages>,
 }
 
-fn local_ms(tz: Tz, date: NaiveDate, hour: u32) -> i64 {
-    let naive = date.and_hms_opt(hour, 0, 0).expect("valid hour");
+/// Epoch ms of `minutes` after midnight on `date` (24:00 is the next midnight).
+fn local_ms(tz: Tz, date: NaiveDate, minutes: u32) -> i64 {
+    let naive = date.and_hms_opt(0, 0, 0).expect("midnight") + Duration::minutes(minutes as i64);
     tz.from_local_datetime(&naive)
         .earliest()
         // A DST gap at this exact hour: fall back to one hour later.
@@ -256,19 +289,19 @@ fn window_stats(events: &[TrendEvent], date: NaiveDate, w0: i64, w1: i64, daytim
 }
 
 /// The 24 hours up to `now` (rolling, not the calendar day). `date` is today's local date.
-pub fn last_24h(events: &[TrendEvent], tz: Tz, now: i64) -> DayStats {
+pub fn last_24h(events: &[TrendEvent], tz: Tz, window: DayWindow, now: i64) -> DayStats {
     let w0 = now - 24 * 3600 * 1000;
     let today = tz.timestamp_millis_opt(now).single().map(|t| t.date_naive()).unwrap_or_default();
     let daytimes: Vec<(i64, i64)> = [today - Duration::days(1), today]
         .into_iter()
-        .map(|d| (local_ms(tz, d, DAY_START_HOUR), local_ms(tz, d, NIGHT_START_HOUR)))
+        .map(|d| window.on(tz, d))
         .collect();
     let (mut day, _) = window_stats(events, today, w0, now, &daytimes, now);
     day.complete = false;
     day
 }
 
-pub fn compute(events: &[TrendEvent], tz: Tz, from: NaiveDate, days: u32, now: i64) -> Trends {
+pub fn compute(events: &[TrendEvent], tz: Tz, window: DayWindow, from: NaiveDate, days: u32, now: i64) -> Trends {
     let mut out = Vec::with_capacity(days as usize);
     let mut nap_total = 0i64;
     let mut nap_n = 0u32;
@@ -281,7 +314,7 @@ pub fn compute(events: &[TrendEvent], tz: Tz, from: NaiveDate, days: u32, now: i
         let date = from + Duration::days(i as i64);
         let d0 = local_ms(tz, date, 0);
         let d1 = local_ms(tz, date + Duration::days(1), 0);
-        let daytime = [(local_ms(tz, date, DAY_START_HOUR), local_ms(tz, date, NIGHT_START_HOUR))];
+        let daytime = [window.on(tz, date)];
         let (day, extra) = window_stats(events, date, d0, d1, &daytime, now);
         nap_total += extra.nap_seconds;
         nap_n += extra.naps;
@@ -373,12 +406,12 @@ pub fn compute(events: &[TrendEvent], tz: Tz, from: NaiveDate, days: u32, now: i
 
 /// `compute` for `days` days from `from`, plus the averages of the `days` days before it.
 /// `events` must cover both periods.
-pub fn compute_with_previous(events: &[TrendEvent], tz: Tz, from: NaiveDate, days: u32, now: i64) -> Trends {
-    let mut t = compute(events, tz, from, days, now);
+pub fn compute_with_previous(events: &[TrendEvent], tz: Tz, window: DayWindow, from: NaiveDate, days: u32, now: i64) -> Trends {
+    let mut t = compute(events, tz, window, from, days, now);
     let prev_from = from - Duration::days(days as i64);
     let (p0, p1) = range_ms(tz, prev_from, days);
     if events.iter().any(|e| e.start >= p0 && e.start < p1) {
-        t.previous = Some(compute(events, tz, prev_from, days, now).averages);
+        t.previous = Some(compute(events, tz, window, prev_from, days, now).averages);
     }
     t
 }
@@ -405,13 +438,13 @@ mod tests {
             TrendEvent { start: ms(tz, "2026-10-02T07:00"), end: Some(ms(tz, "2026-10-02T08:00")), details: Details::Sleep(Sleep::default()) },
         ];
         let now = ms(tz, "2026-10-02T10:00");
-        let d = last_24h(&events, tz, now);
+        let d = last_24h(&events, tz, DayWindow::default(), now);
         assert_eq!((d.diaper.count, d.diaper.wet, d.diaper.dirty), (1, 1, 0));
         assert_eq!(d.sleep.total_seconds, 7 * 3600);
         assert_eq!(d.sleep.night_seconds, 6 * 3600);
         assert_eq!(d.sleep.day_seconds, 3600);
         assert_eq!(d.sleep.nap_count, 1);
-        let today = compute(&events, tz, NaiveDate::from_ymd_opt(2026, 10, 2).unwrap(), 1, now);
+        let today = compute(&events, tz, DayWindow::default(), NaiveDate::from_ymd_opt(2026, 10, 2).unwrap(), 1, now);
         assert_eq!(today.days[0].diaper.count, 0);
     }
 
@@ -431,7 +464,7 @@ mod tests {
             TrendEvent { start: ms(tz, "2026-10-02T23:00"), end: None, details: Details::Diaper(Diaper { wet: true, dirty: true, ..Default::default() }) },
         ];
         let now = ms(tz, "2026-10-05T00:00");
-        let t = compute(&events, tz, from, 2, now);
+        let t = compute(&events, tz, DayWindow::default(), from, 2, now);
         assert_eq!(t.days[0].sleep.total_seconds, 2 * 3600);
         assert_eq!(t.days[0].sleep.night_seconds, 2 * 3600);
         assert_eq!(t.days[0].sleep.longest_seconds, 6 * 3600);
@@ -465,7 +498,7 @@ mod tests {
             TrendEvent { start: ms(tz, "2026-10-02T20:00"), end: None, details: Details::Diaper(Diaper { wet: true, dirty: true, ..Default::default() }) },
         ];
         let now = ms(tz, "2026-10-05T00:00");
-        let t = compute_with_previous(&events, tz, NaiveDate::from_ymd_opt(2026, 10, 2).unwrap(), 1, now);
+        let t = compute_with_previous(&events, tz, DayWindow::default(), NaiveDate::from_ymd_opt(2026, 10, 2).unwrap(), 1, now);
         let a = &t.averages;
         assert_eq!((a.breast_left_seconds_per_day, a.breast_right_seconds_per_day), (660.0, 420.0));
         assert_eq!((a.day_breast_left_seconds_per_day, a.day_breast_right_seconds_per_day), (600.0, 300.0));
@@ -475,7 +508,24 @@ mod tests {
         let p = t.previous.as_ref().expect("previous period");
         assert_eq!((p.feeds_per_day, p.breast_seconds_per_day), (1.0, 200.0));
         // Nothing logged before Oct 1: no comparison.
-        let first = compute_with_previous(&events, tz, NaiveDate::from_ymd_opt(2026, 10, 1).unwrap(), 1, now);
+        let first = compute_with_previous(&events, tz, DayWindow::default(), NaiveDate::from_ymd_opt(2026, 10, 1).unwrap(), 1, now);
         assert!(first.previous.is_none());
+    }
+
+    #[test]
+    fn custom_day_window() {
+        let tz: Tz = "America/New_York".parse().unwrap();
+        let events = vec![
+            // 07:00: night with an 08:00 start, sleep 07:00-09:00 is half night, half day.
+            TrendEvent { start: ms(tz, "2026-10-02T07:00"), end: None, details: Details::Diaper(Diaper { wet: true, ..Default::default() }) },
+            TrendEvent { start: ms(tz, "2026-10-02T07:00"), end: Some(ms(tz, "2026-10-02T09:00")), details: Details::Sleep(Sleep::default()) },
+        ];
+        let window = DayWindow::new(8 * 60, 20 * 60 + 30).unwrap();
+        let t = compute(&events, tz, window, NaiveDate::from_ymd_opt(2026, 10, 2).unwrap(), 1, ms(tz, "2026-10-05T00:00"));
+        assert_eq!((t.days[0].diaper.day_count, t.days[0].diaper.night_count), (0, 1));
+        assert_eq!((t.days[0].sleep.day_seconds, t.days[0].sleep.night_seconds), (3600, 3600));
+        assert_eq!(t.days[0].sleep.nap_count, 0);
+        assert_eq!((parse_hhmm("20:30"), hhmm(510)), (Some(1230), "08:30".to_string()));
+        assert!(DayWindow::new(600, 600).is_none());
     }
 }

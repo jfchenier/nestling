@@ -76,6 +76,10 @@ class Family {
   String get id => json['id'];
   String get name => json['name'] ?? '';
   String get timezone => json['timezone'] ?? 'UTC';
+
+  /// Daytime for the stats, "HH:MM".
+  String get dayStart => json['day_start'] ?? '06:00';
+  String get dayEnd => json['day_end'] ?? '18:00';
   String? get role => json['role'];
   bool get isOwner => role == 'owner';
   List<Member> get members => [for (final m in (json['members'] as List? ?? [])) Member(m)];

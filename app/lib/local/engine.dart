@@ -134,6 +134,8 @@ class LocalEngine {
 
   // ---- serverless: account, families, children ----
 
+  DayWindow _dayOf(Map<String, dynamic> child) => dayWindowOf(store.families.where((f) => f['id'] == child['family_id']).firstOrNull);
+
   Map<String, dynamic> _family(String id) => store.families.where((f) => f['id'] == id).firstOrNull ?? (throw notFound('family'));
 
   Map<String, dynamic> updateMe(Map<String, dynamic> req) {
@@ -169,6 +171,8 @@ class LocalEngine {
       'id': id,
       'name': name,
       'timezone': req['timezone'] ?? 'UTC',
+      'day_start': hhmm(defaultDay.start),
+      'day_end': hhmm(defaultDay.end),
       'created_at': fmt(nowMs()),
       'role': 'owner',
       'members': [
@@ -190,6 +194,18 @@ class LocalEngine {
     if (req.containsKey('timezone')) {
       _checkTimezone(req['timezone']);
       f['timezone'] = req['timezone'];
+    }
+    if (req.containsKey('day_start') || req.containsKey('day_end')) {
+      final old = dayWindowOf(f);
+      int time(String key, int fallback) {
+        if (!req.containsKey(key)) return fallback;
+        return parseHhmm(req[key]) ?? (throw badRequest("'${req[key]}' is not a time like '06:00'"));
+      }
+
+      final start = time('day_start', old.start), end = time('day_end', old.end);
+      if (start >= end) throw badRequest('daytime must start before it ends');
+      f['day_start'] = hhmm(start);
+      f['day_end'] = hhmm(end);
     }
     store.markChanged('f:$id');
     return f;
@@ -591,19 +607,19 @@ class LocalEngine {
       'last': last,
       'since': since,
       'timers': timers,
-      'today': (computeTrends(events, today, 1, now)['days'] as List).first,
-      'last_24h': last24h(events, now),
+      'today': (computeTrends(events, today, 1, now, day: _dayOf(child))['days'] as List).first,
+      'last_24h': last24h(events, now, day: _dayOf(child)),
     };
   }
 
   Map<String, dynamic> trends(String childId, Map<String, String> q) {
-    _child(childId);
+    final child = _child(childId);
     final days = int.tryParse(q['days'] ?? '') ?? 7;
     if (days < 1 || days > 90) throw badRequest('days must be between 1 and 90');
     final to = q['to'] == null ? dateOnly(DateTime.now()) : DateTime.tryParse(q['to']!) ?? (throw badRequest('invalid date'));
     final from = DateTime(to.year, to.month, to.day - days + 1);
     final (r0, r1) = rangeMs(DateTime(from.year, from.month, from.day - days), days * 2);
-    return computeTrendsWithPrevious(_trendEvents(childId, r0, r1), from, days, nowMs());
+    return computeTrendsWithPrevious(_trendEvents(childId, r0, r1), from, days, nowMs(), day: _dayOf(child));
   }
 
   // ---- timers ----

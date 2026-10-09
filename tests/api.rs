@@ -174,6 +174,17 @@ async fn full_flow() {
     assert_eq!(t["days"][0]["sleep"]["total_seconds"], 5400);
     assert_eq!(t["days"][0]["diaper"]["dirty"], 1);
 
+    // Daytime hours are a family setting
+    let (_, fam) = c.call(Method::GET, &format!("/families/{fid}"), Some(&dad), None).await;
+    assert_eq!((fam["day_start"].as_str(), fam["day_end"].as_str()), (Some("06:00"), Some("18:00")));
+    let (s, fam) = c.call(Method::PATCH, &format!("/families/{fid}"), Some(&dad), Some(json!({ "day_start": "08:00", "day_end": "20:30" }))).await;
+    assert_eq!(s, StatusCode::OK, "{fam}");
+    assert_eq!((fam["day_start"].as_str(), fam["day_end"].as_str()), (Some("08:00"), Some("20:30")));
+    let (s, _) = c.call(Method::PATCH, &format!("/families/{fid}"), Some(&dad), Some(json!({ "day_start": "21:00" }))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let (s, _) = c.call(Method::PATCH, &format!("/families/{fid}"), Some(&dad), Some(json!({ "day_end": "7pm" }))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+
     // Delete shows as tombstone in sync
     let (_, sync0) = c.call(Method::GET, &format!("/families/{fid}/sync"), Some(&dad), None).await;
     let cursor = sync0["cursor"].as_i64().unwrap();
