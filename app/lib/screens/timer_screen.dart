@@ -38,7 +38,7 @@ class _TimerScreenState extends State<TimerScreen> {
   String get title => switch (widget.kind) {
     'sleep' => 'Sleep',
     'pump' => 'Pump',
-    _ => 'Breastfeeding',
+    _ => 'Breastfeed',
   };
 
   TimerModel? _timer(AppState s) => s.timers.where((t) => t.kind == widget.kind).firstOrNull;
@@ -70,7 +70,7 @@ class _TimerScreenState extends State<TimerScreen> {
     await _call((s) => s.act((api) => api.patch('/timers/${t.id}', {'start': formatTime(picked)})));
   }
 
-  /// Pencil under a side (breastfeeding) or on Total Time (sleep, pump): correct the time.
+  /// Pencil under a side (breastfeed) or on Total Time (sleep, pump): correct the time.
   Future<void> _editTime(TimerModel t, [String? side]) async {
     final secs = switch (side) {
       'left' => t.left,
@@ -400,7 +400,7 @@ class _TimerScreenState extends State<TimerScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(duration(t?.elapsed ?? 0, showSeconds: true), style: TextStyle(fontSize: 17, color: c.ink)),
-                // Breastfeeding time is the sum of the sides, edited with their pencils.
+                // Breastfeed time is the sum of the sides, edited with their pencils.
                 if (t != null && widget.kind != 'breastfeed') ...[
                   const SizedBox(width: 8),
                   Icon(Icons.edit_rounded, size: 20, color: kind.on(c), semanticLabel: 'Edit total time'),

@@ -105,10 +105,10 @@ String cap(String? s) => s == null ? '' : _cap(s);
         case 'solids':
           return ('Solids', (e['foods'] as String?) ?? '');
         case 'combo':
-          return ('Breastfeeding + bottle', [sides(), if (amount != null) u.volume(amount)].where((s) => s.isNotEmpty).join(' · '));
+          return ('Breastfeed + bottle', [sides(), if (amount != null) u.volume(amount)].where((s) => s.isNotEmpty).join(' · '));
         default:
           final end = e.endSide;
-          return ('Breastfeeding', [sides(), if (end != null) 'ended ${end == 'left' ? 'L' : 'R'}'].where((s) => s.isNotEmpty).join(' · '));
+          return ('Breastfeed', [sides(), if (end != null) 'ended ${end == 'left' ? 'L' : 'R'}'].where((s) => s.isNotEmpty).join(' · '));
       }
     case 'sleep':
       return ('Sleep', [duration(e.durationSeconds), if (e['location'] != null) cap(e['location'])].where((s) => s.isNotEmpty).join(' · '));

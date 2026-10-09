@@ -25,7 +25,7 @@ activity color. Colors live in
   entry and a big value ("next side", "dirty", "1h 06m"…), or the live clock of a running timer.
   **Tap a card to log** (Feed asks Nursing / Bottle / Solids / Combo); the clock icon in its header
   opens its history. "Add a note" sits under the grid.
-- **Timers** — breastfeeding (tap Left/Right to start, switch sides, pause), sleep (with location) and pump
+- **Timers** — breastfeed (tap Left/Right to start, switch sides, pause), sleep (with location) and pump
   (left/right/both, asks for amounts at the end). Shared live with every caregiver. While one runs you can
   correct its start time and its time (per side for nursing, total for sleep/pump) with the pencils;
   ✕ closes the page and the timer keeps running, **Save** stores it, **Delete** throws it away;
