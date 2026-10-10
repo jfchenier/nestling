@@ -117,7 +117,7 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  /// Syncs through Google Drive if it is on for this phone (quietly; failures show in Family).
+  /// Syncs through Google Drive if it is on for this phone (quietly; failures show in Settings).
   Future<void> syncRelay() async {
     _relayTimer?.cancel();
     final r = relay;
@@ -125,7 +125,7 @@ class AppState extends ChangeNotifier {
     try {
       if (await r.run()) await load();
     } catch (_) {
-      // Kept in the relay's status (Family → Sync through Google Drive).
+      // Kept in the relay's status (Settings → Sync through Google Drive).
     }
     notifyListeners();
   }

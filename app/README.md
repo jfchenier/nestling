@@ -9,7 +9,7 @@ OpenAPI description is [`../docs/openapi.yaml`](../docs/openapi.yaml)).
 Nestling's own "nursery garden" palette: warm oat neutrals, a eucalyptus-green accent and one soft,
 earthy pastel per activity — apricot (feeds), honey (bottle), butter (pump), sage (diapers), dusk
 lilac (sleep), seafoam (routine), marigold (firsts), oat (growth), moss (health). No baby pink or
-baby blue. **Light and dark themes**: follows the system, or pick one under Family → Settings →
+baby blue. **Light and dark themes**: follows the system, or pick one under Settings →
 Appearance (saved on the device).
 
 Text is the platform sans-serif (Roboto), titles and big numbers bold. Activities are shown as
@@ -22,7 +22,7 @@ activity color. Colors live in
 ## Screens
 
 - **Home** — the baby's name and photo at the top (tap them to switch baby or add one) and the
-  Family button top right; then running-timer banners, today's totals, then two cards per row in a fixed order
+  Family and Settings buttons top right; then running-timer banners, today's totals, then two cards per row in a fixed order
   (Feed · Sleep / Diaper · Pump / Growth · Health / Routine · Firsts). Each card shows the latest
   entry and a big value ("last side", "dirty", "1h 06m"…), or the live clock of a running timer.
   **Tap a card to log** (Feed asks Breastfeed / Bottle / Solids / Combo; Firsts adds a memory, over the baby book); the button in its header (History; Charts for Growth, Book for Firsts)
@@ -48,15 +48,15 @@ activity color. Colors live in
   the other last heard from it (per-copy change stamps, `LocalStore.stamps`), the newest change of
   each entry wins, deletions travel along, and two timers started apart keep the earlier start
   (`lib/local/merge.dart`, `lib/local/peer_sync.dart`). For phones that aren't open at the same time
-  or on the same Wi-Fi, Family → Sync through Google Drive keeps one encrypted, gzipped snapshot per
+  or on the same Wi-Fi, Settings → Sync through Google Drive keeps one encrypted, gzipped snapshot per
   phone in a Drive folder shared by link (`lib/local/relay.dart`, `lib/local/drive_relay.dart`;
   the folder id travels in the family record). It syncs when the app opens, 30 s after a change (3 s after a timer change),
   when the app goes to the background, and every minute while on screen; only changed files are
   downloaded and a phone uploads only after something changed. Everything between phones is encrypted with the family key from the
   QR code (AES-256-GCM). Phones find each other with a UDP announcement (port 47816) or their last
   address, and listen on port 47815. Phones that were apart catch up when they meet again. Google
-  Drive keeps a daily backup in the app's private Drive folder (Family → Back up to Google Drive;
-  "Restore from Google Drive" when setting up a new phone). Family → Import from Nara reads Nara's
+  Drive keeps a daily backup in the app's private Drive folder (Settings → Back up to Google Drive;
+  "Restore from Google Drive" when setting up a new phone). Settings → Import from Nara reads Nara's
   CSV export on the phone (`lib/local/nara_csv.dart`, a port of the server's `src/nara_csv.rs`;
   event ids come from the family and Nara's id, so importing again updates and paired phones
   agree). Not available without a server: signing in to Nara for an import, CSV export, invites by
@@ -108,11 +108,14 @@ activity color. Colors live in
 - **Trends** — 7/14/30-day averages (feeds, feed interval, sleep, wake window, naps, diapers, potty,
   bottle, breastfeeding, pumping) with the change since the period before, day/night splits, and
   daily charts.
-- **Family** (the people button on Home) — babies (with a profile picture: tap a baby → Add a photo; cropped to a 512 px square
-  before upload), caregivers, invite codes, join a family, units (metric/imperial), time zone,
-  daytime hours for the day/night split (Day and night),
-  history import from a previous tracker's CSV export (preview first), CSV export of everything, API token for Home
-  Assistant, change password, users (admins), sign out.
+- **Family** (the people button on Home) — babies (with a profile picture: tap a baby → Add a photo;
+  cropped to a 512 px square before upload), caregivers, invite codes or phone pairing, join
+  another family, delete the family.
+- **Settings** (the gear button on Home) — units (metric/imperial), appearance, medicines and
+  reminders, daytime hours for the day/night split (Day and night), time zone, Google Drive sync
+  and backup (serverless), history import from a previous tracker's CSV export (preview first),
+  CSV export of everything, API token for Home Assistant; account: change password, users
+  (admins), sign out.
 
 Changes made by other caregivers appear within a second (Server-Sent Events from `/families/{id}/stream`;
 the green dot on Home shows the live connection).

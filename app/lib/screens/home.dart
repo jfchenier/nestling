@@ -585,8 +585,14 @@ class _Header extends StatelessWidget {
       ),
       _SquareButton(
         icon: Icons.people_rounded,
-        tooltip: 'Family and settings',
+        tooltip: 'Family',
         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FamilyScreen())),
+      ),
+      const SizedBox(width: 8),
+      _SquareButton(
+        icon: Icons.settings_rounded,
+        tooltip: 'Settings',
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
       ),
     ],
   );

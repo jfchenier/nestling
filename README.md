@@ -90,8 +90,8 @@ add your baby.
 
 ### 3. Add the other caregivers
 
-As the admin, go to **Family → Users → Add user**: name, email and a starting password, optionally
-added straight to your family. They sign in and can change the password under Family → Account.
+As the admin, go to **Settings → Users → Add user**: name, email and a starting password, optionally
+added straight to your family. They sign in and can change the password under Settings → Account.
 (Someone who already has an account on the server can join with an invite code from
 **Family → Invite a caregiver**.)
 
@@ -119,7 +119,7 @@ Use HTTPS (Caddy, Traefik, Nginx Proxy Manager, Tailscale…) before opening it 
 
 ### Accounts and recovery
 
-Admins manage accounts under **Family → Users**: add users (standard or admin), set a new password
+Admins manage accounts under **Settings → Users**: add users (standard or admin), set a new password
 for someone who forgot theirs, promote or remove accounts. The server always keeps at least one
 admin. If you lock yourself out, run this on the host:
 
@@ -171,7 +171,7 @@ headers, and every release gets new file URLs.
 Optional. With it, when a caregiver starts, pauses or stops a timer, the other caregivers' Android
 phones show it in their notifications (with the live clock) even while the app is closed. Without
 it, they see it as soon as they open the app. It also sends **reminders** ("no feed in 3 h",
-"next dose of Tylenol can be given now") to the phones; they are set per baby in Family → Medicines
+"next dose of Tylenol can be given now") to the phones; they are set per baby in Settings → Medicines
 and reminders, and without notifications they only show on the app's home screen. It goes through Google's Firebase Cloud Messaging,
 in a free Firebase project of your own:
 
@@ -192,18 +192,18 @@ through Google's servers; nothing else leaves your server.
 
 ### Exporting your data
 
-**Family → Settings → Export data** downloads everything for the family as a CSV file (one row
+**Settings → Export data** downloads everything for the family as a CSV file (one row
 per entry, readable in any spreadsheet). The same file imports back into Nestling.
 
 ### Bringing your history over
 
-The import under **Family → Settings** reads the CSV export of your previous tracker app. It shows a preview (date
+The import under **Settings** reads the CSV export of your previous tracker app. It shows a preview (date
 range, number of records per type, anything skipped) before saving; re-importing the same file
 updates entries instead of duplicating them.
 
 ### Home Assistant
 
-Create a long-lived token (**Family → Settings → API token**, or `POST /api/v1/me/tokens`) and use
+Create a long-lived token (**Settings → API token**, or `POST /api/v1/me/tokens`) and use
 `GET /api/v1/children/{id}/summary` as a REST sensor: time since the last feed, diaper and sleep,
 running timers and today's totals.
 
