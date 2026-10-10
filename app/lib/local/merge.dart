@@ -14,7 +14,9 @@ import 'store.dart';
 /// One family's data, ready to send to another phone (or to a backup). With [since] (a
 /// [LocalStore.stamp] the other phone already has), only events, timers and photos changed on
 /// this copy after it are included; the family and its children always are (they are small).
-Map<String, dynamic> exportFamily(LocalStore store, String familyId, {int since = 0}) {
+/// Without [photoData], entry photos travel without their bytes (Drive sync sends those as
+/// files of their own, see `relay.dart`).
+Map<String, dynamic> exportFamily(LocalStore store, String familyId, {int since = 0, bool photoData = true}) {
   final f = store.families.firstWhere((f) => f['id'] == familyId);
   final kids = <String>{
     for (final c in (f['children'] as List? ?? [])) c['id'],
@@ -45,6 +47,15 @@ Map<String, dynamic> exportFamily(LocalStore store, String familyId, {int since 
     'photos': {
       for (final MapEntry(:key, :value) in store.photos.entries)
         if (kids.contains(key) && fresh('p:$key')) key: {...value, '_clock': clock('p:$key')},
+    },
+    'event_photos': {
+      for (final MapEntry(:key, :value) in store.eventPhotos.entries)
+        if (kids.contains(store.events[key]?['child_id']) && fresh('ep:$key'))
+          key: {
+            for (final e in value.entries)
+              if (photoData || e.key != 'data') e.key: e.value,
+            '_clock': clock('ep:$key'),
+          },
     },
   };
 }
@@ -131,6 +142,23 @@ bool mergeFamily(LocalStore store, Map<String, dynamic> snap) {
     if (!newer('p:$childId', p['_clock'], exists: store.photos.containsKey(childId))) return;
     store.photos[childId] = Map<String, dynamic>.from(p)..remove('_clock');
   });
+
+  // Photos on entries. Bytes still on their way (Drive) keep the ones here if it's the same photo.
+  var photosChanged = false;
+  (snap['event_photos'] as Map? ?? {}).forEach((eventId, p) {
+    final mine = store.eventPhotos[eventId];
+    if (!newer('ep:$eventId', p['_clock'], exists: mine != null)) return;
+    final theirs = Map<String, dynamic>.from(p)..remove('_clock');
+    if (theirs['data'] == null && theirs['version'] != null && mine?['version'] == theirs['version']) theirs['data'] = mine?['data'];
+    store.eventPhotos[eventId] = theirs;
+    photosChanged = true;
+  });
+  if (photosChanged) store.eventPhotosChanged();
+  // An entry's photo_version always follows its photo record (whichever phone changed what).
+  for (final id in {for (final e in (snap['events'] as List? ?? [])) e['id'] as String, ...(snap['event_photos'] as Map? ?? {}).keys.cast<String>()}) {
+    final e = store.events[id];
+    if (e != null && e['deleted'] != true) e['photo_version'] = store.eventPhotos[id]?['version'];
+  }
 
   if (resolveTimerClashes(store)) changed = true;
   if (changed) store.save();

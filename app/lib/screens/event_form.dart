@@ -10,12 +10,16 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/date_time.dart';
 import '../widgets/medicine_picker.dart';
+import 'baby_book.dart';
 import 'timer_screen.dart';
 
 /// Log a new event of [type] (feeds also take a [method]) or edit [event].
 /// [prefill]: values for a new entry (e.g. a scheduled medicine's name and dose).
+/// Milestones open the baby book's memory form instead.
 Future<void> showEventForm(BuildContext context, {String? type, String? method, Event? event, Map<String, dynamic>? prefill}) =>
-    showModalBottomSheet(
+    (event?.type ?? type) == 'milestone'
+    ? showMemoryForm(context, event: event)
+    : showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -107,7 +111,6 @@ class _EventFormState extends State<EventForm> {
       _ => 'Breastfeed',
     },
     'health' => cap(_healthKind),
-    'milestone' => 'Baby First',
     'diaper' when _pottyMode => 'Potty',
     _ => kind.label,
   };
@@ -182,8 +185,6 @@ class _EventFormState extends State<EventForm> {
         body['kind'] = _text(_activityKind) ?? 'activity';
         final s = secs(_activityMinutes);
         body['end'] = s == null ? null : formatTime(_start.add(Duration(seconds: s)));
-      case 'milestone':
-        body['name'] = _text(_name);
     }
     if (e == null) body.removeWhere((k, v) => v == null);
     return body;
@@ -586,19 +587,6 @@ class _EventFormState extends State<EventForm> {
           _pickRow('Activity', cap(_text(_activityKind)), _chooseActivity),
           _timeRow('Start Time', _start, (v) => setState(() => _start = v)),
           _numRow('Duration', _activityMinutes, 'min'),
-        ];
-      case 'milestone':
-        return [
-          FormRow(
-            label: 'What happened?',
-            below: TextField(
-              controller: _name,
-              autofocus: e == null,
-              textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(hintText: 'First smile, rolled over…'),
-            ),
-          ),
-          _timeRow('When', _start, (v) => setState(() => _start = v)),
         ];
       default:
         return [_timeRow('Time', _start, (v) => setState(() => _start = v))];

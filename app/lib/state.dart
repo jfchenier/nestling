@@ -257,6 +257,37 @@ class AppState extends ChangeNotifier {
     return cached?.$2;
   }
 
+  // Photos on entries (the baby book) by event id, with the version they were downloaded for.
+  final Map<String, (int, Uint8List)> _eventPhotos = {};
+  final Set<String> _eventPhotoLoads = {};
+
+  /// A memory's photo once downloaded (null: none, or not loaded yet), like [photoFor].
+  Uint8List? eventPhoto(Event e) {
+    final version = toInt(e['photo_version']), a = api;
+    final cached = _eventPhotos[e.id];
+    if (version == null || a == null) return null;
+    if (cached?.$1 == version) return cached!.$2;
+    if (_eventPhotoLoads.add('${e.id}@$version')) {
+      () async {
+        try {
+          _eventPhotos[e.id] = (version, await a.getBytes('/events/${e.id}/photo'));
+          notifyListeners();
+        } catch (_) {
+          // Not reachable now (offline, or still on its way from another phone): retried on the
+          // next change.
+          _eventPhotoLoads.remove('${e.id}@$version');
+        }
+      }();
+    }
+    return cached?.$2;
+  }
+
+  /// A photo this device just uploaded, so it shows without downloading it again.
+  void rememberEventPhoto(Map<String, dynamic> event, Uint8List bytes) {
+    final version = toInt(event['photo_version']);
+    if (version != null) _eventPhotos[event['id'] as String] = (version, bytes);
+  }
+
   /// Signs out. [forget] also removes this device's copy of the data (kept when the session
   /// merely expired, so changes made offline still sync after signing in again).
   Future<void> signOut({bool forget = true}) async {

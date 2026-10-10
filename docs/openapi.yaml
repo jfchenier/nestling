@@ -968,6 +968,49 @@ paths:
               schema: { $ref: "#/components/schemas/Event" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
+  /events/{id}/photo:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [events]
+      operationId: getEventPhoto
+      summary: The entry's photo (a memory in the baby book)
+      responses:
+        "200":
+          description: The image
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [events]
+      operationId: putEventPhoto
+      summary: Set the entry's photo (raw JPEG, PNG or WebP, at most 5 MB)
+      description: >-
+        One photo per entry; any entry type takes one (the app offers it on milestones). The
+        entry's `photo_version` and `updated_at` change, so `GET /families/{id}/sync` brings it.
+      requestBody:
+        required: true
+        content:
+          image/jpeg: { schema: { type: string, format: binary } }
+          image/png: { schema: { type: string, format: binary } }
+          image/webp: { schema: { type: string, format: binary } }
+      responses:
+        "200":
+          description: The event
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Event" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [events]
+      operationId: deleteEventPhoto
+      summary: Remove the entry's photo
+      responses:
+        "204": { description: Removed (or there was none) }
+        "404": { $ref: "#/components/responses/NotFound" }
   /events/{id}/continue:
     parameters:
       - $ref: "#/components/parameters/Id"
@@ -1485,6 +1528,11 @@ components:
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         source: { type: string, description: '"nara" for imported events', example: nara }
+        photo_version:
+          type: integer
+          format: int64
+          nullable: true
+          description: Changes whenever the entry's photo does; null without one (`GET /events/{id}/photo`).
 
     FeedDetails:
       type: object

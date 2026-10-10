@@ -269,6 +269,35 @@ void main() {
     await syncA.stop();
   });
 
+  test("a memory's photo survives an edit made on another phone meanwhile", () async {
+    final (storeA, a) = await phone('Mom');
+    final (storeB, b) = await phone('Dad');
+    final fam = a.createFamily({'name': 'Home', 'timezone': 'UTC'});
+    final child = a.createChild(fam['id'], {'name': 'Léa', 'birth_date': '2026-06-01'});
+    final smile = a.createEvent(child['id'], {'type': 'milestone', 'name': 'First smile'});
+    mergeFamily(storeB, exportFamily(storeA, fam['id']));
+
+    // A adds a photo, B renames the memory a moment later (so B's edit of the entry is newer).
+    a.putEventPhoto(smile['id'], [0xFF, 0xD8, 0xFF, 1, 2, 3], 'image/jpeg');
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    b.updateEvent(smile['id'], {'name': 'First real smile'});
+    expect(b.updateEvent(smile['id'], {})['photo_version'], isNull);
+    mergeFamily(storeA, exportFamily(storeB, fam['id']));
+    mergeFamily(storeB, exportFamily(storeA, fam['id']));
+    for (final (store, engine) in [(storeA, a), (storeB, b)]) {
+      expect(store.events[smile['id']]!['name'], 'First real smile');
+      expect(store.events[smile['id']]!['photo_version'], isNotNull);
+      expect(engine.eventPhotoBytes(smile['id']), [0xFF, 0xD8, 0xFF, 1, 2, 3]);
+    }
+    // photo_version is never sent to a server as a detail of the entry.
+    expect(LocalEngine.detailsOf(storeA.events[smile['id']]!).containsKey('photo_version'), isFalse);
+
+    // Deleting the memory removes its photo everywhere.
+    a.deleteEvent(smile['id']);
+    mergeFamily(storeB, exportFamily(storeA, fam['id']));
+    expect(() => b.eventPhotoBytes(smile['id']), throwsA(isA<ApiException>()));
+  });
+
   test('merging the same snapshot twice changes nothing', () async {
     final (storeA, a) = await phone('Mom');
     final (storeB, _) = await phone('Dad');

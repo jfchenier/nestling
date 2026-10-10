@@ -33,9 +33,12 @@ pub struct EventRow {
     pub updated_at: i64,
     pub deleted_at: Option<i64>,
     pub source: Option<String>,
+    /// When the entry's photo was last set (null: no photo).
+    pub photo_version: Option<i64>,
 }
 
-pub const EVENT_COLS: &str = "id, family_id, child_id, type, start_at, end_at, data, note, created_by, updated_by, created_at, updated_at, deleted_at, source";
+pub const EVENT_COLS: &str = "id, family_id, child_id, type, start_at, end_at, data, note, created_by, updated_by, created_at, updated_at, deleted_at, source,
+    (SELECT p.updated_at FROM event_photos p WHERE p.event_id = events.id) AS photo_version";
 
 impl EventRow {
     pub fn details(&self) -> AppResult<Details> {
@@ -60,6 +63,7 @@ impl EventRow {
             created_at: fmt_time(self.created_at, tz),
             updated_at: fmt_time(self.updated_at, tz),
             source: self.source.as_deref(),
+            photo_version: self.photo_version,
         };
         Ok(serde_json::to_value(out)?)
     }
@@ -84,6 +88,8 @@ struct EventOut<'a> {
     updated_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     source: Option<&'a str>,
+    /// Changes whenever the photo does (null: none); fetch it from `/events/{id}/photo`.
+    photo_version: Option<i64>,
 }
 
 /// Request body for creating (and, after merging, patching) an event.
@@ -324,7 +330,61 @@ pub async fn delete(State(state): State<AppState>, user: AuthUser, Path(id): Pat
         .bind(&id)
         .execute(&state.db)
         .await?;
+    sqlx::query("DELETE FROM event_photos WHERE event_id = ?").bind(&id).execute(&state.db).await?;
     state.publish(&row.family_id, "event", "deleted", json!({ "id": id, "child_id": row.child_id, "deleted": true, "updated_at": fmt_time(now, tz) }));
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Largest entry photo accepted (the app sends a JPEG of at most 1600 px, a few hundred KB).
+pub const PHOTO_LIMIT: usize = 5 * 1024 * 1024;
+
+/// Set an entry's photo: the raw image (JPEG, PNG or WebP) as the request body. The entry's
+/// `updated_at` moves too, so `GET /families/{id}/sync` brings the new `photo_version`.
+pub async fn put_photo(State(state): State<AppState>, user: AuthUser, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Value>> {
+    let (row, tz) = accessible_event(&state, &id, &user).await?;
+    let Some(content_type) = crate::routes::children::image_type(&body) else {
+        return bad("the photo must be a JPEG, PNG or WebP image");
+    };
+    let now = now_ms();
+    let mut tx = state.db.begin().await?;
+    sqlx::query(
+        "INSERT INTO event_photos (event_id, content_type, data, updated_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT(event_id) DO UPDATE SET content_type = excluded.content_type, data = excluded.data, updated_at = excluded.updated_at",
+    )
+    .bind(&id)
+    .bind(content_type)
+    .bind(body.as_ref())
+    .bind(now)
+    .execute(&mut *tx)
+    .await?;
+    sqlx::query("UPDATE events SET changed_at = COALESCE(changed_at, updated_at), updated_at = ? WHERE id = ?").bind(now).bind(&id).execute(&mut *tx).await?;
+    tx.commit().await?;
+    let json = get_row(&state.db, &id).await?.to_json(tz)?;
+    state.publish(&row.family_id, "event", "updated", json.clone());
+    Ok(Json(json))
+}
+
+pub async fn get_photo(State(state): State<AppState>, user: AuthUser, Path(id): Path<String>) -> AppResult<axum::response::Response> {
+    use axum::{http::header, response::IntoResponse};
+    accessible_event(&state, &id, &user).await?;
+    let row: Option<(String, Vec<u8>)> = sqlx::query_as("SELECT content_type, data FROM event_photos WHERE event_id = ?")
+        .bind(&id)
+        .fetch_optional(&state.db)
+        .await?;
+    let Some((content_type, data)) = row else {
+        return Err(AppError::NotFound("photo"));
+    };
+    Ok(([(header::CONTENT_TYPE, content_type), (header::CACHE_CONTROL, "private, no-cache".to_string())], data).into_response())
+}
+
+pub async fn delete_photo(State(state): State<AppState>, user: AuthUser, Path(id): Path<String>) -> AppResult<StatusCode> {
+    let (row, tz) = accessible_event(&state, &id, &user).await?;
+    let gone = sqlx::query("DELETE FROM event_photos WHERE event_id = ?").bind(&id).execute(&state.db).await?;
+    if gone.rows_affected() > 0 {
+        sqlx::query("UPDATE events SET changed_at = COALESCE(changed_at, updated_at), updated_at = ? WHERE id = ?").bind(now_ms()).bind(&id).execute(&state.db).await?;
+        let json = get_row(&state.db, &id).await?.to_json(tz)?;
+        state.publish(&row.family_id, "event", "updated", json);
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 

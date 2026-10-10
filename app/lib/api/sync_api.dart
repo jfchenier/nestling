@@ -59,6 +59,8 @@ class SyncApi extends Api {
     Duration timeout = const Duration(seconds: 30),
   }) async {
     final local = raw == null && store.hasData && LocalEngine.handles(method, path);
+    // A photo for an entry just logged: the entry has to reach the server first.
+    if (raw != null) await _sent();
     // Once the family's data is here (first pull done) and nothing older is waiting for a sync.
     if (local && method != 'GET' && !offline && store.cursors.isNotEmpty && store.pending.keys.every(_inFlight.contains)) {
       final res = _applyNow(method, path, query, body);
@@ -155,6 +157,13 @@ class SyncApi extends Api {
       _sending = false;
       onStatus?.call();
       if (refused) onSynced?.call();
+    }
+  }
+
+  /// Waits (a little while at most) for the [_outbox] to be sent.
+  Future<void> _sent() async {
+    for (var i = 0; i < 300 && (_sending || _outbox.isNotEmpty); i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
     }
   }
 

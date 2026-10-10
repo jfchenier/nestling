@@ -185,7 +185,7 @@ pub async fn delete(State(state): State<AppState>, user: AuthUser, Path(child_id
 pub const PHOTO_LIMIT: usize = 5 * 1024 * 1024;
 
 /// Image type from the file's first bytes (the Content-Type header isn't trusted).
-fn image_type(data: &[u8]) -> Option<&'static str> {
+pub fn image_type(data: &[u8]) -> Option<&'static str> {
     match data {
         [0xFF, 0xD8, 0xFF, ..] => Some("image/jpeg"),
         [0x89, b'P', b'N', b'G', ..] => Some("image/png"),

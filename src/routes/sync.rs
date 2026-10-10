@@ -189,6 +189,7 @@ async fn push_event(tx: &mut Transaction<'_, Sqlite>, family_id: &str, user_id: 
                 .bind(&id)
                 .execute(&mut **tx)
                 .await?;
+            sqlx::query("DELETE FROM event_photos WHERE event_id = ?").bind(&id).execute(&mut **tx).await?;
             return Ok(Outcome::Applied);
         }
     } else if deleted {

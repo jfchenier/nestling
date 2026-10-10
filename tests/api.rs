@@ -551,6 +551,57 @@ async fn child_photo() {
 }
 
 #[tokio::test]
+async fn event_photo() {
+    let c = Client::new().await;
+    let t = c.register("a@example.com", "A").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&t), Some(json!({ "name": "F" }))).await;
+    let fid = fam["id"].as_str().unwrap();
+    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&t), Some(json!({ "name": "B", "birth_date": "2026-06-01" }))).await;
+    let cid = child["id"].as_str().unwrap();
+    let (_, ev) = c
+        .call(Method::POST, &format!("/children/{cid}/events"), Some(&t), Some(json!({ "type": "milestone", "name": "First smile", "start": "2026-07-01T10:00", "note": "At grandma's" })))
+        .await;
+    let eid = ev["id"].as_str().unwrap();
+    assert!(ev["photo_version"].is_null(), "{ev}");
+    let (_, synced) = c.call(Method::GET, &format!("/families/{fid}/sync"), Some(&t), None).await;
+    let cursor = synced["cursor"].as_i64().unwrap();
+
+    let jpeg = b"\xFF\xD8\xFF\xE0 not really a jpeg".to_vec();
+    let (s, _, body) = c.call_raw(Method::PUT, &format!("/events/{eid}/photo"), &t, jpeg.clone()).await;
+    assert_eq!(s, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let put: Value = serde_json::from_slice(&body).unwrap();
+    assert!(put["photo_version"].is_i64(), "{put}");
+    assert_eq!(put["name"], "First smile");
+    let (s, ct, body) = c.call_raw(Method::GET, &format!("/events/{eid}/photo"), &t, vec![]).await;
+    assert_eq!((s, ct.as_str(), body), (StatusCode::OK, "image/jpeg", jpeg.clone()));
+    // Other devices learn about it through the sync and the listing.
+    let (_, synced) = c.call(Method::GET, &format!("/families/{fid}/sync?since={cursor}"), Some(&t), None).await;
+    assert_eq!(synced["events"][0]["photo_version"], put["photo_version"], "{synced}");
+    let (_, list) = c.call(Method::GET, &format!("/children/{cid}/events?type=milestone"), Some(&t), None).await;
+    assert_eq!(list["events"][0]["photo_version"], put["photo_version"]);
+    // Editing the entry keeps the photo.
+    let (_, patched) = c.call(Method::PATCH, &format!("/events/{eid}"), Some(&t), Some(json!({ "name": "First real smile" }))).await;
+    assert_eq!(patched["photo_version"], put["photo_version"]);
+
+    let (s, _, _) = c.call_raw(Method::PUT, &format!("/events/{eid}/photo"), &t, b"<svg/>".to_vec()).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let other = c.register("b@example.com", "B").await;
+    let (s, _, _) = c.call_raw(Method::GET, &format!("/events/{eid}/photo"), &other, vec![]).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+
+    let (s, _, _) = c.call_raw(Method::DELETE, &format!("/events/{eid}/photo"), &t, vec![]).await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    let (_, ev) = c.call(Method::GET, &format!("/events/{eid}"), Some(&t), None).await;
+    assert!(ev["photo_version"].is_null(), "{ev}");
+
+    // Deleting the entry deletes its photo.
+    c.call_raw(Method::PUT, &format!("/events/{eid}/photo"), &t, jpeg).await;
+    c.call(Method::DELETE, &format!("/events/{eid}"), Some(&t), None).await;
+    let (s, _, _) = c.call_raw(Method::GET, &format!("/events/{eid}/photo"), &t, vec![]).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
 async fn csv_export_round_trip() {
     let c = Client::new().await;
     let t = c.register("export@example.com", "Ex").await;

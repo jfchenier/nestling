@@ -73,4 +73,43 @@ void main() {
     expect(await relayA.sync(folder), isFalse);
     expect(relayA.error, isNull);
   });
+
+  test('entry photos go through the folder once, as files of their own', () async {
+    final folder = MemoryFolder();
+    final (storeA, a) = await phone('Mom');
+    final (storeB, b) = await phone('Dad');
+    final fam = a.createFamily({'name': 'Home', 'timezone': 'UTC'});
+    final child = a.createChild(fam['id'], {'name': 'Léa', 'birth_date': '2026-06-01'});
+    storeA.families.single['drive_folder'] = 'folder1';
+    storeA.serverless.addAll({'family_id': fam['id'], 'key': FamilyKey.generate().toBase64()});
+    mergeFamily(storeB, exportFamily(storeA, fam['id']));
+    storeB.serverless.addAll({'family_id': fam['id'], 'key': storeA.serverless['key']});
+    final relayA = RelaySync(storeA), relayB = RelaySync(storeB);
+
+    final smile = a.createEvent(child['id'], {'type': 'milestone', 'name': 'First smile'});
+    final photo = List<int>.generate(3000, (i) => i % 251);
+    final withPhoto = a.putEventPhoto(smile['id'], photo, 'image/jpeg');
+    await relayA.sync(folder);
+    final names = [for (final f in folder.files.values) f.$1];
+    expect(names.where((n) => n.startsWith('photo-')), hasLength(1));
+    // The snapshot itself doesn't carry the bytes.
+    expect(exportFamily(storeA, fam['id'], photoData: false)['event_photos'][smile['id']].containsKey('data'), isFalse);
+
+    expect(await relayB.sync(folder), isTrue);
+    expect(storeB.events[smile['id']]!['photo_version'], withPhoto['photo_version']);
+    expect(b.eventPhotoBytes(smile['id']), photo);
+
+    // Already in the folder: not uploaded again by either phone.
+    folder.writes = 0;
+    await relayB.sync(folder);
+    await relayA.sync(folder);
+    expect(folder.writes, 0);
+
+    // Removed on one phone, removed on the other.
+    b.deleteEventPhoto(smile['id']);
+    await relayB.sync(folder);
+    await relayA.sync(folder);
+    expect(storeA.events[smile['id']]!['photo_version'], isNull);
+    expect(() => a.eventPhotoBytes(smile['id']), throwsA(anything));
+  });
 }

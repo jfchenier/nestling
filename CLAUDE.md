@@ -10,7 +10,7 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
 
 ## Status (2026-10-10)
 
-- Server: `cargo test` green (33 tests), one cosmetic clippy warning (`nara_csv.rs`, complex type).
+- Server: `cargo test` green (37 tests), one cosmetic clippy warning (`nara_csv.rs`, complex type).
   Runs in Docker on the owner's home server (Portainer stack from `ghcr.io/jfchenier/nestling:latest`).
   The Nara CSV import is verified on a real export; the Nara *account* import is not yet tried.
 - App (`app/`, Flutter): web build tested end-to-end in headless Chromium against the real server.
@@ -137,8 +137,11 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       (any mode) and are pushed only when Firebase is set up (`state.push`), checked every minute,
       once per entry (`reminders_sent`). App: Family → Medicines and reminders; home strip
       (`_ReminderStrip`, same due rule as `reminders.rs`); early-dose warning in the medicine form.
-- [ ] Optional: photos on milestones, Home Assistant integration
-      (`/children/{id}/summary` already works as a REST sensor).
+- [x] **Baby book** (the Firsts card's book icon, `app/lib/screens/baby_book.dart`): milestones as a
+      scrapbook with one photo each (`/events/{id}/photo`, table `event_photos`; events carry
+      `photo_version`), built-in ideas of firsts plus custom ones. Serverless: `LocalStore.eventPhotos`
+      (saved apart, clocks `ep:<id>`), Drive sync sends each photo once as `photo-<id>-<version>.bin`.
+- [ ] Optional: Home Assistant integration (`/children/{id}/summary` already works as a REST sensor).
 - Note: SSE behind a reverse proxy needs response buffering disabled (the stream sends `X-Accel-Buffering: no`,
   which covers nginx). The app reconnects after 40 s without the 15 s `ping`, on resume, and reloads on reconnect.
 

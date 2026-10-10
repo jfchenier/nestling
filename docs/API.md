@@ -100,6 +100,8 @@ Every record is an event with a `type`, a `start`, an optional `end`, an optiona
 | `GET /events/{id}` | |
 | `PATCH /events/{id}` | send only what changes; `null` removes a field |
 | `DELETE /events/{id}` | |
+| `PUT /events/{id}/photo` | raw JPEG, PNG or WebP (≤ 5 MB): one photo per entry (the app's baby book uses it on milestones); the entry's `photo_version` and `updated_at` change |
+| `GET / DELETE /events/{id}/photo` | the image (`404` without one) / remove it; deleting the entry removes its photo |
 
 Response shape:
 
@@ -109,7 +111,7 @@ Response shape:
   "method": "bottle", "amount_ml": 120.0, "milk": "formula",
   "start": "2026-10-08T14:30:00-04:00", "end": "2026-10-08T14:45:00-04:00", "duration_seconds": 900,
   "note": "took it all", "created_by": "<user id>", "updated_by": "<user id>",
-  "created_at": "…", "updated_at": "…", "source": "nara"
+  "created_at": "…", "updated_at": "…", "source": "nara", "photo_version": null
 }
 ```
 

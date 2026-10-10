@@ -11,6 +11,7 @@ import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import 'baby_book.dart';
 import 'child_form.dart';
 import 'event_form.dart';
 import 'growth_chart.dart';
@@ -162,12 +163,23 @@ class HomeScreen extends StatelessWidget {
       title: title,
       data: data,
       onLog: running != null ? () => open(running.kind) : log,
-      onHistory: filter == 'growth'
-          ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GrowthChartScreen()))
-          : () => history(filter),
-      // Growth's header icon opens the growth charts (its history is listed there too).
-      historyIcon: filter == 'growth' ? Icons.show_chart_rounded : Icons.history_rounded,
-      historyLabel: filter == 'growth' ? 'Growth charts' : '$title history',
+      onHistory: switch (filter) {
+        'growth' => () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GrowthChartScreen())),
+        'milestone' => () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BabyBookScreen())),
+        _ => () => history(filter),
+      },
+      // Growth's header icon opens the growth charts (its history is listed there too); Firsts'
+      // opens the baby book.
+      historyIcon: switch (filter) {
+        'growth' => Icons.show_chart_rounded,
+        'milestone' => Icons.auto_stories_rounded,
+        _ => Icons.history_rounded,
+      },
+      historyLabel: switch (filter) {
+        'growth' => 'Growth charts',
+        'milestone' => 'Baby book',
+        _ => '$title history',
+      },
     );
     return [
       card(Kind.breast, 'Feed', feedCard, () => showFeedPicker(context), 'feed', nursing),
@@ -188,7 +200,7 @@ class HomeScreen extends StatelessWidget {
         'Firsts',
         simple(latest('milestone'), (e) => (e['name'] as String?) ?? 'Milestone'),
         () => showEventForm(context, type: 'milestone'),
-        'activity,milestone,note',
+        'milestone',
       ),
     ];
   }

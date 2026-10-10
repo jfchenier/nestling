@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
+
 import '../local/engine.dart';
 import 'api.dart';
 import '../local/store.dart';
@@ -28,6 +30,10 @@ class LocalApi extends SyncApi {
     Duration timeout = const Duration(seconds: 30),
   }) async {
     if (!LocalEngine.handles(method, path, serverless: true)) throw ApiException('server_only', _needsServer, 404);
+    // The browser keeps a few MB at most: photos of memories need the Android app or a server.
+    if (kIsWeb && method == 'PUT' && path.startsWith('/events/')) {
+      throw ApiException('server_only', 'Photos on memories need the Android app or a Nestling server.', 400);
+    }
     final res = engine.handle(method, path, query: {...?query, 'content_type': ?contentType}, body: raw ?? body);
     if (method != 'GET') onChanged?.call(path);
     return res;
@@ -35,6 +41,9 @@ class LocalApi extends SyncApi {
 
   @override
   Future<Uint8List> getBytes(String path) async {
+    if (RegExp(r'^/events/([^/]+)/photo$').firstMatch(path) case final m?) {
+      return Uint8List.fromList(engine.eventPhotoBytes(m.group(1)!));
+    }
     final m = RegExp(r'^/children/([^/]+)/photo$').firstMatch(path);
     if (m == null) throw ApiException('server_only', _needsServer, 404);
     return Uint8List.fromList(engine.photoBytes(m.group(1)!));
