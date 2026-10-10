@@ -23,7 +23,7 @@ enum BookChapter {
   hello('hello', 'Hello, world', 'Hello', 'The very beginning', Icons.child_friendly_rounded),
   firsts('firsts', 'Firsts', 'Firsts', 'Every new thing, month by month', Icons.auto_awesome_rounded),
   growing('growing', 'Growing up', 'Growing', 'Teeth, size, and how fast it goes', Icons.straighten_rounded),
-  celebrations('celebrations', 'Celebrations', 'Big days', 'Holidays and special days', Icons.celebration_rounded);
+  celebrations('celebrations', 'Celebrations', 'Celebrations', 'Holidays and special days', Icons.celebration_rounded);
 
   const BookChapter(this.id, this.title, this.tab, this.subtitle, this.icon);
   final String id, title, tab, subtitle;
