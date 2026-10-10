@@ -104,6 +104,8 @@ class HomeScreen extends StatelessWidget {
     final diaper = last('diaper');
     final diaperCard = diaper == null
         ? const _CardData()
+        : diaper['potty'] != null
+        ? _CardData(top: since(diaper.start), value: pottyLabel(diaper['potty'])!, caption: diaper['potty'] == 'sat_dry' ? 'potty' : wetDirty(diaper).toLowerCase())
         : _CardData(
             top: since(diaper.start),
             value: diaper['dirty'] == true ? (diaper['wet'] == true ? 'Wet + dirty' : 'Dirty') : (diaper['wet'] == true ? 'Wet' : 'Dry'),
@@ -704,7 +706,13 @@ class _TodayStrip extends StatelessWidget {
           stat(
             '${diaper['count'] ?? 0}',
             rolling ? 'diapers in 24 h' : 'diapers today',
-            detail('${n(diaper, 'wet')} wet · ${n(diaper, 'dirty')} dirty', Kind.diaper),
+            detail(
+              [
+                '${n(diaper, 'wet')} wet · ${n(diaper, 'dirty')} dirty',
+                if (n(diaper, 'potty_count') > 0) '${n(diaper, 'potty_count')} potty',
+              ].join(' · '),
+              Kind.diaper,
+            ),
           ),
         ],
       ),

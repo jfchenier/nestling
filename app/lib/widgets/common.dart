@@ -219,12 +219,21 @@ class InlineNumber extends StatelessWidget {
 }
 
 /// Big round toggle (wet / dirty / dry).
+/// The three potty outcomes (value saved in `potty`, label, icon), in screen order.
+const pottyResults = [
+  ('sat_dry', 'Sat but dry', Icons.water_drop_outlined),
+  ('success', 'Potty', Icons.wc_rounded),
+  ('accident', 'Accident', Icons.water_drop_rounded),
+];
+
 class CircleToggle extends StatelessWidget {
-  const CircleToggle({super.key, required this.label, required this.selected, required this.onTap, this.size = 84});
+  const CircleToggle({super.key, required this.label, required this.selected, required this.onTap, this.size = 84, this.icon});
   final String label;
   final bool selected;
   final VoidCallback onTap;
   final double size;
+  /// Drawn above a smaller [label] when set.
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) => GestureDetector(
@@ -239,10 +248,23 @@ class CircleToggle extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: context.pal.accent, width: 1.5),
       ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: selected ? context.pal.onAccent : context.pal.accent),
-      ),
+      child: icon == null
+          ? Text(
+              label,
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: selected ? context.pal.onAccent : context.pal.accent),
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: size * 0.32, color: selected ? context.pal.onAccent : context.pal.accent),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: selected ? context.pal.onAccent : context.pal.accent),
+                ),
+              ],
+            ),
     ),
   );
 }

@@ -18,7 +18,7 @@ class EventTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final u = context.select<AppState, Units>((s) => s.units);
     final (title, detail) = describe(event, u);
-    final k = Kind.of(event.type, event['method']);
+    final k = Kind.of(event.type, event.look);
     final sub = [if (detail.isNotEmpty) detail, if (event.note != null && event.note!.isNotEmpty) '“${event.note}”'].join('\n');
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),

@@ -115,6 +115,7 @@ class Kind {
   static const combo = Kind('Combo', Icons.join_inner_rounded, Color(0xFFF5C4A1), Color(0xFFB0602D));
   static const sleep = Kind('Sleep', Icons.bedtime_rounded, Color(0xFFD4CBEA), Color(0xFF65529C)); // dusk lilac
   static const diaper = Kind('Diaper', Icons.baby_changing_station_rounded, Color(0xFFCADFBC), Color(0xFF4A763A)); // sage
+  static const potty = Kind('Potty', Icons.wc_rounded, Color(0xFFCADFBC), Color(0xFF4A763A)); // sage, like diapers
   static const pump = Kind('Pump', Icons.water_drop_rounded, Color(0xFFEDE29B), Color(0xFF7E7116)); // butter
   static const growth = Kind('Growth', Icons.straighten_rounded, Color(0xFFE4D4BA), Color(0xFF7A5F3C)); // oat
   static const health = Kind('Health', Icons.medical_services_rounded, Color(0xFFCBD19A), Color(0xFF616B26)); // moss
@@ -122,7 +123,7 @@ class Kind {
   static const milestone = Kind('Milestone', Icons.star_rounded, Color(0xFFEBC46E), Color(0xFF8A6210)); // marigold
   static const note = Kind('Note', Icons.edit_note_rounded, Color(0xFFDDD6CC), Color(0xFF6B6359)); // stone
 
-  /// Look of an event (feeds are split by method).
+  /// Look of an event (feeds are split by method; diapers by "potty").
   static Kind of(String type, [String? method]) {
     switch (type) {
       case 'feed':
@@ -135,7 +136,7 @@ class Kind {
       case 'sleep':
         return sleep;
       case 'diaper':
-        return diaper;
+        return method == 'potty' ? potty : diaper;
       case 'pump':
         return pump;
       case 'growth':

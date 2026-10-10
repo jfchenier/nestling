@@ -278,7 +278,7 @@ class _DayColumn extends StatelessWidget {
       final from = e.start.isBefore(day) ? day : e.start;
       final to = end.isAfter(next) ? next : end;
       final top = y(from);
-      final kind = Kind.of(e.type, e['method'] as String?);
+      final kind = Kind.of(e.type, e.look);
       return Positioned(
         left: 3,
         right: 3,

@@ -91,7 +91,7 @@ Response shape:
 |---|---|
 | `feed` | `method`: `breast` \| `bottle` \| `combo` \| `solids`; `left_seconds`, `right_seconds`, `start_side` (`left`/`right`); `amount_ml`, `milk` (`breast_milk` \| `formula` \| `mixed`), `formula_name`; `foods` |
 | `sleep` | `location`. Requires `end` (use a timer for sleep in progress) |
-| `diaper` | `wet`, `dirty`, `dry`, `rash`, `blowout` (booleans); `color`: `yellow` \| `green` \| `brown` \| `black` \| `red` \| `gray`; `consistency`: `runny` \| `mushy` \| `mucousy` \| `pebbles` \| `solid` (dirty only) |
+| `diaper` | `wet`, `dirty`, `dry`, `rash`, `blowout` (booleans); `color`: `yellow` \| `green` \| `brown` \| `black` \| `red` \| `gray`; `consistency`: `runny` \| `mushy` \| `mucousy` \| `pebbles` \| `solid` (dirty only); `potty`: `sat_dry` \| `success` \| `accident` for a potty trip instead of a diaper (`wet`/`dirty` required for `success`/`accident`, with the same details as a diaper; `sat_dry` goes with `dry`) |
 | `pump` | `left_ml`, `right_ml`, `left_seconds`, `right_seconds` |
 | `growth` | `weight_g`, `length_cm`, `head_cm` (at least one) |
 | `health` | `kind`: `medicine` (`name`, `dose`, `dose_unit`) \| `temperature` (`temperature_c`) \| `vaccine` (`name`) \| `appointment` (`name` = doctor) \| `symptom` (`name`) |
@@ -156,7 +156,7 @@ Timer shape: `{id, child_id, kind, started_at, running, side, elapsed_seconds, l
     "date": "2026-10-08", "complete": false,
     "feed":   {"count": 8, "breast_count": 6, "breast_seconds": 5400, "bottle_count": 2, "bottle_ml": 240, "solids_count": 0},
     "sleep":  {"total_seconds": 50400, "day_seconds": 14400, "night_seconds": 36000, "nap_count": 3, "longest_seconds": 18000},
-    "diaper": {"count": 7, "wet": 6, "dirty": 3, "day_count": 4, "night_count": 3},
+    "diaper": {"count": 7, "wet": 6, "dirty": 3, "day_count": 4, "night_count": 3, "potty_count": 0, "potty_success": 0, "potty_accidents": 0},
     "pump":   {"count": 1, "total_ml": 150, "total_seconds": 900}
   }],
   "averages": {"days": 6, "feeds_per_day": 8.2, "sleep_seconds_per_day": 51000, "feed_interval_seconds": 10200,
@@ -167,6 +167,8 @@ Timer shape: `{id, child_id, kind, started_at, running, side, elapsed_seconds, l
 
 Days are calendar days in the family timezone; daytime is the family's `day_start`–`day_end` (06:00–18:00 by default). Sleep crossing midnight is split between days.
 Daily averages use complete days only.
+Potty trips are counted apart from diapers (`potty_count`, `potty_success`, `potty_accidents`; averages
+`potty_per_day`, `potty_success_per_day`, `potty_accidents_per_day`).
 Feeds and diapers count as daytime by their start time; feed days also carry `breast_left_seconds` /
 `breast_right_seconds`, their `day_…` parts and bottle amounts by milk (`breast_milk_ml`, `formula_ml`, `mixed_ml`).
 `previous` holds the same `averages` for the `days` days just before `from` (for "↑ 1.1 vs last week"), or

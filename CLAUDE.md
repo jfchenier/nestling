@@ -67,6 +67,9 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - `migrations/0001_init.sql`, `tests/api.rs` (end-to-end with in-memory SQLite), `docs/API.md`.
 - `app/` — Flutter client; see `app/README.md` for its layout. `AppState` (`app/lib/state.dart`)
   holds the session and home data and refreshes on SSE `change` events.
+- Potty trips are `diaper` events with `potty` (`sat_dry`/`success`/`accident`; `wet`/`dirty` = pee/poo),
+  counted apart from diapers in Trends. Medicines, activities and solid foods are picked from lists
+  (`app/lib/widgets/medicine_picker.dart`): the child's past entries first (custom names included), then common ones.
 
 ## Watch out for
 

@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
+import '../format.dart';
 import '../models.dart';
-import '../state.dart';
-import '../theme.dart';
+import 'name_picker.dart';
 
 /// Common baby medicines and supplements, shown under the ones this child already had.
 const commonMedicines = [
@@ -21,6 +20,41 @@ const commonMedicines = [
   'Diaper cream',
 ];
 
+/// Built-in activities (saved as these keys, shown as "Tummy time"…), under the ones this
+/// child already did; any other name can be added.
+const commonActivities = ['tummy_time', 'bath', 'outdoor', 'play', 'read', 'nail_trim', 'vitamin', 'massage', 'skin_to_skin', 'swim', 'music'];
+
+/// Usual first foods, under the ones this child already had.
+const commonFoods = [
+  'Avocado',
+  'Banana',
+  'Sweet potato',
+  'Carrot',
+  'Squash',
+  'Peas',
+  'Green beans',
+  'Broccoli',
+  'Apple',
+  'Pear',
+  'Peach',
+  'Mango',
+  'Blueberries',
+  'Strawberries',
+  'Oatmeal',
+  'Rice cereal',
+  'Pasta',
+  'Bread',
+  'Yogurt',
+  'Cheese',
+  'Egg',
+  'Peanut butter',
+  'Chicken',
+  'Beef',
+  'Fish',
+  'Lentils',
+  'Tofu',
+];
+
 String _n(double v) => v == v.roundToDouble() ? v.round().toString() : v.toString();
 
 /// A medicine picked from the list, with the dose given last time (for recent ones).
@@ -28,124 +62,97 @@ typedef MedicinePick = ({String name, double? dose, String? unit});
 
 /// "Medicine" sheet: add a custom one, recent ones (most recent first, custom included),
 /// then the common list.
-Future<MedicinePick?> showMedicinePicker(BuildContext context) => showModalBottomSheet<MedicinePick>(
-  context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  backgroundColor: context.pal.background,
-  builder: (_) => const _MedicinePicker(),
-);
-
-class _MedicinePicker extends StatefulWidget {
-  const _MedicinePicker();
-
-  @override
-  State<_MedicinePicker> createState() => _MedicinePickerState();
-}
-
-class _MedicinePickerState extends State<_MedicinePicker> {
-  final _custom = TextEditingController();
-  List<MedicinePick>? _recent;
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final s = context.read<AppState>();
-    final recent = <String, MedicinePick>{};
-    try {
-      final res = await s.api!.get('/children/${s.childId}/events', {'type': 'health', 'limit': '500'});
-      for (final e in [for (final j in res['events'] as List) Event(j)]) {
+Future<MedicinePick?> showMedicinePicker(BuildContext context) async {
+  final picked = await showNamePicker(
+    context,
+    title: 'Medicine',
+    addHint: 'Add a medicine',
+    common: [for (final m in commonMedicines) PickItem(m)],
+    recent: (s) async {
+      final recent = <String, PickItem>{};
+      for (final e in await childEvents(s, 'health')) {
         final name = (e['name'] as String?)?.trim();
         if (e['kind'] != 'medicine' || name == null || name.isEmpty) continue;
-        recent.putIfAbsent(name.toLowerCase(), () => (name: name, dose: toDouble(e['dose']), unit: e['dose_unit'] as String?));
+        final dose = toDouble(e['dose']), unit = e['dose_unit'] as String?;
+        recent.putIfAbsent(
+          name.toLowerCase(),
+          () => PickItem(
+            name,
+            subtitle: dose == null ? null : 'Last dose ${_n(dose)} ${unit ?? ''}'.trim(),
+            data: (name: name, dose: dose, unit: unit),
+          ),
+        );
       }
-    } catch (_) {
-      // Offline or no access: the common list still works.
-    }
-    if (mounted) setState(() => _recent = recent.values.toList());
+      return recent.values.toList();
+    },
+  );
+  if (picked == null || picked.isEmpty) return null;
+  final m = picked.first;
+  return m.data as MedicinePick? ?? (name: m.value, dose: null, unit: null);
+}
+
+/// "Activity" sheet: the child's past activities (custom ones included), then the built-in ones.
+Future<String?> showActivityPicker(BuildContext context) async {
+  final picked = await showNamePicker(
+    context,
+    title: 'Activity',
+    addHint: 'Add an activity',
+    common: [for (final a in commonActivities) PickItem(a, label: cap(a))],
+    recent: (s) async {
+      final done = <String, _Count>{};
+      for (final e in await childEvents(s, 'activity')) {
+        final kind = (e['kind'] as String?)?.trim();
+        if (kind == null || kind.isEmpty || kind == 'activity') continue;
+        done.update(kind.toLowerCase(), (t) => t.again(), ifAbsent: () => _Count(kind, e.start));
+      }
+      return [for (final t in done.values) PickItem(t.name, label: cap(t.name), subtitle: t.subtitle)];
+    },
+  );
+  return picked == null || picked.isEmpty ? null : picked.first.value;
+}
+
+/// How often a name was used, folding events newest first.
+class _Count {
+  _Count(this.name, this.last);
+  final String name;
+  final DateTime last;
+  int times = 1;
+
+  _Count again() => this..times += 1;
+
+  String get subtitle {
+    final day = dayLabel(last);
+    return '${times == 1 ? 'Once' : '$times times'} · last ${day == 'Today' || day == 'Yesterday' ? day.toLowerCase() : day}';
   }
+}
 
-  void _pick(MedicinePick m) => Navigator.pop(context, m);
+/// The foods of a solids entry ("Avocado, banana" → ["Avocado", "banana"]).
+List<String> splitFoods(String? foods) => [
+  for (final f in (foods ?? '').split(RegExp(r'[,;\n]')))
+    if (f.trim().isNotEmpty) f.trim(),
+];
 
-  @override
-  Widget build(BuildContext context) {
-    final c = context.pal;
-    final recent = _recent ?? [];
-    final seen = {for (final r in recent) r.name.toLowerCase()};
-    final common = [
-      for (final m in commonMedicines)
-        if (!seen.contains(m.toLowerCase())) m,
-    ];
-
-    Widget header(String text) => Container(
-      color: c.raised,
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-      child: Text(
-        text,
-        style: TextStyle(fontWeight: FontWeight.w700, color: c.muted, fontSize: 13),
-      ),
-    );
-    Widget row(MedicinePick m) => ListTile(
-      title: Text(m.name, style: const TextStyle(fontSize: 17)),
-      subtitle: m.dose == null ? null : Text('Last dose ${_n(m.dose!)} ${m.unit ?? ''}'.trim()),
-      trailing: Icon(Icons.add_circle_outline_rounded, color: c.accent),
-      onTap: () => _pick(m),
-    );
-
-    return ConstrainedBox(
-      constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.85),
-      child: Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 18, 8, 8),
-              child: Row(
-                children: [
-                  Expanded(child: Text('Medicine', style: serifStyle(24))),
-                  IconButton(tooltip: 'Close', icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
-                ],
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-              child: TextField(
-                controller: _custom,
-                textCapitalization: TextCapitalization.sentences,
-                textInputAction: TextInputAction.done,
-                onSubmitted: (v) => v.trim().isEmpty ? null : _pick((name: v.trim(), dose: null, unit: null)),
-                decoration: InputDecoration(
-                  hintText: 'Add a medicine',
-                  prefixIcon: const Icon(Icons.add_rounded),
-                  suffixIcon: IconButton(
-                    tooltip: 'Use this name',
-                    icon: const Icon(Icons.check_rounded),
-                    onPressed: () => _custom.text.trim().isEmpty ? null : _pick((name: _custom.text.trim(), dose: null, unit: null)),
-                  ),
-                ),
-              ),
-            ),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  if (_recent == null) const LinearProgressIndicator(minHeight: 2),
-                  if (recent.isNotEmpty) ...[header('Recent'), for (final m in recent) row(m)],
-                  header('Common'),
-                  for (final m in common) row((name: m, dose: null, unit: null)),
-                  const SizedBox(height: 16),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+/// "Foods" sheet (several at once): foods this child already had (with how often), then usual
+/// first foods; any other food can be added. Returns the full new list, or null if closed.
+Future<List<String>?> showFoodPicker(BuildContext context, List<String> selected) async {
+  final picked = await showNamePicker(
+    context,
+    title: 'Foods',
+    addHint: 'Add a food',
+    recentTitle: 'Already tried',
+    multiple: true,
+    selected: selected,
+    common: [for (final f in commonFoods) PickItem(f)],
+    recent: (s) async {
+      final tried = <String, _Count>{};
+      for (final e in await childEvents(s, 'feed', limit: 1000)) {
+        if (e['method'] != 'solids') continue;
+        for (final f in splitFoods(e['foods'] as String?)) {
+          tried.update(f.toLowerCase(), (t) => t.again(), ifAbsent: () => _Count(f, e.start));
+        }
+      }
+      return [for (final t in tried.values) PickItem(t.name, subtitle: t.subtitle)];
+    },
+  );
+  return picked?.map((p) => p.value).toList();
 }
