@@ -39,6 +39,7 @@ class HomeScreen extends StatelessWidget {
                 // Rolling last 24 hours (older servers: the calendar day).
                 if ((s.summary?['last_24h'] ?? s.summary?['today']) case final Map<String, dynamic> stats)
                   _TodayStrip(today: stats, units: s.units, rolling: s.summary?['last_24h'] != null),
+                if (s.summary?['medicines'] case final List meds when meds.isNotEmpty) _MedicineStrip(meds: meds.whereType<Map>().toList()),
                 _CardGrid(cards: _cards(context, s, history)),
                 const SizedBox(height: 8),
                 Center(
@@ -644,6 +645,64 @@ class ChildAvatar extends StatelessWidget {
                 style: serifStyle(size * 0.46, color: context.pal.bandInk),
               ),
             ),
+    );
+  }
+}
+
+/// The child's medicine schedules: when the next dose is allowed, and a button to log one.
+class _MedicineStrip extends StatelessWidget {
+  const _MedicineStrip({required this.meds});
+  final List<Map> meds;
+
+  static String _status(Map m, DateTime now) {
+    final next = DateTime.tryParse('${m['next_at']}')?.toLocal();
+    if (next == null) return 'No dose given yet';
+    if (!next.isAfter(now)) return 'Next dose can be given now';
+    final at = DateFormat.Hm().format(next);
+    final day = DateTime(next.year, next.month, next.day).difference(DateTime(now.year, now.month, now.day)).inDays;
+    final when = day == 0 ? at : (day == 1 ? 'tomorrow $at' : '${DateFormat.MMMd().format(next)} $at');
+    final max = toInt(m['max_per_day']);
+    return max == null ? 'Next dose at $when' : 'Next dose at $when · ${m['doses_24h']} of $max in 24 h';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pal = context.pal, now = DateTime.now();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      decoration: BoxDecoration(color: pal.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: pal.line)),
+      child: Column(
+        children: [
+          for (final m in meds)
+            () {
+              final next = DateTime.tryParse('${m['next_at']}')?.toLocal();
+              final due = next == null || !next.isAfter(now);
+              return ListTile(
+                leading: const BlobIcon(Kind.health, icon: Icons.medication_rounded, size: 38),
+                title: Text('${m['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: Text(
+                  _status(m, now),
+                  style: TextStyle(color: due ? Kind.health.on(pal) : pal.muted, fontWeight: due ? FontWeight.w700 : null),
+                ),
+                trailing: due
+                    ? FilledButton.tonal(
+                        onPressed: () => showEventForm(
+                          context,
+                          type: 'health',
+                          prefill: {'kind': 'medicine', 'name': m['name'], 'dose': m['dose'], 'dose_unit': m['dose_unit']},
+                        ),
+                        child: const Text('Give'),
+                      )
+                    : null,
+                onTap: () => showEventForm(
+                  context,
+                  type: 'health',
+                  prefill: {'kind': 'medicine', 'name': m['name'], 'dose': m['dose'], 'dose_unit': m['dose_unit']},
+                ),
+              );
+            }(),
+        ],
+      ),
     );
   }
 }

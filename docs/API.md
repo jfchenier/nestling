@@ -65,6 +65,29 @@ everything; owners can also remove members and delete the family.
 | `PUT /children/{id}/photo` | raw JPEG, PNG or WebP (≤ 5 MB) | profile picture; the child's `photo_version` changes (null: no photo) |
 | `GET / DELETE /children/{id}/photo` | | the image (`404` without one) / remove it |
 
+### Medicine schedules and reminders
+
+Saved on the child: `PATCH /children/{id}` with `medicines` and/or `reminders` replaces that whole
+list (the child JSON carries both).
+
+```json
+{
+  "medicines": [{"name": "Acetaminophen (Tylenol)", "every_hours": 4, "max_per_day": 5,
+                 "dose": 2.5, "dose_unit": "mL", "remind": true}],
+  "reminders": [{"type": "feed", "after_minutes": 180}]
+}
+```
+
+- A medicine's doses are the child's `health` entries with `kind: "medicine"` and the same name
+  (case and extra spaces ignored). `every_hours` 0.5–168; `max_per_day` (optional, 1–24) caps the
+  doses in any 24 hours; `dose`/`dose_unit` only fill the app's form. The summary says when the
+  next dose is allowed.
+- `reminders`: one per `type` (`feed`, `sleep`, `diaper`, `pump`), `after_minutes` 15–1440. Sleep
+  counts time awake.
+- Reminders and a medicine's `remind` become phone notifications only on a server with
+  notifications set up (`GET /push/config` → `enabled`). Checked every minute; each one is sent
+  once per entry it is about, to every phone of the family.
+
 ## Events
 
 Every record is an event with a `type`, a `start`, an optional `end`, an optional `note`, and type-specific fields.
@@ -141,6 +164,8 @@ Timer shape: `{id, child_id, kind, started_at, running, side, elapsed_seconds, l
 ```json
 {
   "child": {…},
+  "medicines": [{…the schedule, "last_at": "…" | null, "next_at": "…" | null, "due": true,
+                 "doses_24h": 1, "limited": false}],
   "last":  {"feed": {event}, "sleep": {event}, "diaper": {event}, "pump": null},
   "since": {"feed_seconds": 5400, "sleep_seconds": 3600, "diaper_seconds": 1200, "pump_seconds": null},
   "timers": [ … ],
@@ -150,6 +175,8 @@ Timer shape: `{id, child_id, kind, started_at, running, side, elapsed_seconds, l
 ```
 
 `since.sleep_seconds` is time awake since the last sleep ended (`null` while a sleep timer runs).
+`medicines[].next_at` is when the next dose is allowed (`null`: none given yet); `limited` means
+`max_per_day` is what holds it back.
 
 `GET /children/{id}/trends?days=7&to=2026-10-08` (1–90 days, default 7 ending today):
 

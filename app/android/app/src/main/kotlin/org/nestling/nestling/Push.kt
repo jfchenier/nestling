@@ -1,7 +1,14 @@
 package org.nestling.nestling
 
 import android.app.Application
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
+import android.graphics.Color
+import android.os.Build
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
 import com.google.firebase.messaging.FirebaseMessaging
@@ -87,6 +94,50 @@ class NestlingApplication : Application() {
 }
 
 /**
+ * Reminders from the server (src/reminders.rs): "no feed in 3 h", "next dose is due". An
+ * ordinary notification that makes a sound, on its own channel so it can be turned off apart
+ * from the running timers.
+ */
+object ReminderNotice {
+    private const val CHANNEL = "reminders"
+
+    fun show(context: Context, id: Int, title: String, body: String) {
+        val manager = context.getSystemService(NotificationManager::class.java)
+        if (Build.VERSION.SDK_INT >= 26 && manager.getNotificationChannel(CHANNEL) == null) {
+            val channel = NotificationChannel(CHANNEL, "Reminders", NotificationManager.IMPORTANCE_HIGH).apply {
+                description = "Feed, sleep, diaper and medicine reminders"
+            }
+            manager.createNotificationChannel(channel)
+        }
+        val open = PendingIntent.getActivity(
+            context,
+            0,
+            Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        @Suppress("DEPRECATION")
+        val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(context, CHANNEL) else Notification.Builder(context)
+        builder
+            .setSmallIcon(R.drawable.ic_notification)
+            .setColor(Color.rgb(0x3D, 0x7A, 0x6A))
+            .setContentTitle(title)
+            .setContentText(body)
+            .setStyle(Notification.BigTextStyle().bigText(body))
+            .setContentIntent(open)
+            .setAutoCancel(true)
+            .setCategory(Notification.CATEGORY_REMINDER)
+            .setShowWhen(true)
+        @Suppress("DEPRECATION")
+        if (Build.VERSION.SDK_INT < 26) builder.setPriority(Notification.PRIORITY_HIGH).setDefaults(Notification.DEFAULT_ALL)
+        try {
+            manager.notify(id, builder.build())
+        } catch (e: SecurityException) {
+            // No notification permission.
+        }
+    }
+}
+
+/**
  * A timer started, changed or stopped on another phone (src/push.rs): shows or removes the same
  * running-timer notification as for this phone's own timers.
  */
@@ -110,6 +161,7 @@ class PushService : FirebaseMessagingService() {
                 chip = d["chip"]?.takeIf { it.isNotEmpty() },
             )
             "cancel" -> TimerNotice.cancel(this, id)
+            "remind" -> ReminderNotice.show(this, id, title = d["title"] ?: return, body = d["body"] ?: "")
         }
     }
 

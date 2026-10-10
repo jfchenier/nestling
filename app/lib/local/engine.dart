@@ -6,6 +6,7 @@ import 'package:cryptography/dart.dart';
 import '../models.dart';
 import 'domain.dart';
 import 'nara_csv.dart';
+import 'schedule.dart';
 import 'store.dart';
 
 /// Answers the API's requests from the [LocalStore], with the server's rules, so the app works
@@ -238,6 +239,8 @@ class LocalEngine {
       'created_at': now,
       'updated_at': now,
       'photo_version': null,
+      'medicines': <dynamic>[],
+      'reminders': <dynamic>[],
     };
     (f['children'] as List).add(child);
     store.markChanged('c:${child['id']}');
@@ -254,6 +257,8 @@ class LocalEngine {
     for (final k in ['birth_date', 'sex']) {
       if (req.containsKey(k)) c[k] = req[k];
     }
+    if (req['medicines'] != null) c['medicines'] = checkMedicines(req['medicines']);
+    if (req['reminders'] != null) c['reminders'] = checkReminders(req['reminders']);
     c['updated_at'] = fmt(nowMs());
     store.markChanged('c:$id');
     return c;
@@ -607,12 +612,26 @@ class LocalEngine {
     final events = _trendEvents(childId, r0, r1);
     return {
       'child': child,
+      'medicines': [
+        for (final m in (child['medicines'] as List? ?? const []))
+          medicineJson(Map<String, dynamic>.from(m), medicineDoses(childId, m['name'] as String, now), now, fmt),
+      ],
       'last': last,
       'since': since,
       'timers': timers,
       'today': (computeTrends(events, today, 1, now, day: _dayOf(child))['days'] as List).first,
       'last_24h': last24h(events, now, day: _dayOf(child)),
     };
+  }
+
+  /// Dose times of a medicine, newest first (see src/reminders.rs `medicine_doses`).
+  List<int> medicineDoses(String childId, String name, int now) {
+    final key = medicineKey(name);
+    return [
+      for (final e in store.eventsOf(childId))
+        if (e['type'] == 'health' && e['kind'] == 'medicine' && e['name'] is String && medicineKey(e['name']) == key)
+          if (startOf(e) case final s when s <= now) s,
+    ]..sort((a, b) => b.compareTo(a));
   }
 
   Map<String, dynamic> trends(String childId, Map<String, String> q) {

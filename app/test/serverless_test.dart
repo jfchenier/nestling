@@ -71,6 +71,31 @@ void main() {
     expect(a.handle('PATCH', '/children/${old['id']}', body: {'name': 'Bea', 'birth_date': null})['name'], 'Bea');
   });
 
+  test('medicine schedules work without a server, like on the server', () async {
+    final (_, a) = await phone('Mom');
+    final fam = a.createFamily({'name': 'Home', 'timezone': 'UTC'});
+    final c = a.createChild(fam['id'], {'name': 'Léa', 'birth_date': '2026-06-01'});
+    expect(
+      () => a.handle('PATCH', '/children/${c['id']}', body: {'medicines': [{'name': 'Tylenol', 'every_hours': 0}]}),
+      throwsA(isA<ApiException>().having((e) => e.message, 'message', contains('every_hours'))),
+    );
+    final saved = a.handle('PATCH', '/children/${c['id']}', body: {
+      'medicines': [{'name': ' Acetaminophen  (Tylenol) ', 'every_hours': 4, 'max_per_day': 5, 'dose': 2.5, 'dose_unit': 'mL', 'remind': true}],
+      'reminders': [{'type': 'feed', 'after_minutes': 180}],
+    });
+    expect(saved['medicines'][0]['name'], 'Acetaminophen (Tylenol)');
+    expect(saved['reminders'][0]['after_minutes'], 180);
+    var med = a.handle('GET', '/children/${c['id']}/summary')['medicines'][0];
+    expect((med['due'], med['last_at']), (true, null));
+    final fiveHoursAgo = DateTime.now().subtract(const Duration(hours: 5)).toUtc().toIso8601String();
+    a.handle('POST', '/children/${c['id']}/events', body: {'type': 'health', 'kind': 'medicine', 'name': 'acetaminophen (tylenol)', 'start': fiveHoursAgo});
+    med = a.handle('GET', '/children/${c['id']}/summary')['medicines'][0];
+    expect((med['due'], med['doses_24h']), (true, 1));
+    a.handle('POST', '/children/${c['id']}/events', body: {'type': 'health', 'kind': 'medicine', 'name': 'Acetaminophen (Tylenol)', 'start': 'now'});
+    med = a.handle('GET', '/children/${c['id']}/summary')['medicines'][0];
+    expect((med['due'], med['doses_24h']), (false, 2));
+  });
+
   test('a saved feed can be continued as a timer, like on the server', () async {
     final (store, a) = await phone('Mom');
     final fam = a.createFamily({'name': 'Home', 'timezone': 'UTC'});

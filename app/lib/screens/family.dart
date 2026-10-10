@@ -15,6 +15,7 @@ import 'child_form.dart';
 import 'day_hours.dart';
 import 'home.dart' show ChildAvatar;
 import 'pairing.dart';
+import 'schedules.dart';
 import 'users.dart';
 
 /// Family, caregivers, babies, settings and Nara import.
@@ -126,6 +127,14 @@ class FamilyScreen extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (s.child case final child?)
+                    ListTile(
+                      leading: const Icon(Icons.medication_outlined),
+                      title: Text(s.pushEnabled ? 'Medicines and reminders' : 'Medicine schedule'),
+                      subtitle: Text(SchedulesScreen.describe(child, reminders: s.pushEnabled)),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SchedulesScreen())),
+                    ),
                   ListTile(
                     leading: const Icon(Icons.wb_twilight_rounded),
                     title: const Text('Day and night'),

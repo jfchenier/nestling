@@ -141,7 +141,7 @@ impl Push {
     }
 
     /// Sends [data] to every phone of the family's members.
-    async fn send_family(&self, state: &AppState, family_id: &str, data: Value, collapse_key: &str) -> anyhow::Result<()> {
+    pub(crate) async fn send_family(&self, state: &AppState, family_id: &str, data: Value, collapse_key: &str) -> anyhow::Result<()> {
         let tokens: Vec<(String,)> = sqlx::query_as(
             "SELECT p.fcm_token FROM push_devices p JOIN memberships m ON m.user_id = p.user_id WHERE m.family_id = ?",
         )
@@ -253,7 +253,7 @@ pub async fn timer_message(state: &AppState, action: &str, timer: &Value) -> any
 }
 
 /// Same as `duration(seconds, showSeconds: true)` in `app/lib/format.dart`.
-fn duration(seconds: i64) -> String {
+pub(crate) fn duration(seconds: i64) -> String {
     if seconds >= 86400 {
         return format!("{}d {}h", seconds / 86400, (seconds % 86400) / 3600);
     }
