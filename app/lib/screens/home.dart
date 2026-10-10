@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -5,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../format.dart';
+import '../local/schedule.dart' show medicineKey;
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
@@ -39,6 +41,7 @@ class HomeScreen extends StatelessWidget {
                 // Rolling last 24 hours (older servers: the calendar day).
                 if ((s.summary?['last_24h'] ?? s.summary?['today']) case final Map<String, dynamic> stats)
                   _TodayStrip(today: stats, units: s.units, rolling: s.summary?['last_24h'] != null),
+                const _ReminderStrip(),
                 _CardGrid(cards: _cards(context, s, history)),
                 const SizedBox(height: 8),
                 Center(
@@ -644,6 +647,186 @@ class ChildAvatar extends StatelessWidget {
                 style: serifStyle(size * 0.46, color: context.pal.bandInk),
               ),
             ),
+    );
+  }
+}
+
+/// What needs doing: the child's medicine schedules (when the next dose is allowed, with a button
+/// to log one) and the reminders that are due ("no feed for 3h 10m"). Works without a server's
+/// notifications; refreshed every minute so a reminder shows up as soon as it's due.
+class _ReminderStrip extends StatefulWidget {
+  const _ReminderStrip();
+
+  @override
+  State<_ReminderStrip> createState() => _ReminderStripState();
+}
+
+class _ReminderStripState extends State<_ReminderStrip> {
+  late final Timer _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(minutes: 1), (_) => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _tick.cancel();
+    super.dispose();
+  }
+
+  static String _medicineStatus(Map m, DateTime now) {
+    final next = DateTime.tryParse('${m['next_at']}')?.toLocal();
+    if (next == null) return 'No dose given yet';
+    if (!next.isAfter(now)) return 'Next dose can be given now';
+    final at = DateFormat.Hm().format(next);
+    final day = DateTime(next.year, next.month, next.day).difference(DateTime(now.year, now.month, now.day)).inDays;
+    final when = day == 0 ? at : (day == 1 ? 'tomorrow $at' : '${DateFormat.MMMd().format(next)} $at');
+    final max = toInt(m['max_per_day']);
+    return max == null ? 'Next dose at $when' : 'Next dose at $when · ${m['doses_24h']} of $max in 24 h';
+  }
+
+  /// The child's reminders that are due now: type, time since, and a key naming the entry it
+  /// counts from (like src/reminders.rs, which also sends them to phones when the server can).
+  static List<(String, Duration, String)> dueReminders(AppState s, DateTime now) {
+    final out = <(String, Duration, String)>[];
+    for (final r in s.child?.reminders ?? const <Map<String, dynamic>>[]) {
+      final type = r['type'] as String?, after = toInt(r['after_minutes']);
+      if (type == null || after == null) continue;
+      final timer = type == 'feed' ? 'breastfeed' : type;
+      if (s.timers.any((t) => t.kind == timer)) continue;
+      final v = s.summary?['last']?[type];
+      if (v is! Map<String, dynamic>) continue;
+      final e = Event(v);
+      final ref = type == 'sleep' ? (e.end ?? e.start) : e.start;
+      final since = now.difference(ref);
+      if (since.inMinutes >= after) out.add((type, since, '${s.childId}/$type/${ref.millisecondsSinceEpoch}'));
+    }
+    return out;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<AppState>();
+    final pal = context.pal, now = DateTime.now();
+    // Swiping a row away hides it on this device until what it is about changes (its key).
+    Widget row({
+      required String key,
+      required Kind kind,
+      IconData? icon,
+      required String title,
+      required String status,
+      required bool urgent,
+      String? action,
+      VoidCallback? onTap,
+    }) {
+      final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
+      // Shown under the card while it is swiped, on the side it uncovers.
+      Widget behind(Alignment side) => Container(
+        alignment: side,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(color: pal.accentSoft, borderRadius: BorderRadius.circular(14)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.visibility_off_rounded, size: 20, color: pal.accent),
+            const SizedBox(width: 6),
+            Text('Hide', style: TextStyle(color: pal.accent, fontWeight: FontWeight.w700)),
+          ],
+        ),
+      );
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Dismissible(
+          key: ValueKey(key),
+          onDismissed: (_) => s.dismiss(key),
+          background: behind(Alignment.centerLeft),
+          secondaryBackground: behind(Alignment.centerRight),
+          child: Material(
+            color: pal.surface,
+            shape: shape.copyWith(side: BorderSide(color: pal.line)),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              shape: shape,
+              leading: BlobIcon(kind, icon: icon, size: 38),
+              title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(
+                status,
+                style: TextStyle(color: urgent ? kind.on(pal) : pal.muted, fontWeight: urgent ? FontWeight.w700 : null),
+              ),
+              trailing: action == null ? null : FilledButton.tonal(onPressed: onTap, child: Text(action)),
+              onTap: onTap,
+            ),
+          ),
+        ),
+      );
+    }
+    final rows = <(String, Widget Function(String))>[
+      for (final (type, since, key) in dueReminders(s, now))
+        (
+          key,
+          (key) => row(
+            key: key,
+            kind: switch (type) {
+              'feed' => Kind.breast,
+              'sleep' => Kind.sleep,
+              'diaper' => Kind.diaper,
+              _ => Kind.pump,
+            },
+            title: switch (type) {
+              'feed' => 'Feed reminder',
+              'sleep' => 'Sleep reminder',
+              'diaper' => 'Diaper reminder',
+              _ => 'Pump reminder',
+            },
+            status: switch (type) {
+              'feed' => 'No feed for ${duration(since.inSeconds)}',
+              'sleep' => 'Awake for ${duration(since.inSeconds)}',
+              'diaper' => 'No diaper change for ${duration(since.inSeconds)}',
+              _ => 'No pumping for ${duration(since.inSeconds)}',
+            },
+            urgent: true,
+            action: type == 'sleep' ? 'Start' : 'Log',
+            onTap: () => switch (type) {
+              'feed' => showFeedPicker(context),
+              'diaper' => showEventForm(context, type: 'diaper'),
+              final kind => TimerScreen.open(context, kind),
+            },
+          ),
+        ),
+      for (final m in (s.summary?['medicines'] as List? ?? const []))
+        if (m is Map)
+          () {
+            final next = DateTime.tryParse('${m['next_at']}')?.toLocal();
+            final canGive = next == null || !next.isAfter(now);
+            void give() => showEventForm(
+              context,
+              type: 'health',
+              prefill: {'kind': 'medicine', 'name': m['name'], 'dose': m['dose'], 'dose_unit': m['dose_unit']},
+            );
+            // Comes back after the next dose, and when the next one becomes allowed.
+            final key = '${s.childId}/medicine/${medicineKey('${m['name']}')}/${m['next_at']}/$canGive';
+            return (
+              key,
+              (String key) => row(
+                key: key,
+                kind: Kind.health,
+                icon: Icons.medication_rounded,
+                title: '${m['name']}',
+                status: _medicineStatus(m, now),
+                urgent: canGive,
+                action: canGive ? 'Give' : null,
+                onTap: give,
+              ),
+            );
+          }(),
+    ].where((r) => !s.dismissed.contains(r.$1)).toList();
+    if (rows.isEmpty) return const SizedBox.shrink();
+    // One card per row, so each one can be swiped away on its own.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(children: [for (final (key, build) in rows) build(key)]),
     );
   }
 }

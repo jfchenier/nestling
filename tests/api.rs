@@ -892,3 +892,104 @@ async fn timer_changes_reach_registered_phones() {
     let (n,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM push_devices").fetch_one(&c.db()).await.unwrap();
     assert_eq!(n, 0);
 }
+
+#[tokio::test]
+async fn medicine_schedule_and_reminders() {
+    use nestling::push::{Push, PushConfig, ServiceAccount};
+    let key = std::process::Command::new("openssl")
+        .args(["genpkey", "-algorithm", "RSA", "-pkeyopt", "rsa_keygen_bits:2048"])
+        .output()
+        .expect("openssl is needed for this test");
+    let (fake, sent) = fake_fcm().await;
+    let db = connect("sqlite::memory:", 1).await.unwrap();
+    // No background loop: the test calls `check` itself.
+    let state = AppState::new(db.clone(), Config { open_registration: true, nara: NaraConfig::default() });
+    let push = Push::new(PushConfig {
+        account: ServiceAccount {
+            project_id: "p".into(),
+            client_email: "nestling@p.iam.gserviceaccount.com".into(),
+            private_key: String::from_utf8(key.stdout).unwrap(),
+            token_uri: format!("{fake}/token"),
+        },
+        app_id: "1:1234:android:abcd".into(),
+        api_key: "key".into(),
+        fcm_url: fake,
+    });
+    let c = Client { app: app(state.clone(), None), db };
+    let mom = c.register("mom@example.com", "Mom").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&mom), Some(json!({ "name": "Home", "timezone": "America/Toronto" }))).await;
+    let fid = fam["id"].as_str().unwrap().to_string();
+    let (_, child) = c
+        .call(Method::POST, &format!("/families/{fid}/children"), Some(&mom), Some(json!({ "name": "Léa", "birth_date": "2026-06-01" })))
+        .await;
+    let cid = child["id"].as_str().unwrap().to_string();
+    assert_eq!(child["medicines"], json!([]));
+    c.call(Method::POST, "/me/push-devices", Some(&mom), Some(json!({ "token": "moms-phone" }))).await;
+
+    // Schedules and reminders are saved on the child.
+    let (s, err) = c
+        .call(Method::PATCH, &format!("/children/{cid}"), Some(&mom), Some(json!({ "reminders": [{ "type": "bath", "after_minutes": 60 }] })))
+        .await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{err}");
+    let (s, child) = c
+        .call(
+            Method::PATCH,
+            &format!("/children/{cid}"),
+            Some(&mom),
+            Some(json!({
+                "medicines": [{ "name": " Acetaminophen  (Tylenol) ", "every_hours": 4, "max_per_day": 5, "dose": 2.5, "dose_unit": "mL", "remind": true }],
+                "reminders": [{ "type": "feed", "after_minutes": 180 }],
+            })),
+        )
+        .await;
+    assert_eq!(s, StatusCode::OK, "{child}");
+    assert_eq!(child["medicines"][0]["name"], "Acetaminophen (Tylenol)");
+    assert_eq!(child["reminders"][0]["after_minutes"], 180);
+
+    // No dose yet: it can be given now.
+    let (_, sum) = c.call(Method::GET, &format!("/children/{cid}/summary"), Some(&mom), None).await;
+    assert_eq!(sum["medicines"][0]["due"], true, "{sum}");
+    assert_eq!(sum["medicines"][0]["last_at"], Value::Null);
+
+    // A dose 5 h ago (name written differently) and a feed 4 h ago.
+    let ago = |h: i64| (chrono::Utc::now() - chrono::Duration::hours(h)).to_rfc3339();
+    c.call(
+        Method::POST,
+        &format!("/children/{cid}/events"),
+        Some(&mom),
+        Some(json!({ "type": "health", "kind": "medicine", "name": "acetaminophen (tylenol)", "dose": 2.5, "start": ago(5) })),
+    )
+    .await;
+    c.call(Method::POST, &format!("/children/{cid}/events"), Some(&mom), Some(json!({ "type": "feed", "method": "bottle", "amount_ml": 90, "start": ago(4) })))
+        .await;
+    let (_, sum) = c.call(Method::GET, &format!("/children/{cid}/summary"), Some(&mom), None).await;
+    let med = &sum["medicines"][0];
+    assert_eq!((med["due"].clone(), med["doses_24h"].clone()), (json!(true), json!(1)), "{sum}");
+
+    // Both reminders go out once.
+    let now = nestling::util::now_ms();
+    nestling::reminders::check(&state, &push, now).await.unwrap();
+    nestling::reminders::check(&state, &push, now + 60_000).await.unwrap();
+    let msgs = sent.lock().unwrap().clone();
+    assert_eq!(msgs.len(), 2, "{msgs:?}");
+    let titles: Vec<String> = msgs.iter().map(|m| m["message"]["data"]["title"].as_str().unwrap().to_string()).collect();
+    assert!(titles.contains(&"Léa · Feed reminder".to_string()), "{titles:?}");
+    assert!(titles.contains(&"Léa · Acetaminophen (Tylenol)".to_string()), "{titles:?}");
+    assert!(msgs.iter().all(|m| m["message"]["data"]["action"] == "remind"));
+    let feed = msgs.iter().find(|m| m["message"]["data"]["title"] == "Léa · Feed reminder").unwrap();
+    assert!(feed["message"]["data"]["body"].as_str().unwrap().starts_with("No feed in 4h 0"), "{feed}");
+
+    // A new dose: not allowed again for 4 h, and no reminder until then.
+    c.call(
+        Method::POST,
+        &format!("/children/{cid}/events"),
+        Some(&mom),
+        Some(json!({ "type": "health", "kind": "medicine", "name": "Acetaminophen (Tylenol)", "start": "now" })),
+    )
+    .await;
+    let (_, sum) = c.call(Method::GET, &format!("/children/{cid}/summary"), Some(&mom), None).await;
+    assert_eq!(sum["medicines"][0]["due"], false, "{sum}");
+    assert_eq!(sum["medicines"][0]["doses_24h"], 2);
+    nestling::reminders::check(&state, &push, nestling::util::now_ms()).await.unwrap();
+    assert_eq!(sent.lock().unwrap().len(), 2);
+}

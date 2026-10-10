@@ -25,9 +25,11 @@ use crate::{
         events::{EventRow, EVENT_COLS},
         timers::child_timers,
     },
+    reminders::medicines_status,
+    schedule::{medicine_json, parse_medicines},
     state::AppState,
     trends::{self, TrendEvent},
-    util::now_ms,
+    util::{fmt_time, now_ms},
 };
 
 async fn trend_events(state: &AppState, child_id: &str, r0: i64, r1: i64) -> AppResult<Vec<TrendEvent>> {
@@ -105,8 +107,16 @@ pub async fn summary(State(state): State<AppState>, user: AuthUser, Path(child_i
     let (r0, r1) = trends::range_ms(ctx.tz, today, 1);
     let events = trend_events(&state, &child_id, r0, r1).await?;
     let t = trends::compute(&events, ctx.tz, ctx.day, today, 1, now);
+    let (medicines,): (String,) = sqlx::query_as("SELECT medicines FROM children WHERE id = ?").bind(&child_id).fetch_one(&state.db).await?;
+    let medicines: Vec<Value> = medicines_status(&state.db, &child_id, &parse_medicines(&medicines), now)
+        .await?
+        .iter()
+        .map(|(m, st)| medicine_json(m, st, now, |ms| fmt_time(ms, ctx.tz)))
+        .collect();
     Ok(Json(json!({
         "child": child_json(&state, &child_id, ctx.tz).await?,
+        // Each medicine schedule with when its next dose is allowed.
+        "medicines": medicines,
         "last": last,
         "since": since,
         "timers": timers,

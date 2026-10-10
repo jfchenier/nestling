@@ -68,7 +68,8 @@ impl AppState {
     pub fn with_push(mut self, push: Push) -> Self {
         let push = Arc::new(push);
         self.push = Some(push.clone());
-        crate::push::spawn(self.clone(), push);
+        crate::push::spawn(self.clone(), push.clone());
+        crate::reminders::spawn(self.clone(), push);
         self
     }
 

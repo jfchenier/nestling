@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../format.dart';
+import '../local/schedule.dart' show medicineKey;
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
@@ -11,19 +13,22 @@ import '../widgets/medicine_picker.dart';
 import 'timer_screen.dart';
 
 /// Log a new event of [type] (feeds also take a [method]) or edit [event].
-Future<void> showEventForm(BuildContext context, {String? type, String? method, Event? event}) => showModalBottomSheet(
-  context: context,
-  isScrollControlled: true,
-  useSafeArea: true,
-  backgroundColor: context.pal.background,
-  builder: (_) => EventForm(type: event?.type ?? type!, method: event?['method'] ?? method, event: event),
-);
+/// [prefill]: values for a new entry (e.g. a scheduled medicine's name and dose).
+Future<void> showEventForm(BuildContext context, {String? type, String? method, Event? event, Map<String, dynamic>? prefill}) =>
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: context.pal.background,
+      builder: (_) => EventForm(type: event?.type ?? type!, method: event?['method'] ?? method, event: event, prefill: prefill),
+    );
 
 class EventForm extends StatefulWidget {
-  const EventForm({super.key, required this.type, this.method, this.event});
+  const EventForm({super.key, required this.type, this.method, this.event, this.prefill});
   final String type;
   final String? method;
   final Event? event;
+  final Map<String, dynamic>? prefill;
 
   @override
   State<EventForm> createState() => _EventFormState();
@@ -67,10 +72,11 @@ class _EventFormState extends State<EventForm> {
   late final _length = _num(e?['length_cm'], u.lengthIn);
   late final _head = _num(e?['head_cm'], u.lengthIn);
   // health
-  late String _healthKind = e?['kind'] ?? 'medicine';
-  late final _name = TextEditingController(text: e?['name'] ?? '');
-  late final _dose = _num(e?['dose'], (v) => v);
-  late final _doseUnit = TextEditingController(text: e?['dose_unit'] ?? 'mL');
+  late final Map<String, dynamic>? _pre = e == null ? widget.prefill : null;
+  late String _healthKind = e?['kind'] ?? _pre?['kind'] ?? 'medicine';
+  late final _name = TextEditingController(text: e?['name'] ?? _pre?['name'] ?? '');
+  late final _dose = _num(e?['dose'] ?? _pre?['dose'], (v) => v);
+  late final _doseUnit = TextEditingController(text: e?['dose_unit'] ?? _pre?['dose_unit'] ?? 'mL');
   late final _temp = _num(e?['temperature_c'], u.tempIn);
   // activity
   late final _activityKind = TextEditingController(text: e?['kind'] ?? '');
@@ -379,6 +385,33 @@ class _EventFormState extends State<EventForm> {
     ),
   );
 
+  /// A new dose of a scheduled medicine given before it's allowed: what to tell the caregiver.
+  String? _tooSoon() {
+    if (e != null) return null;
+    final key = medicineKey(_name.text);
+    final meds = context.read<AppState>().summary?['medicines'];
+    final m = (meds is List ? meds : const []).whereType<Map>().where((m) => medicineKey('${m['name']}') == key).firstOrNull;
+    if (m == null || m['due'] == true) return null;
+    final next = DateTime.tryParse('${m['next_at']}')?.toLocal(), last = DateTime.tryParse('${m['last_at']}')?.toLocal();
+    if (next == null || !_start.isBefore(next)) return null;
+    final at = DateFormat.Hm().format(next);
+    if (m['limited'] == true) return 'Already ${m['doses_24h']} doses in 24 hours. Next one allowed at $at.';
+    return 'Last dose at ${last == null ? '?' : DateFormat.Hm().format(last)}. Next one allowed at $at.';
+  }
+
+  Widget _warningRow(String text) => Container(
+    margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(color: context.pal.danger.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(12)),
+    child: Row(
+      children: [
+        Icon(Icons.warning_amber_rounded, color: context.pal.danger),
+        const SizedBox(width: 10),
+        Expanded(child: Text(text, style: TextStyle(color: context.pal.ink, height: 1.3))),
+      ],
+    ),
+  );
+
   /// Medicine list (recent first, then common, or a custom name); fills the last dose used.
   Future<void> _chooseMedicine() async {
     final m = await showMedicinePicker(context);
@@ -541,7 +574,11 @@ class _EventFormState extends State<EventForm> {
                 'appointment' => 'Doctor',
                 _ => 'Symptom',
               }, _name),
-            if (_healthKind == 'medicine') ...[_numRow('Dose', _dose, null), _textRow('Unit', _doseUnit)],
+            if (_healthKind == 'medicine') ...[
+              if (_tooSoon() case final warning?) _warningRow(warning),
+              _numRow('Dose', _dose, null),
+              _textRow('Unit', _doseUnit),
+            ],
           ],
         ];
       case 'activity':

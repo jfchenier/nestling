@@ -11,24 +11,27 @@ use serde_json::{json, Value};
 use crate::{
     auth::{child_access, family_tz, require_member, AuthUser},
     error::{bad, ApiJson, AppResult},
+    schedule::{check_medicines, check_reminders, parse_medicines, parse_reminders, Medicine, Reminder},
     state::AppState,
     util::{fmt_time, new_id, now_ms},
 };
 
-type ChildRow = (String, String, String, Option<String>, Option<String>, i64, i64, Option<i64>);
+type ChildRow = (String, String, String, Option<String>, Option<String>, i64, i64, Option<i64>, String, String);
 
 fn child_value(row: ChildRow, tz: Tz) -> Value {
-    let (id, family_id, name, birth_date, sex, created_at, updated_at, photo_version) = row;
+    let (id, family_id, name, birth_date, sex, created_at, updated_at, photo_version, medicines, reminders) = row;
     json!({
         "id": id, "family_id": family_id, "name": name, "birth_date": birth_date, "sex": sex,
         "created_at": fmt_time(created_at, tz), "updated_at": fmt_time(updated_at, tz),
         // Changes whenever the photo does (null: no photo); fetch it from /children/{id}/photo.
         "photo_version": photo_version,
+        "medicines": parse_medicines(&medicines),
+        "reminders": parse_reminders(&reminders),
     })
 }
 
 const CHILD_COLS: &str = "id, family_id, name, birth_date, sex, created_at, updated_at, \
-    (SELECT p.updated_at FROM child_photos p WHERE p.child_id = children.id) AS photo_version";
+    (SELECT p.updated_at FROM child_photos p WHERE p.child_id = children.id) AS photo_version, medicines, reminders";
 
 pub async fn children_json(state: &AppState, family_id: &str, tz: Tz) -> AppResult<Vec<Value>> {
     let rows: Vec<ChildRow> = sqlx::query_as(&format!("SELECT {CHILD_COLS} FROM children WHERE family_id = ? ORDER BY created_at"))
@@ -115,6 +118,11 @@ pub struct UpdateChildReq {
     birth_date: Option<Option<NaiveDate>>,
     #[serde(default, deserialize_with = "double_option")]
     sex: Option<Option<String>>,
+    /// Replaces the whole list.
+    #[serde(default)]
+    medicines: Option<Vec<Medicine>>,
+    #[serde(default)]
+    reminders: Option<Vec<Reminder>>,
 }
 
 fn double_option<'de, T, D>(d: D) -> Result<Option<Option<T>>, D::Error>
@@ -143,6 +151,22 @@ pub async fn update(State(state): State<AppState>, user: AuthUser, Path(child_id
     if let Some(sex) = req.sex {
         check_sex(&sex)?;
         sqlx::query("UPDATE children SET sex = ? WHERE id = ?").bind(sex).bind(&child_id).execute(&state.db).await?;
+    }
+    if let Some(mut list) = req.medicines {
+        check_medicines(&mut list)?;
+        sqlx::query("UPDATE children SET medicines = ? WHERE id = ?")
+            .bind(serde_json::to_string(&list)?)
+            .bind(&child_id)
+            .execute(&state.db)
+            .await?;
+    }
+    if let Some(list) = req.reminders {
+        check_reminders(&list)?;
+        sqlx::query("UPDATE children SET reminders = ? WHERE id = ?")
+            .bind(serde_json::to_string(&list)?)
+            .bind(&child_id)
+            .execute(&state.db)
+            .await?;
     }
     sqlx::query("UPDATE children SET updated_at = ? WHERE id = ?").bind(now_ms()).bind(&child_id).execute(&state.db).await?;
     let child = child_json(&state, &child_id, ctx.tz).await?;

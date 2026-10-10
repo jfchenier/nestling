@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nestling/local/domain.dart';
+import 'package:nestling/local/schedule.dart';
 
 int ms(String local) => DateTime.parse(local).millisecondsSinceEpoch;
 
@@ -41,6 +42,22 @@ void main() {
     final first = [Segment('left', 0, 0)];
     pushSegment(first, Segment('left', 20));
     expect(first.length, 2);
+  });
+
+  test('next medicine dose (same cases as schedule.rs)', () {
+    const h = 3600000, now = 100 * h;
+    Map<String, dynamic> med(num every, [int? max]) => {'name': 'Tylenol', 'every_hours': every, 'max_per_day': ?max};
+    expect(medicineStatus(med(4), [], now).nextAt, null);
+    var st = medicineStatus(med(4), [now - h, now - 6 * h], now);
+    expect((st.lastAt, st.nextAt, st.doses24h, st.limited), (now - h, now + 3 * h, 2, false));
+    final doses = [now - h, now - 6 * h, now - 12 * h, now - 20 * h, now - 30 * h];
+    st = medicineStatus(med(4, 4), doses, now);
+    expect((st.nextAt, st.doses24h, st.limited), (now + 4 * h, 4, true));
+    st = medicineStatus(med(4, 5), doses, now);
+    expect((st.nextAt, st.limited), (now + 3 * h, false));
+    expect(() => checkMedicines([med(4, 4), {...med(6), 'name': '  tylenol '}]), throwsA(anything));
+    expect(checkMedicines([{...med(24), 'name': ' Vitamin   D ', 'dose_unit': ' '}]).first, {'name': 'Vitamin D', 'every_hours': 24, 'remind': false});
+    expect(() => checkReminders([{'type': 'bath', 'after_minutes': 180}]), throwsA(anything));
   });
 
   test('stopping a breastfeed timer makes a feed', () {

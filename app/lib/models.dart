@@ -48,6 +48,12 @@ class Child {
   String? get sex => json['sex'];
   DateTime? get birthDate => json['birth_date'] is String ? DateTime.tryParse(json['birth_date']) : null;
 
+  /// Medicine schedules (`{name, every_hours, max_per_day?, dose?, dose_unit?, remind}`).
+  List<Map<String, dynamic>> get medicines => [for (final m in (json['medicines'] as List? ?? const [])) Map<String, dynamic>.from(m)];
+
+  /// Reminders (`{type, after_minutes}`), sent by a server set up for notifications.
+  List<Map<String, dynamic>> get reminders => [for (final r in (json['reminders'] as List? ?? const [])) Map<String, dynamic>.from(r)];
+
   /// "3 months 2 weeks", "5 days", "1 year 2 months".
   String? get age {
     final b = birthDate;
