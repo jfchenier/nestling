@@ -22,7 +22,7 @@ activity color. Colors live in
 ## Screens
 
 - **Home** — the baby's name and photo at the top (tap them to switch baby or add one) and the
-  Family and Settings buttons top right; then running-timer banners, today's totals, then two cards per row in a fixed order
+  Medicines and reminders, Family and Settings buttons top right; then running-timer banners, today's totals, then two cards per row in a fixed order
   (Feed · Sleep / Diaper · Pump / Growth · Health / Routine · Firsts). Each card shows the latest
   entry and a big value ("last side", "dirty", "1h 06m"…), or the live clock of a running timer.
   **Tap a card to log** (Feed asks Breastfeed / Bottle / Solids / Combo; Firsts adds a memory, over the baby book); the button in its header (History; Charts for Growth, Book for Firsts)
@@ -111,8 +111,7 @@ activity color. Colors live in
 - **Family** (the people button on Home) — babies (with a profile picture: tap a baby → Add a photo;
   cropped to a 512 px square before upload), caregivers, invite codes or phone pairing, join
   another family, delete the family.
-- **Settings** (the gear button on Home) — units (metric/imperial), appearance, medicines and
-  reminders, daytime hours for the day/night split (Day and night), time zone, Google Drive sync
+- **Settings** (the gear button on Home) — units (metric/imperial), appearance, daytime hours for the day/night split (Day and night), time zone, Google Drive sync
   and backup (serverless), history import from a previous tracker's CSV export (preview first),
   CSV export of everything, API token for Home Assistant; account: change password, users
   (admins), sign out.

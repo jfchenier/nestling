@@ -15,7 +15,6 @@ import 'child_form.dart';
 import 'day_hours.dart';
 import 'home.dart' show ChildAvatar;
 import 'pairing.dart';
-import 'schedules.dart';
 import 'users.dart';
 
 /// The family: its babies and caregivers, invites, joining another family (Home's people button).
@@ -135,8 +134,7 @@ class FamilyScreen extends StatelessWidget with _FamilyActions {
   }
 }
 
-/// Settings and the account (Home's gear button): units, appearance, medicines and reminders,
-/// day and night, time zone, Drive sync and backup, Nara import, export, API token.
+/// Settings and the account (Home's gear button): units, appearance, day and night, time zone, Drive sync and backup, Nara import, export, API token.
 class SettingsScreen extends StatelessWidget with _FamilyActions {
   const SettingsScreen({super.key});
 
@@ -176,14 +174,6 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
                       ),
                     ),
                   ),
-                  if (s.child case final child?)
-                    ListTile(
-                      leading: const Icon(Icons.medication_outlined),
-                      title: const Text('Medicines and reminders'),
-                      subtitle: Text(SchedulesScreen.describe(child)),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SchedulesScreen())),
-                    ),
                   ListTile(
                     leading: const Icon(Icons.wb_twilight_rounded),
                     title: const Text('Day and night'),

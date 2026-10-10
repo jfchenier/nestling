@@ -135,7 +135,7 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       `app/lib/local/schedule.dart`): lists saved on the child; the summary says when the next dose
       is allowed; reminders ("no feed in 3 h", "dose due") show on the app's home strip when due
       (any mode) and are pushed only when Firebase is set up (`state.push`), checked every minute,
-      once per entry (`reminders_sent`). App: Settings → Medicines and reminders; home strip
+      once per entry (`reminders_sent`). App: Home's medicine button (Medicines and reminders); home strip
       (`_ReminderStrip`, same due rule as `reminders.rs`); early-dose warning in the medicine form.
 - [x] **Baby book** (the Firsts card's Book button; tapping the card adds a memory; `app/lib/screens/baby_book.dart`): milestones as a
       scrapbook with one photo each (`/events/{id}/photo`, table `event_photos`; events carry
@@ -147,7 +147,7 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       (`BookChapter`); a milestone's `chapter` is any short id to the server. The book's own pages
       are texts on the child (`book`, replaced whole by `PATCH /children/{id}`; CSV `[Profile] Book`).
       "Banana for scale": repeatable milestones shown as a monthly photo strip.
-      Bottom tabs: Home, Timeline, Calendar, Trends, Book; Family and Settings open from Home's two top-right buttons.
+      Bottom tabs: Home, Timeline, Calendar, Trends, Book; Medicines and reminders, Family and Settings open from Home's three top-right buttons.
 - [ ] Optional: Home Assistant integration (`/children/{id}/summary` already works as a REST sensor).
 - Note: SSE behind a reverse proxy needs response buffering disabled (the stream sends `X-Accel-Buffering: no`,
   which covers nginx). The app reconnects after 40 s without the 15 s `ping`, on resume, and reloads on reconnect.

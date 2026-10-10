@@ -15,6 +15,7 @@ import 'baby_book.dart';
 import 'child_form.dart';
 import 'event_form.dart';
 import 'family.dart';
+import 'schedules.dart';
 import 'growth_chart.dart';
 import 'timeline.dart';
 import 'timer_screen.dart';
@@ -583,6 +584,12 @@ class _Header extends StatelessWidget {
           ),
         ),
       ),
+      _SquareButton(
+        icon: Icons.medication_rounded,
+        tooltip: 'Medicines and reminders',
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SchedulesScreen())),
+      ),
+      const SizedBox(width: 8),
       _SquareButton(
         icon: Icons.people_rounded,
         tooltip: 'Family',
