@@ -468,7 +468,13 @@ class _TimerScreenState extends State<TimerScreen> {
     final name = side == 'left' ? 'left' : 'right';
     return Column(
       children: [
-        _circle(t, side),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            _circle(t, side),
+            if (t == null && _lastSide(context.read<AppState>()) == side) Positioned(left: -6, top: -6, child: _lastSideBadge()),
+          ],
+        ),
         const SizedBox(height: 10),
         Row(
           mainAxisSize: MainAxisSize.min,
@@ -489,6 +495,33 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
+  /// Side the last breastfeed ended on, marked on its circle before a new one starts.
+  String? _lastSide(AppState s) {
+    final last = s.summary?['last']?['feed'];
+    return last is Map<String, dynamic> && last['method'] == 'breast' ? Event(last).endSide : null;
+  }
+
+  Widget _lastSideBadge() {
+    final c = context.pal;
+    return ExcludeSemantics(
+      child: Container(
+        width: 50,
+        height: 50,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: c.ink,
+          shape: BoxShape.circle,
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 6)],
+        ),
+        child: Text(
+          'Last\nside',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: c.background, fontSize: 12, height: 1.1, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+
   /// Big round side button: start, pause (same side), switch (other side) or resume.
   Widget _circle(TimerModel? t, String side) {
     final c = context.pal;
@@ -497,7 +530,7 @@ class _TimerScreenState extends State<TimerScreen> {
     final strong = c.isDark ? kind.fill(c) : kind.deepTone;
     final name = side == 'left' ? 'left' : 'right';
     final action = t == null
-        ? 'Start $name'
+        ? 'Start $name${_lastSide(context.read<AppState>()) == side ? ' (last side)' : ''}'
         : active
         ? 'Pause $name'
         : t.running
