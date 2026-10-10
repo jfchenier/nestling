@@ -551,6 +551,67 @@ async fn child_photo() {
 }
 
 #[tokio::test]
+async fn event_photo() {
+    let c = Client::new().await;
+    let t = c.register("a@example.com", "A").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&t), Some(json!({ "name": "F" }))).await;
+    let fid = fam["id"].as_str().unwrap();
+    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&t), Some(json!({ "name": "B", "birth_date": "2026-06-01" }))).await;
+    let cid = child["id"].as_str().unwrap();
+    let (_, ev) = c
+        .call(Method::POST, &format!("/children/{cid}/events"), Some(&t), Some(json!({ "type": "milestone", "name": "First smile", "start": "2026-07-01T10:00", "note": "At grandma's" })))
+        .await;
+    let eid = ev["id"].as_str().unwrap();
+    assert!(ev["photo_version"].is_null(), "{ev}");
+    let (_, synced) = c.call(Method::GET, &format!("/families/{fid}/sync"), Some(&t), None).await;
+    let cursor = synced["cursor"].as_i64().unwrap();
+
+    let jpeg = b"\xFF\xD8\xFF\xE0 not really a jpeg".to_vec();
+    let (s, _, body) = c.call_raw(Method::PUT, &format!("/events/{eid}/photo"), &t, jpeg.clone()).await;
+    assert_eq!(s, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let put: Value = serde_json::from_slice(&body).unwrap();
+    assert!(put["photo_version"].is_i64(), "{put}");
+    assert_eq!(put["name"], "First smile");
+    let (s, ct, body) = c.call_raw(Method::GET, &format!("/events/{eid}/photo"), &t, vec![]).await;
+    assert_eq!((s, ct.as_str(), body), (StatusCode::OK, "image/jpeg", jpeg.clone()));
+    // Other devices learn about it through the sync and the listing.
+    let (_, synced) = c.call(Method::GET, &format!("/families/{fid}/sync?since={cursor}"), Some(&t), None).await;
+    assert_eq!(synced["events"][0]["photo_version"], put["photo_version"], "{synced}");
+    let (_, list) = c.call(Method::GET, &format!("/children/{cid}/events?type=milestone"), Some(&t), None).await;
+    assert_eq!(list["events"][0]["photo_version"], put["photo_version"]);
+    // Editing the entry keeps the photo.
+    let (_, patched) = c.call(Method::PATCH, &format!("/events/{eid}"), Some(&t), Some(json!({ "name": "First real smile" }))).await;
+    assert_eq!(patched["photo_version"], put["photo_version"]);
+
+    // Teeth chart: a milestone may name the tooth (A-T).
+    let (s, tooth) = c.call(Method::PATCH, &format!("/events/{eid}"), Some(&t), Some(json!({ "tooth": "P" }))).await;
+    assert_eq!((s, tooth["tooth"].as_str()), (StatusCode::OK, Some("P")));
+    let (s, _) = c.call(Method::PATCH, &format!("/events/{eid}"), Some(&t), Some(json!({ "tooth": "Z" }))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    // And the book chapter it goes in.
+    let (s, ch) = c.call(Method::PATCH, &format!("/events/{eid}"), Some(&t), Some(json!({ "chapter": "celebrations" }))).await;
+    assert_eq!((s, ch["chapter"].as_str()), (StatusCode::OK, Some("celebrations")));
+    let (s, _) = c.call(Method::PATCH, &format!("/events/{eid}"), Some(&t), Some(json!({ "chapter": "Attic!" }))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let (s, _, _) = c.call_raw(Method::PUT, &format!("/events/{eid}/photo"), &t, b"<svg/>".to_vec()).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let other = c.register("b@example.com", "B").await;
+    let (s, _, _) = c.call_raw(Method::GET, &format!("/events/{eid}/photo"), &other, vec![]).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+
+    let (s, _, _) = c.call_raw(Method::DELETE, &format!("/events/{eid}/photo"), &t, vec![]).await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    let (_, ev) = c.call(Method::GET, &format!("/events/{eid}"), Some(&t), None).await;
+    assert!(ev["photo_version"].is_null(), "{ev}");
+
+    // Deleting the entry deletes its photo.
+    c.call_raw(Method::PUT, &format!("/events/{eid}/photo"), &t, jpeg).await;
+    c.call(Method::DELETE, &format!("/events/{eid}"), Some(&t), None).await;
+    let (s, _, _) = c.call_raw(Method::GET, &format!("/events/{eid}/photo"), &t, vec![]).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
 async fn csv_export_round_trip() {
     let c = Client::new().await;
     let t = c.register("export@example.com", "Ex").await;
@@ -560,6 +621,14 @@ async fn csv_export_round_trip() {
         .call(Method::POST, &format!("/families/{fid}/children"), Some(&t), Some(json!({ "name": "Léa", "birth_date": "2026-06-12", "sex": "female" })))
         .await;
     let cid = child["id"].as_str().unwrap();
+    // The baby book's pages: empty texts are dropped, keys are checked.
+    let book = json!({ "birth_place": "Home, \"by the window\"", "name_why": "After a great-grandmother.\nAnd it sounds nice.", "hair": " " });
+    let (s, b) = c.call(Method::PATCH, &format!("/children/{cid}"), Some(&t), Some(json!({ "book": book }))).await;
+    assert_eq!((s, b["book"].as_object().map(|o| o.len())), (StatusCode::OK, Some(2)), "{b}");
+    let (s, _) = c.call(Method::PATCH, &format!("/children/{cid}"), Some(&t), Some(json!({ "book": { "Bad Key": "x" } }))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let (s, _) = c.call(Method::PATCH, &format!("/children/{cid}"), Some(&t), Some(json!({ "book": { "n": 3 } }))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
     let entries = [
         json!({ "type": "feed", "method": "breast", "left_seconds": 600, "right_seconds": 300, "start_side": "left", "start": "2026-10-01T08:00", "note": "sleepy" }),
         json!({ "type": "feed", "method": "bottle", "amount_ml": 120, "milk": "formula", "formula_name": "Brand", "start": "2026-10-01T09:00" }),
@@ -577,6 +646,8 @@ async fn csv_export_round_trip() {
         json!({ "type": "health", "kind": "vaccine", "name": "Rotavirus", "start": "2026-10-01T18:00" }),
         json!({ "type": "activity", "kind": "tummy_time", "start": "2026-10-01T19:00", "end": "2026-10-01T19:10" }),
         json!({ "type": "milestone", "name": "First smile", "start": "2026-10-01T20:00" }),
+        json!({ "type": "milestone", "name": "First tooth", "tooth": "O", "start": "2026-10-02T09:00" }),
+        json!({ "type": "milestone", "name": "First Christmas", "chapter": "celebrations", "start": "2026-10-03T09:00" }),
         json!({ "type": "note", "note": "Visited grandma", "start": "2026-10-01T21:00" }),
     ];
     for e in &entries {
@@ -601,6 +672,7 @@ async fn csv_export_round_trip() {
     let cid2 = res["children_created"][0]["id"].as_str().unwrap();
     let (_, child2) = c.call(Method::GET, &format!("/children/{cid2}"), Some(&t), None).await;
     assert_eq!((child2["birth_date"].as_str(), child2["sex"].as_str()), (Some("2026-06-12"), Some("female")));
+    assert_eq!(child2["book"], b["book"]);
 
     let (_, a) = c.call(Method::GET, &format!("/children/{cid}/events?limit=100"), Some(&t), None).await;
     let (_, b) = c.call(Method::GET, &format!("/children/{cid2}/events?limit=100"), Some(&t), None).await;

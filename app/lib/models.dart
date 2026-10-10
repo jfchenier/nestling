@@ -54,11 +54,20 @@ class Child {
   /// Reminders (`{type, after_minutes}`), sent by a server set up for notifications.
   List<Map<String, dynamic>> get reminders => [for (final r in (json['reminders'] as List? ?? const [])) Map<String, dynamic>.from(r)];
 
+  /// The baby book's own pages: short texts by key (`birth_place`, `name_why`, `world_songs`…).
+  Map<String, String> get book => {
+    for (final MapEntry(:key, :value) in ((json['book'] as Map?) ?? const {}).entries)
+      if (value is String) key as String: value,
+  };
+
   /// "3 months 2 weeks", "5 days", "1 year 2 months".
-  String? get age {
+  String? get age => ageAt(DateTime.now());
+
+  /// [age] on another day (e.g. a memory's), null without a birth date.
+  String? ageAt(DateTime when) {
     final b = birthDate;
     if (b == null) return null;
-    final now = DateTime.now();
+    final now = when;
     final days = DateTime(now.year, now.month, now.day).difference(b).inDays;
     if (days < 0) return 'Due in ${-days} day${-days == 1 ? '' : 's'}';
     if (days < 14) return '$days day${days == 1 ? '' : 's'}';

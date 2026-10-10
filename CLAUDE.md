@@ -10,7 +10,7 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
 
 ## Status (2026-10-10)
 
-- Server: `cargo test` green (33 tests), one cosmetic clippy warning (`nara_csv.rs`, complex type).
+- Server: `cargo test` green (37 tests), one cosmetic clippy warning (`nara_csv.rs`, complex type).
   Runs in Docker on the owner's home server (Portainer stack from `ghcr.io/jfchenier/nestling:latest`).
   The Nara CSV import is verified on a real export; the Nara *account* import is not yet tried.
 - App (`app/`, Flutter): web build tested end-to-end in headless Chromium against the real server.
@@ -28,7 +28,7 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
 - Client: **Flutter**, one codebase for web (served by the server) and Android. Nestling's own
   airy design (the owner did *not* want a Nara copy); the one thing taken from Nara is the home **activity
   cards** — two per row, fixed order (Feed·Sleep / Diaper·Pump / Growth·Health / Routine·Firsts),
-  colored header band + history icon, **tap the card to log** (no floating +). Timers: big
+  colored header band + a labelled History button (Charts, Book), **tap the card to log** (no floating +). Timers: big
   Left/Right circles (nursing) or one big button; editable start time and durations (pencils);
   ✕ closes while the timer keeps running, Save in the top bar, Delete at the bottom. Forms:
   sheet with icon + title, label/value rows, big Save. **Own palette** ("nursery garden": oat
@@ -44,7 +44,7 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
 - Multi-tenant: any number of caregivers and children. Family = sharing unit; invites by short code.
 - Accounts: the first account on a server is the **admin**; sign-up is then closed
   (`NESTLING_OPEN_REGISTRATION` default false) and admins create accounts (`/admin/users`, app:
-  Family → Users). Recovery CLI: `nestling set-password <email> <pw>`, `nestling make-admin <email>`.
+  Settings → Users). Recovery CLI: `nestling set-password <email> <pw>`, `nestling make-admin <email>`.
 - v1 scope: feed, sleep, diaper, growth, health + Nara import. Pump/activity/milestone/note exist
   too so the Nara import loses nothing.
 - API should be **friendlier than Nara's**: metric units only (mL, g, cm, °C, seconds) — clients
@@ -61,7 +61,7 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
   `POST /events/{id}/continue` turns a saved entry back into a running timer — the Continue button on an entry's edit sheet), insights (summary, trends, SSE
   stream), import (Nara), export (CSV), admin (accounts), sync (offline push).
 - `src/trends.rs` — pure daily stats (day/night split by the family's `day_start`/`day_end`, 06–18 local by
-  default; app: Family → Day and night), sleep split at midnight; `previous` = the period before.
+  default; app: Settings → Day and night), sleep split at midnight; `previous` = the period before.
 - `src/nara.rs` — Nara Firebase login/fetch + `convert()` of tracks. Quantities are
   `Num / 10^Exp` in `Unit` (same as the wrapper's trends.py).
 - `src/nara_csv.rs` — Nara's CSV export (`Type`, `[<Type>] <field>` columns, `_activityKey` = same
@@ -117,11 +117,11 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       already stopped on another phone) is undone from the server's copy, with a notice.
 - [x] **Nara child names:** the CSV import reads the Profile row (name, birth date, sex). The
       account import still creates "Baby" / "Baby N".
-- [x] **Nara CSV import** (`/import/nara-csv`, app: Family → Import from Nara → Export file); verified
+- [x] **Nara CSV import** (`/import/nara-csv`, app: Settings → Import from Nara → Export file); verified
       on a real export (2,090 rows → 2,086 events, 4 empty medical rows skipped).
 - [x] **Security basics:** login/register rate limits (`src/limiter.rs`, in memory). Password reset
       without email: admins set a new password, or the `set-password` CLI.
-- [x] **Data export:** `GET /families/{id}/export.csv` (app: Family → Settings → Export data), in
+- [x] **Data export:** `GET /families/{id}/export.csv` (app: Settings → Export data), in
       the layout the CSV import reads, so it imports back without loss.
 - [x] Every time in a response is RFC 3339 (family ones in family tz, account/token ones in UTC).
       Resume/switch drop a closed segment under 1 s (unless it holds the start).
@@ -135,10 +135,20 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       `app/lib/local/schedule.dart`): lists saved on the child; the summary says when the next dose
       is allowed; reminders ("no feed in 3 h", "dose due") show on the app's home strip when due
       (any mode) and are pushed only when Firebase is set up (`state.push`), checked every minute,
-      once per entry (`reminders_sent`). App: Family → Medicines and reminders; home strip
+      once per entry (`reminders_sent`). App: Home's bell button (Medicines and reminders); home strip
       (`_ReminderStrip`, same due rule as `reminders.rs`); early-dose warning in the medicine form.
-- [ ] Optional: photos on milestones, Home Assistant integration
-      (`/children/{id}/summary` already works as a REST sensor).
+- [x] **Baby book** (the Firsts card's Book button; tapping the card adds a memory; `app/lib/screens/baby_book.dart`): milestones as a
+      scrapbook with one photo each (`/events/{id}/photo`, table `event_photos`; events carry
+      `photo_version`), built-in ideas of firsts plus custom ones. Serverless: `LocalStore.eventPhotos`
+      (saved apart, clocks `ep:<id>`), Drive sync sends each photo once as `photo-<id>-<version>.bin`.
+      Teeth chart (`app/lib/screens/teeth_chart.dart`): milestones with `tooth` = A–T (A–J upper, the
+      baby's right to left; K–T lower, left to right); only "First tooth" shows as a memory card.
+      Chapters (Waiting for you, Hello world, Firsts, Growing up, Celebrations) live in the app
+      (`BookChapter`); a milestone's `chapter` is any short id to the server. The book's own pages
+      are texts on the child (`book`, replaced whole by `PATCH /children/{id}`; CSV `[Profile] Book`).
+      "Banana for scale": repeatable milestones shown as a monthly photo strip.
+      Bottom tabs: Home, Timeline, Calendar, Trends, Book; Medicines and reminders, Family and Settings open from Home's three top-right buttons.
+- [ ] Optional: Home Assistant integration (`/children/{id}/summary` already works as a REST sensor).
 - Note: SSE behind a reverse proxy needs response buffering disabled (the stream sends `X-Accel-Buffering: no`,
   which covers nginx). The app reconnects after 40 s without the 15 s `ping`, on resume, and reloads on reconnect.
 

@@ -1,8 +1,8 @@
 # Nestling
 
 **A self-hosted baby tracker for the whole family.** Log feeds, sleep, diapers, pumping, growth
-and health from any phone, see what the other caregivers logged a second later, and keep every
-record on your own hardware.
+and health from any phone, see what the other caregivers logged a second later, keep a baby book
+of photos and firsts, and keep every record on your own hardware.
 
 Nestling is two parts that ship together:
 
@@ -11,9 +11,9 @@ Nestling is two parts that ship together:
 - **The server** — a small Rust service with one SQLite file that stores everything, keeps
   caregivers in sync and serves the web app.
 
-| Home | Live timer | Calendar | Trends |
-|---|---|---|---|
-| <img src="docs/screenshots/home-light.png" width="200" alt="Home: today's totals and a card per activity"> | <img src="docs/screenshots/timer-light.png" width="200" alt="Breastfeeding timer with left and right sides"> | <img src="docs/screenshots/calendar-dark.png" width="200" alt="Calendar: a column per day with a bar per entry"> | <img src="docs/screenshots/trends-light.png" width="200" alt="Trends: daily averages and charts"> |
+| Home | Live timer | Calendar | Trends | Baby book |
+|---|---|---|---|---|
+| <img src="docs/screenshots/home-light.png" width="160" alt="Home: today's totals and a card per activity"> | <img src="docs/screenshots/timer-light.png" width="160" alt="Breastfeeding timer with left and right sides"> | <img src="docs/screenshots/calendar-dark.png" width="160" alt="Calendar: a column per day with a bar per entry"> | <img src="docs/screenshots/trends-light.png" width="160" alt="Trends: daily averages and charts"> | <img src="docs/screenshots/book-light.png" width="160" alt="Baby book: the day you were born, in the Hello, world chapter"> |
 
 ## The app
 
@@ -28,7 +28,7 @@ One codebase ([`app/`](app/README.md)) for the browser and Android.
   breastfeeding timer marks the side the last feed ended on, and **Continue** on a saved feed, pump
   or sleep picks it back up as a running timer.
 - **Quick forms** for bottles, solids, diapers (color, consistency, rash, blowout), potty trips,
-  growth, temperature, medicine, vaccines, routines and baby's firsts. Medicines, activities and
+  growth, temperature, medicine, vaccines and routines. Medicines, activities and
   foods are picked from your baby's past entries first, then a list of common ones, or typed in.
 - **Timeline** of everything, grouped by day and filterable; tap any entry to edit it. A summary counts each type for today or the last 24 hours.
 - **Calendar** with a column per day and a bar per entry: scroll back through weeks to see sleep
@@ -38,6 +38,16 @@ One codebase ([`app/`](app/README.md)) for the browser and Android.
 - **Trends** over 7, 14 or 30 days: feeds per day, feed interval, sleep and naps, wake windows,
   diapers and potty trips, bottle and pumping volumes, each with the change since the period
   before, a day/night split (your family's daytime hours) and daily charts.
+- **Baby book.** A scrapbook of photos and memories in five chapters: *Waiting for you* (ultrasounds
+  and belly photos, "22 weeks along" from the due date), *Hello, world* (the day you were born,
+  with the moon that night; your name; the world you were born into), *Firsts* (grouped by age),
+  *Growing up* (a teeth chart, a monthly "banana for scale" photo strip, growth month by month)
+  and *Celebrations*. About 50 built-in ideas to pick from, or anything of your own; one photo per
+  memory, shrunk on the phone before it's sent. Open it from the Book tab; tap the Firsts card to
+  add a memory.
+- **Medicines and reminders** (the bell on Home): medicine schedules that say when the next dose is
+  allowed, and reminders like "no feed in 3 hours", on the home screen and, with notifications
+  set up, on the phones.
 - **Family sharing.** Several babies (each with a profile picture) and caregivers per family;
   changes appear on every device within a second.
 - **Yours to adjust.** Light and dark themes (or follow the system), metric or imperial units,
@@ -90,8 +100,8 @@ add your baby.
 
 ### 3. Add the other caregivers
 
-As the admin, go to **Family → Users → Add user**: name, email and a starting password, optionally
-added straight to your family. They sign in and can change the password under Family → Account.
+As the admin, go to **Settings → Users → Add user**: name, email and a starting password, optionally
+added straight to your family. They sign in and can change the password under Settings → Account.
 (Someone who already has an account on the server can join with an invite code from
 **Family → Invite a caregiver**.)
 
@@ -119,7 +129,7 @@ Use HTTPS (Caddy, Traefik, Nginx Proxy Manager, Tailscale…) before opening it 
 
 ### Accounts and recovery
 
-Admins manage accounts under **Family → Users**: add users (standard or admin), set a new password
+Admins manage accounts under **Settings → Users**: add users (standard or admin), set a new password
 for someone who forgot theirs, promote or remove accounts. The server always keeps at least one
 admin. If you lock yourself out, run this on the host:
 
@@ -130,7 +140,7 @@ docker exec <container> nestling make-admin me@example.com
 
 ### Backups
 
-Everything is in one file, `nestling.db`, in the `nestling-data` volume:
+Everything, baby book photos included, is in one file, `nestling.db`, in the `nestling-data` volume:
 
 ```bash
 docker compose stop
@@ -171,8 +181,8 @@ headers, and every release gets new file URLs.
 Optional. With it, when a caregiver starts, pauses or stops a timer, the other caregivers' Android
 phones show it in their notifications (with the live clock) even while the app is closed. Without
 it, they see it as soon as they open the app. It also sends **reminders** ("no feed in 3 h",
-"next dose of Tylenol can be given now") to the phones; they are set per baby in Family → Medicines
-and reminders, and without notifications they only show on the app's home screen. It goes through Google's Firebase Cloud Messaging,
+"next dose of Tylenol can be given now") to the phones; they are set per baby with the bell on Home (Medicines
+and reminders), and without notifications they only show on the app's home screen. It goes through Google's Firebase Cloud Messaging,
 in a free Firebase project of your own:
 
 1. At [console.firebase.google.com](https://console.firebase.google.com), create a project
@@ -192,18 +202,18 @@ through Google's servers; nothing else leaves your server.
 
 ### Exporting your data
 
-**Family → Settings → Export data** downloads everything for the family as a CSV file (one row
+**Settings → Export data** downloads everything for the family as a CSV file (one row
 per entry, readable in any spreadsheet). The same file imports back into Nestling.
 
 ### Bringing your history over
 
-The import under **Family → Settings** reads the CSV export of your previous tracker app. It shows a preview (date
+The import under **Settings** reads the CSV export of your previous tracker app. It shows a preview (date
 range, number of records per type, anything skipped) before saving; re-importing the same file
 updates entries instead of duplicating them.
 
 ### Home Assistant
 
-Create a long-lived token (**Family → Settings → API token**, or `POST /api/v1/me/tokens`) and use
+Create a long-lived token (**Settings → API token**, or `POST /api/v1/me/tokens`) and use
 `GET /api/v1/children/{id}/summary` as a REST sensor: time since the last feed, diaper and sleep,
 running timers and today's totals.
 

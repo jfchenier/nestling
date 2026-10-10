@@ -597,6 +597,9 @@ paths:
                   type: array
                   description: Replaces the whole list (one per type).
                   items: { $ref: "#/components/schemas/Reminder" }
+                book:
+                  allOf: [{ $ref: "#/components/schemas/Book" }]
+                  description: Replaces the whole object.
       responses:
         "200":
           description: The updated child
@@ -967,6 +970,49 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Event" }
         "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /events/{id}/photo:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [events]
+      operationId: getEventPhoto
+      summary: The entry's photo (a memory in the baby book)
+      responses:
+        "200":
+          description: The image
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [events]
+      operationId: putEventPhoto
+      summary: Set the entry's photo (raw JPEG, PNG or WebP, at most 5 MB)
+      description: >-
+        One photo per entry; any entry type takes one (the app offers it on milestones). The
+        entry's `photo_version` and `updated_at` change, so `GET /families/{id}/sync` brings it.
+      requestBody:
+        required: true
+        content:
+          image/jpeg: { schema: { type: string, format: binary } }
+          image/png: { schema: { type: string, format: binary } }
+          image/webp: { schema: { type: string, format: binary } }
+      responses:
+        "200":
+          description: The event
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Event" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [events]
+      operationId: deleteEventPhoto
+      summary: Remove the entry's photo
+      responses:
+        "204": { description: Removed (or there was none) }
         "404": { $ref: "#/components/responses/NotFound" }
   /events/{id}/continue:
     parameters:
@@ -1408,7 +1454,7 @@ components:
           items: { $ref: "#/components/schemas/Child" }
     Child:
       type: object
-      required: [id, family_id, name, birth_date, sex, created_at, updated_at, photo_version, medicines, reminders]
+      required: [id, family_id, name, birth_date, sex, created_at, updated_at, photo_version, medicines, reminders, book]
       properties:
         id: { type: string }
         family_id: { type: string }
@@ -1428,6 +1474,15 @@ components:
         reminders:
           type: array
           items: { $ref: "#/components/schemas/Reminder" }
+        book: { $ref: "#/components/schemas/Book" }
+    Book:
+      type: object
+      description: >-
+        The baby book's own pages as short texts by key (the app uses e.g. `birth_time`,
+        `birth_place`, `hair`, `eyes`, `full_name`, `name_why`, `world_songs`, `price_coffee`).
+        Keys: 1–40 lowercase letters, digits or `_`; at most 80 of them; values are strings of at
+        most 4,000 characters. Empty strings and nulls are dropped.
+      additionalProperties: { type: string, maxLength: 4000 }
     Medicine:
       type: object
       description: |
@@ -1485,6 +1540,11 @@ components:
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         source: { type: string, description: '"nara" for imported events', example: nara }
+        photo_version:
+          type: integer
+          format: int64
+          nullable: true
+          description: Changes whenever the entry's photo does; null without one (`GET /events/{id}/photo`).
 
     FeedDetails:
       type: object
@@ -1566,6 +1626,18 @@ components:
       properties:
         type: { type: string, enum: [milestone] }
         name: { type: string }
+        tooth:
+          type: string
+          pattern: '^[A-T]$'
+          description: >-
+            A baby tooth that came in (the baby book's teeth chart), by its usual letter: A–J upper
+            (right second molar to left second molar), K–T lower (left second molar to right second molar).
+        chapter:
+          type: string
+          pattern: '^[a-z][a-z0-9_]{0,31}$'
+          description: >-
+            The baby book chapter it goes in, an id of the app's (today `waiting`, `hello`, `firsts`,
+            `growing`, `celebrations`); when absent the app picks one from the name.
     NoteDetails:
       type: object
       required: [type]

@@ -109,6 +109,7 @@ class LocalStore {
   LocalStore._(this._persist);
 
   static const _key = 'store';
+  static const _photosKey = 'event_photos';
   final Persist _persist;
 
   /// The server this copy came from, and the account (`me`) it belongs to.
@@ -138,6 +139,19 @@ class LocalStore {
   /// Profile pictures in serverless mode: child id → `{version, type, data (base64)}`.
   final Map<String, Map<String, dynamic>> photos = {};
 
+  /// Photos on entries (the baby book) in serverless mode: event id → `{version, type, data
+  /// (base64)}`; `{version: null}` once removed. `data` is missing while it is still on its way
+  /// (Drive sync sends photos as files of their own). Clocks and stamps are keyed `ep:<event id>`.
+  /// Saved apart from the rest ([eventPhotosChanged]), so logging doesn't rewrite every photo.
+  final Map<String, Map<String, dynamic>> eventPhotos = {};
+  bool _eventPhotosDirty = false;
+
+  /// [eventPhotos] changed: saved with the next [save].
+  void eventPhotosChanged() {
+    _eventPhotosDirty = true;
+    save();
+  }
+
   /// Serverless mode: settings of this device (pairing key, peers…), see `local/peer_sync.dart`.
   Map<String, dynamic> serverless = {};
   int _seq = 0;
@@ -165,6 +179,10 @@ class LocalStore {
     try {
       final text = await store._persist.read(_key);
       if (text != null) store._fromJson(jsonDecode(text));
+      final photos = await store._persist.read(_photosKey);
+      if (photos != null) {
+        (jsonDecode(photos) as Map).forEach((k, v) => store.eventPhotos[k] = Map<String, dynamic>.from(v));
+      }
     } catch (_) {
       // Unreadable: start over; the next sync fills it again.
     }
@@ -286,12 +304,14 @@ class LocalStore {
     clocks.clear();
     deletedChildren.clear();
     photos.clear();
+    eventPhotos.clear();
     serverless = {};
     stamps.clear();
     stamp = 0;
     replica = _newReplica();
     _saveTimer?.cancel();
     await _persist.delete(_key);
+    await _persist.delete(_photosKey);
   }
 
   // ---- saving ----
@@ -306,6 +326,10 @@ class LocalStore {
     _saveTimer?.cancel();
     _saveTimer = null;
     try {
+      if (_eventPhotosDirty) {
+        _eventPhotosDirty = false;
+        await _persist.write(_photosKey, jsonEncode(eventPhotos));
+      }
       await _persist.write(_key, jsonEncode(_toJson()));
     } catch (_) {
       // Storage full or unavailable: keep going in memory.

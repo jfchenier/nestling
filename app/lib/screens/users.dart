@@ -90,7 +90,7 @@ class _UsersScreenState extends State<UsersScreen> {
                     padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
                     child: Text(
                       'Only admins can create accounts on this server. Give people their email and '
-                      'password; they can change the password under Family → Account.',
+                      'password; they can change the password under Settings → Account.',
                       style: TextStyle(color: c.muted),
                     ),
                   ),

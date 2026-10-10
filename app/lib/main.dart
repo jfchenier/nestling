@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'local/store.dart';
+import 'screens/baby_book.dart';
 import 'screens/calendar.dart';
-import 'screens/family.dart';
 import 'screens/home.dart';
 import 'screens/login.dart';
 import 'screens/onboarding.dart';
@@ -75,6 +75,9 @@ class Shell extends StatefulWidget {
 class _ShellState extends State<Shell> {
   int _tab = 0;
 
+  /// The book is built once first opened (it loads all memories and measurements).
+  bool _bookOpened = false;
+
   @override
   Widget build(BuildContext context) {
     final notice = context.select<AppState, String?>((s) => s.notice);
@@ -89,10 +92,22 @@ class _ShellState extends State<Shell> {
   }
 
   Widget _scaffold() => Scaffold(
-    body: IndexedStack(index: _tab, children: const [HomeScreen(), TimelineScreen(), CalendarScreen(), TrendsScreen(), FamilyScreen()]),
+    body: IndexedStack(
+      index: _tab,
+      children: [
+        const HomeScreen(),
+        const TimelineScreen(),
+        const CalendarScreen(),
+        const TrendsScreen(),
+        if (_bookOpened) const BabyBookScreen(asTab: true) else const SizedBox(),
+      ],
+    ),
     bottomNavigationBar: NavigationBar(
       selectedIndex: _tab,
-      onDestinationSelected: (i) => setState(() => _tab = i),
+      onDestinationSelected: (i) => setState(() {
+        _tab = i;
+        _bookOpened |= i == 4;
+      }),
       destinations: const [
         NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
         NavigationDestination(icon: Icon(Icons.view_agenda_outlined), selectedIcon: Icon(Icons.view_agenda_rounded), label: 'Timeline'),
@@ -102,7 +117,7 @@ class _ShellState extends State<Shell> {
           label: 'Calendar',
         ),
         NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights_rounded), label: 'Trends'),
-        NavigationDestination(icon: Icon(Icons.people_outline_rounded), selectedIcon: Icon(Icons.people_rounded), label: 'Family'),
+        NavigationDestination(icon: Icon(Icons.auto_stories_outlined), selectedIcon: Icon(Icons.auto_stories_rounded), label: 'Book'),
       ],
     ),
   );

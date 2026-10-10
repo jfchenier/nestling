@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:cryptography/dart.dart';
 
+import '../api/api.dart';
 import '../models.dart';
 import 'domain.dart';
 import 'nara_csv.dart';
@@ -40,6 +41,7 @@ class LocalEngine {
     ('GET|POST', RegExp(r'^/families/([^/]+)/children$')),
     ('PATCH|DELETE', RegExp(r'^/children/([^/]+)$')),
     ('PUT|DELETE', RegExp(r'^/children/([^/]+)/photo$')),
+    ('PUT|DELETE', RegExp(r'^/events/([^/]+)/photo$')),
     ('POST', RegExp(r'^/families/([^/]+)/import/nara-csv$')),
   ];
 
@@ -127,6 +129,10 @@ class LocalEngine {
           return putPhoto(id, body as List<int>, query?['content_type'] ?? 'image/png');
         case ('DELETE', ['children', final id, 'photo']):
           return deletePhoto(id);
+        case ('PUT', ['events', final id, 'photo']):
+          return putEventPhoto(id, body as List<int>, query?['content_type'] ?? 'image/jpeg');
+        case ('DELETE', ['events', final id, 'photo']):
+          return deleteEventPhoto(id);
         case ('POST', ['families', final id, 'import', 'nara-csv']):
           return importNaraCsv(id, body is List<int> ? body : const [], q);
       }
@@ -241,6 +247,7 @@ class LocalEngine {
       'photo_version': null,
       'medicines': <dynamic>[],
       'reminders': <dynamic>[],
+      'book': <String, dynamic>{},
     };
     (f['children'] as List).add(child);
     store.markChanged('c:${child['id']}');
@@ -259,6 +266,7 @@ class LocalEngine {
     }
     if (req['medicines'] != null) c['medicines'] = checkMedicines(req['medicines']);
     if (req['reminders'] != null) c['reminders'] = checkReminders(req['reminders']);
+    if (req['book'] != null) c['book'] = checkBook(req['book']);
     c['updated_at'] = fmt(nowMs());
     store.markChanged('c:$id');
     return c;
@@ -387,10 +395,19 @@ class LocalEngine {
       final p = csv.profiles[key];
       final c = store.child(id);
       if (p == null || c == null) continue;
-      final before = '${c['birth_date']}/${c['sex']}';
+      final before = jsonEncode([c['birth_date'], c['sex'], c['book']]);
       c['birth_date'] ??= p.birthDate;
       c['sex'] ??= p.sex;
-      if ('${c['birth_date']}/${c['sex']}' != before) store.markChanged('c:$id');
+      // The baby book's pages, when the child has none yet.
+      if (p.book case final book? when (c['book'] as Map?)?.isEmpty ?? true) {
+        try {
+          final checked = checkBook(book);
+          if (checked.isNotEmpty) c['book'] = checked;
+        } on ApiException {
+          // A damaged column: the pages are left out.
+        }
+      }
+      if (jsonEncode([c['birth_date'], c['sex'], c['book']]) != before) store.markChanged('c:$id');
     }
 
     var inserted = 0, updated = 0;
@@ -411,6 +428,7 @@ class LocalEngine {
         createdAt: old?['created_at'] ?? fmt(now),
         updatedAt: now,
         source: 'nara',
+        photoVersion: toInt(old?['photo_version']),
       );
       store.markChanged('e:$id');
     }
@@ -449,6 +467,7 @@ class LocalEngine {
     'updated_at',
     'source',
     'deleted',
+    'photo_version',
   };
 
   static Map<String, dynamic> detailsOf(Map<String, dynamic> event) => {
@@ -471,6 +490,7 @@ class LocalEngine {
     required String createdAt,
     required int updatedAt,
     String? source,
+    int? photoVersion,
   }) => {
     'id': id,
     'child_id': childId,
@@ -485,6 +505,7 @@ class LocalEngine {
     'created_at': createdAt,
     'updated_at': fmt(updatedAt),
     'source': ?source,
+    'photo_version': photoVersion,
   };
 
   Map<String, dynamic> _event(String id) {
@@ -565,6 +586,7 @@ class LocalEngine {
       createdAt: row['created_at'],
       updatedAt: nowMs(),
       source: row['source'],
+      photoVersion: toInt(row['photo_version']),
     );
     store.events[id] = json;
     store.markChanged('e:$id');
@@ -575,7 +597,48 @@ class LocalEngine {
     final row = _event(id);
     store.events[id] = {'id': id, 'child_id': row['child_id'], 'deleted': true, 'updated_at': fmt(nowMs())};
     store.markChanged('e:$id');
+    if (store.eventPhotos[id]?['version'] != null) _dropEventPhoto(id);
     return null;
+  }
+
+  // ---- serverless: photos on entries (the baby book) ----
+
+  /// Largest photo kept; the app sends a JPEG of at most 1600 px, a few hundred KB.
+  static const eventPhotoLimit = 5 * 1024 * 1024;
+
+  /// `PUT /events/{id}/photo`. Only the photo record changes (`ep:<id>`): the entry's
+  /// `photo_version` follows it on every phone (see `mergeFamily`), so an edit of the entry made
+  /// on another phone meanwhile can't undo the photo.
+  Map<String, dynamic> putEventPhoto(String id, List<int> bytes, String contentType) {
+    final e = _event(id);
+    if (bytes.length > eventPhotoLimit) throw badRequest('the photo is too large (5 MB at most)');
+    final version = math.max(nowMs(), (toInt(e['photo_version']) ?? 0) + 1);
+    store.eventPhotos[id] = {'version': version, 'type': contentType, 'data': base64Encode(bytes)};
+    e['photo_version'] = version;
+    store.markChanged('ep:$id');
+    store.eventPhotosChanged();
+    return e;
+  }
+
+  /// `DELETE /events/{id}/photo`.
+  dynamic deleteEventPhoto(String id) {
+    _event(id);
+    if (store.eventPhotos[id]?['version'] != null) _dropEventPhoto(id);
+    return null;
+  }
+
+  void _dropEventPhoto(String id) {
+    store.eventPhotos[id] = {'version': null};
+    store.events[id]?['photo_version'] = null;
+    store.markChanged('ep:$id');
+    store.eventPhotosChanged();
+  }
+
+  /// An entry photo's bytes (serverless mode).
+  List<int> eventPhotoBytes(String eventId) {
+    final data = store.eventPhotos[eventId]?['data'];
+    if (data is! String) throw notFound('photo');
+    return base64Decode(data);
   }
 
   // ---- summary & trends ----

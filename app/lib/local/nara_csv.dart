@@ -6,6 +6,7 @@
 /// `[<Type>] `. A `Profile` row carries the child's birth date and sex.
 library;
 
+import 'dart:convert';
 import 'dart:math' as math;
 
 import '../api/api.dart';
@@ -25,6 +26,9 @@ class NaraRecord {
 /// A Nara child profile found in the export.
 class NaraProfile {
   String? name, birthDate, sex;
+
+  /// The baby book's pages (Nestling's own exports only).
+  Map<String, dynamic>? book;
 }
 
 class NaraCsv {
@@ -322,7 +326,15 @@ List<(String, Map<String, dynamic>, int, int?)> _convert(_Row row) {
       return one({'type': 'activity', 'kind': _activityKind(row.get('[Routine] Routine') ?? '')});
     case 'milestone' || 'baby first' || 'baby firsts':
       final name = row.get('[Milestone] Milestone') ?? row.get('[Baby First] Name') ?? row.get('Note') ?? (throw _Skip('milestone without a name'));
-      return one({'type': 'milestone', 'name': name});
+      // Nestling's own `[Milestone] Tooth` column (`src/nara_csv.rs`).
+      final tooth = row.get('[Milestone] Tooth')?.trim().toUpperCase();
+      final chapter = row.get('[Milestone] Chapter')?.trim().toLowerCase();
+      return one({
+        'type': 'milestone',
+        'name': name,
+        if (tooth != null && RegExp(r'^[A-T]$').hasMatch(tooth)) 'tooth': tooth,
+        if (validChapter(chapter)) 'chapter': chapter,
+      });
     default:
       throw _Skip('unsupported type: ${type.toLowerCase()}');
   }
@@ -356,6 +368,13 @@ NaraCsv parseNaraCsv(String text) {
           'MALE' || 'M' || 'BOY' => 'male',
           _ => 'other',
         };
+        if (row.get('[Profile] Book') case final book?) {
+          try {
+            if (jsonDecode(book) case final Map<String, dynamic> m) p.book = m;
+          } on FormatException {
+            // Not JSON: left out.
+          }
+        }
       }
       continue;
     }

@@ -1,10 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nestling/api/api.dart';
 import 'package:nestling/local/domain.dart';
 import 'package:nestling/local/schedule.dart';
 
 int ms(String local) => DateTime.parse(local).millisecondsSinceEpoch;
 
 void main() {
+  test('a milestone may name a baby tooth A-T, like the server', () {
+    expect(normalizeDetails({'type': 'milestone', 'name': 'First tooth', 'tooth': 'O'})['tooth'], 'O');
+    expect(() => normalizeDetails({'type': 'milestone', 'name': 'First tooth', 'tooth': 'Z'}), throwsA(isA<ApiException>()));
+  });
+
   test('timer side and start edits match the server', () {
     Segment seg(String side, int start, [int? end]) => Segment(side, start, end);
     List<Segment> base() => [seg('left', 0, 60000), seg('right', 70000)];

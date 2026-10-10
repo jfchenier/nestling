@@ -284,6 +284,8 @@ pub fn convert(key: &str, t: &Value) -> Result<Converted, String> {
         }
         "GROW.MILESTONE" => Details::Milestone(Milestone {
             name: s(t, "milestoneName").unwrap_or("Milestone").to_string(),
+            tooth: None,
+            chapter: None,
         }),
         "MEDICAL.MEDICINE" => {
             let name = s(t, "medicineName")

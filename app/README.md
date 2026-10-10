@@ -9,7 +9,7 @@ OpenAPI description is [`../docs/openapi.yaml`](../docs/openapi.yaml)).
 Nestling's own "nursery garden" palette: warm oat neutrals, a eucalyptus-green accent and one soft,
 earthy pastel per activity — apricot (feeds), honey (bottle), butter (pump), sage (diapers), dusk
 lilac (sleep), seafoam (routine), marigold (firsts), oat (growth), moss (health). No baby pink or
-baby blue. **Light and dark themes**: follows the system, or pick one under Family → Settings →
+baby blue. **Light and dark themes**: follows the system, or pick one under Settings →
 Appearance (saved on the device).
 
 Text is the platform sans-serif (Roboto), titles and big numbers bold. Activities are shown as
@@ -21,10 +21,11 @@ activity color. Colors live in
 
 ## Screens
 
-- **Home** — running-timer banners, today's totals, then two cards per row in a fixed order
+- **Home** — the baby's name and photo at the top (tap them to switch baby or add one) and the
+  bell (Medicines and reminders), Family and Settings buttons top right; then running-timer banners, today's totals, then two cards per row in a fixed order
   (Feed · Sleep / Diaper · Pump / Growth · Health / Routine · Firsts). Each card shows the latest
   entry and a big value ("last side", "dirty", "1h 06m"…), or the live clock of a running timer.
-  **Tap a card to log** (Feed asks Breastfeed / Bottle / Solids / Combo); the clock icon in its header
+  **Tap a card to log** (Feed asks Breastfeed / Bottle / Solids / Combo; Firsts adds a memory, over the baby book); the button in its header (History; Charts for Growth, Book for Firsts)
   opens its history. "Add a note" sits under the grid.
 - **Timers** — breastfeed (tap Left/Right to start, switch sides, pause), sleep (with location) and pump
   (left/right/both, asks for amounts at the end). Shared live with every caregiver. While one runs you can
@@ -47,15 +48,15 @@ activity color. Colors live in
   the other last heard from it (per-copy change stamps, `LocalStore.stamps`), the newest change of
   each entry wins, deletions travel along, and two timers started apart keep the earlier start
   (`lib/local/merge.dart`, `lib/local/peer_sync.dart`). For phones that aren't open at the same time
-  or on the same Wi-Fi, Family → Sync through Google Drive keeps one encrypted, gzipped snapshot per
+  or on the same Wi-Fi, Settings → Sync through Google Drive keeps one encrypted, gzipped snapshot per
   phone in a Drive folder shared by link (`lib/local/relay.dart`, `lib/local/drive_relay.dart`;
   the folder id travels in the family record). It syncs when the app opens, 30 s after a change (3 s after a timer change),
   when the app goes to the background, and every minute while on screen; only changed files are
   downloaded and a phone uploads only after something changed. Everything between phones is encrypted with the family key from the
   QR code (AES-256-GCM). Phones find each other with a UDP announcement (port 47816) or their last
   address, and listen on port 47815. Phones that were apart catch up when they meet again. Google
-  Drive keeps a daily backup in the app's private Drive folder (Family → Back up to Google Drive;
-  "Restore from Google Drive" when setting up a new phone). Family → Import from Nara reads Nara's
+  Drive keeps a daily backup in the app's private Drive folder (Settings → Back up to Google Drive;
+  "Restore from Google Drive" when setting up a new phone). Settings → Import from Nara reads Nara's
   CSV export on the phone (`lib/local/nara_csv.dart`, a port of the server's `src/nara_csv.rs`;
   event ids come from the family and Nara's id, so importing again updates and paired phones
   agree). Not available without a server: signing in to Nara for an import, CSV export, invites by
@@ -70,6 +71,27 @@ activity color. Colors live in
   blowout) or potty trip (sat, pee/poo in the potty, accident; on the same page), pump, growth,
   health (medicine, temperature, vaccine, symptom, appointment), activity, milestone, note. Tap any
   entry to edit or delete it.
+- **Baby book** — the Book tab (or the Firsts card's Book button) opens the child's book: a cover
+  (photo, name, birth date, how many memories and photos), contents tabs pinned under the title,
+  then five chapters (`lib/screens/baby_book.dart`):
+  **Waiting for you** (the pregnancy: due date, then ultrasound, belly and other memories, each
+  saying "22 weeks along"), **Hello, world** (the book's own pages "The day you were born", "Your
+  name" and "The world you were born into", `lib/screens/book_pages.dart`), **Firsts** (memories
+  grouped by age), **Growing up** (teeth chart, "Banana for scale" photo strip, month-by-month
+  growth from the Growth entries) and **Celebrations**. Each chapter offers its built-in ideas
+  ("See all" lists them by chapter); any name works too, and the memory form picks the chapter
+  (stored as the milestone's `chapter`; the chapters are the app's, the server takes any short id).
+  Memories are taped-in prints with photo, day, age and story; tap one to edit it, its photo to see
+  it big. The pages' texts are kept on the child as `book` (birth time and place, hair, eyes,
+  name, world news and prices, due date); the moon phase on the birth day is computed. One photo
+  per memory (`PUT /events/{id}/photo`), scaled to at most 1600 px and saved as a JPEG on the
+  device first (`pickMemoryPhoto` in `lib/widgets/photo.dart`). Without a server, photos are kept
+  on the phone apart from the other data, travel with Wi-Fi sync, and go through Google Drive sync
+  once each as files of their own; the web app without a server doesn't take photos (browser
+  storage is too small). The **teeth chart** (`lib/screens/teeth_chart.dart`) shows the 20 baby
+  teeth as seen facing the child; tap one when it comes in. Each tooth is a milestone with a
+  `tooth` letter (A–T, the usual dental lettering); the first one is the "First tooth" memory (or
+  gets attached to an existing one), later ones only show on the chart.
 - **Timeline** — everything, grouped by day, filter by type, infinite scroll; Summary sheet with counts per type (today / last 24 h).
 - **Running-timer notifications** (Android) — while a timer runs, an ongoing notification shows it
   with a live clock that Android keeps counting with the app closed; paused timers say so; it goes
@@ -86,11 +108,13 @@ activity color. Colors live in
 - **Trends** — 7/14/30-day averages (feeds, feed interval, sleep, wake window, naps, diapers, potty,
   bottle, breastfeeding, pumping) with the change since the period before, day/night splits, and
   daily charts.
-- **Family** — babies (with a profile picture: tap a baby → Add a photo; cropped to a 512 px square
-  before upload), caregivers, invite codes, join a family, units (metric/imperial), time zone,
-  daytime hours for the day/night split (Day and night),
-  history import from a previous tracker's CSV export (preview first), CSV export of everything, API token for Home
-  Assistant, change password, users (admins), sign out.
+- **Family** (the people button on Home) — babies (with a profile picture: tap a baby → Add a photo;
+  cropped to a 512 px square before upload), caregivers, invite codes or phone pairing, join
+  another family, delete the family.
+- **Settings** (the gear button on Home) — units (metric/imperial), appearance, daytime hours for the day/night split (Day and night), time zone, Google Drive sync
+  and backup (serverless), history import from a previous tracker's CSV export (preview first),
+  CSV export of everything, API token for Home Assistant; account: change password, users
+  (admins), sign out.
 
 Changes made by other caregivers appear within a second (Server-Sent Events from `/families/{id}/stream`;
 the green dot on Home shows the live connection).

@@ -170,6 +170,22 @@ pub struct Activity {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Milestone {
     pub name: String,
+    /// A baby tooth that came in (the baby book's teeth chart): `A`–`T`, the usual letters for
+    /// the 20 primary teeth (`A` upper right second molar … `J` upper left second molar, `K`
+    /// lower left second molar … `T` lower right second molar).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tooth: Option<String>,
+    /// The baby book chapter it goes in, an id of the app's (`waiting`, `hello`, `firsts`,
+    /// `growing`, `celebrations` today); none: the app picks one from the name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chapter: Option<String>,
+}
+
+/// A baby book chapter id: the chapters themselves are the app's, the server only keeps the id
+/// short and plain (a lowercase letter, then up to 31 lowercase letters, digits or `_`).
+pub fn valid_chapter(id: &str) -> bool {
+    let b = id.as_bytes();
+    !b.is_empty() && b.len() <= 32 && b[0].is_ascii_lowercase() && b.iter().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || *c == b'_')
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -287,7 +303,19 @@ impl Details {
                 HealthKind::Appointment => {}
             },
             Details::Activity(a) => not_blank("kind", &Some(a.kind.clone()))?,
-            Details::Milestone(m) => not_blank("name", &Some(m.name.clone()))?,
+            Details::Milestone(m) => {
+                not_blank("name", &Some(m.name.clone()))?;
+                if let Some(t) = &m.tooth {
+                    if !(t.len() == 1 && ("A"..="T").contains(&t.as_str())) {
+                        return bad(format!("tooth must be a letter from A to T, not '{t}'"));
+                    }
+                }
+                if let Some(c) = &m.chapter {
+                    if !valid_chapter(c) {
+                        return bad(format!("chapter must be a short lowercase id like 'firsts', not '{c}'"));
+                    }
+                }
+            }
             Details::Note(_) => not_blank("note", note)?,
         }
         Ok(())

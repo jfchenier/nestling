@@ -11,8 +11,11 @@ import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import 'baby_book.dart';
 import 'child_form.dart';
 import 'event_form.dart';
+import 'family.dart';
+import 'schedules.dart';
 import 'growth_chart.dart';
 import 'timeline.dart';
 import 'timer_screen.dart';
@@ -156,18 +159,36 @@ class HomeScreen extends StatelessWidget {
           }();
 
     void open(String timerKind) => TimerScreen.open(context, timerKind);
+    void openBook({bool addMemory = false}) =>
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => BabyBookScreen(addMemory: addMemory)));
     // Tapping a card logs one (or opens its running timer); the clock icon opens its history.
     _ActivityCard card(Kind kind, String title, _CardData data, VoidCallback log, String filter, [TimerModel? running]) => _ActivityCard(
       kind: kind,
       title: title,
       data: data,
       onLog: running != null ? () => open(running.kind) : log,
-      onHistory: filter == 'growth'
-          ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GrowthChartScreen()))
-          : () => history(filter),
-      // Growth's header icon opens the growth charts (its history is listed there too).
-      historyIcon: filter == 'growth' ? Icons.show_chart_rounded : Icons.history_rounded,
-      historyLabel: filter == 'growth' ? 'Growth charts' : '$title history',
+      onHistory: switch (filter) {
+        'growth' => () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GrowthChartScreen())),
+        'milestone' => () => openBook(),
+        _ => () => history(filter),
+      },
+      // Growth's header button opens the growth charts (its history is listed there too), Firsts'
+      // the baby book.
+      historyIcon: switch (filter) {
+        'growth' => Icons.show_chart_rounded,
+        'milestone' => Icons.auto_stories_rounded,
+        _ => Icons.history_rounded,
+      },
+      historyLabel: switch (filter) {
+        'growth' => 'Growth charts',
+        'milestone' => 'Baby book',
+        _ => '$title history',
+      },
+      historyShort: switch (filter) {
+        'growth' => 'Charts',
+        'milestone' => 'Book',
+        _ => 'History',
+      },
     );
     return [
       card(Kind.breast, 'Feed', feedCard, () => showFeedPicker(context), 'feed', nursing),
@@ -187,8 +208,9 @@ class HomeScreen extends StatelessWidget {
         Kind.milestone,
         'Firsts',
         simple(latest('milestone'), (e) => (e['name'] as String?) ?? 'Milestone'),
-        () => showEventForm(context, type: 'milestone'),
-        'activity,milestone,note',
+        // "New memory" over the baby book, which shows once it's saved or closed.
+        () => openBook(addMemory: true),
+        'milestone',
       ),
     ];
   }
@@ -252,6 +274,7 @@ class _ActivityCard extends StatelessWidget {
     required this.onHistory,
     this.historyIcon = Icons.history_rounded,
     required this.historyLabel,
+    required this.historyShort,
   });
   final Kind kind;
   final String title;
@@ -262,6 +285,9 @@ class _ActivityCard extends StatelessWidget {
   final VoidCallback onHistory;
   final IconData historyIcon;
   final String historyLabel;
+
+  /// Word on the header button ("History", "Charts", "Book"), so it reads as a button.
+  final String historyShort;
 
   @override
   Widget build(BuildContext context) {
@@ -289,7 +315,7 @@ class _ActivityCard extends StatelessWidget {
               children: [
                 Container(
                   color: kind.fill(c),
-                  padding: const EdgeInsets.fromLTRB(14, 2, 2, 2),
+                  padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
                   child: Row(
                     children: [
                       Expanded(
@@ -298,11 +324,34 @@ class _ActivityCard extends StatelessWidget {
                           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: c.bandInk),
                         ),
                       ),
-                      IconButton(
-                        onPressed: onHistory,
-                        tooltip: historyLabel,
-                        visualDensity: VisualDensity.compact,
-                        icon: Icon(historyIcon, color: c.bandInk, size: 22),
+                      // A pill with a word, so it's clearly a button of its own (the rest of the
+                      // card logs).
+                      Tooltip(
+                        message: historyLabel,
+                        child: Semantics(
+                          button: true,
+                          label: historyLabel,
+                          excludeSemantics: true,
+                          child: Material(
+                            color: c.surface.withValues(alpha: c.isDark ? 0.3 : 0.65),
+                            shape: StadiumBorder(side: BorderSide(color: c.bandInk.withValues(alpha: 0.18))),
+                            child: InkWell(
+                              customBorder: const StadiumBorder(),
+                              onTap: onHistory,
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(8, 5, 10, 5),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(historyIcon, color: c.bandInk, size: 17),
+                                    const SizedBox(width: 4),
+                                    Text(historyShort, style: TextStyle(color: c.bandInk, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -493,7 +542,13 @@ class _Header extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(child.name, style: serifStyle(34), overflow: TextOverflow.ellipsis),
+              // Tapping the name (or the photo) switches baby or adds one.
+              Row(
+                children: [
+                  Flexible(child: Text(child.name, style: serifStyle(34), overflow: TextOverflow.ellipsis)),
+                  Icon(Icons.expand_more_rounded, color: context.pal.muted, semanticLabel: 'Switch baby'),
+                ],
+              ),
               const SizedBox(height: 2),
               Row(
                 children: [
@@ -530,12 +585,22 @@ class _Header extends StatelessWidget {
         ),
       ),
       _SquareButton(
-        icon: Icons.view_agenda_outlined,
-        tooltip: 'Timeline',
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TimelineScreen(initialFilter: null))),
+        icon: Icons.notifications_rounded,
+        tooltip: 'Medicines and reminders',
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SchedulesScreen())),
       ),
       const SizedBox(width: 8),
-      _SquareButton(icon: Icons.more_horiz_rounded, tooltip: 'Switch baby', onTap: () => _switchChild(context)),
+      _SquareButton(
+        icon: Icons.people_rounded,
+        tooltip: 'Family',
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FamilyScreen())),
+      ),
+      const SizedBox(width: 8),
+      _SquareButton(
+        icon: Icons.settings_rounded,
+        tooltip: 'Settings',
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+      ),
     ],
   );
 

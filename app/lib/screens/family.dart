@@ -15,11 +15,10 @@ import 'child_form.dart';
 import 'day_hours.dart';
 import 'home.dart' show ChildAvatar;
 import 'pairing.dart';
-import 'schedules.dart';
 import 'users.dart';
 
-/// Family, caregivers, babies, settings and Nara import.
-class FamilyScreen extends StatelessWidget {
+/// The family: its babies and caregivers, invites, joining another family (Home's people button).
+class FamilyScreen extends StatelessWidget with _FamilyActions {
   const FamilyScreen({super.key});
 
   @override
@@ -94,14 +93,62 @@ class FamilyScreen extends StatelessWidget {
                     ),
                     title: Text(s.serverless ? 'Pair a phone' : 'Invite a caregiver'),
                     subtitle: Text(s.serverless ? 'Your partner\'s phone syncs with this one over Wi-Fi' : 'Partner, grandparent, nanny…'),
-                    onTap: () => s.serverless
-                        ? Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PairScreen()))
-                        : _invite(context, f),
+                    onTap: () => s.serverless ? Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PairScreen())) : _invite(context, f),
                   ),
                 ],
               ),
             ),
-            const SectionTitle('Settings'),
+            if (!s.serverless)
+              Card(
+                margin: const EdgeInsets.only(top: 12),
+                child: ListTile(
+                  leading: const Icon(Icons.group_add_outlined),
+                  title: const Text('Join another family'),
+                  subtitle: const Text('With an invite code from its owner'),
+                  onTap: () => _join(context),
+                ),
+              ),
+            if (f.isOwner && !s.serverless) ...[
+              const SizedBox(height: 16),
+              TextButton(
+                style: TextButton.styleFrom(foregroundColor: context.pal.danger),
+                onPressed: () async {
+                  if (!await confirmByTyping(
+                    context,
+                    'Delete ${f.name}?',
+                    'This permanently deletes the family, its babies and everything logged, for every caregiver. '
+                        'It can\'t be undone.',
+                    expected: f.name,
+                  )) {
+                    return;
+                  }
+                  if (context.mounted) await guard(context, () => s.act((api) => api.delete('/families/${f.id}'), families: true));
+                },
+                child: const Text('Delete family'),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Settings and the account (Home's gear button): units, appearance, day and night, time zone, Drive sync and backup, Nara import, export, API token.
+class SettingsScreen extends StatelessWidget with _FamilyActions {
+  const SettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<AppState>();
+    final f = s.family!;
+    final me = s.me!;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Settings')),
+      body: Constrained(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+          children: [
             Card(
               child: Column(
                 children: [
@@ -127,14 +174,6 @@ class FamilyScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (s.child case final child?)
-                    ListTile(
-                      leading: const Icon(Icons.medication_outlined),
-                      title: const Text('Medicines and reminders'),
-                      subtitle: Text(SchedulesScreen.describe(child)),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SchedulesScreen())),
-                    ),
                   ListTile(
                     leading: const Icon(Icons.wb_twilight_rounded),
                     title: const Text('Day and night'),
@@ -156,23 +195,20 @@ class FamilyScreen extends StatelessWidget {
                     subtitle: const Text('Bring over your Nara Baby history'),
                     onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NaraImportScreen())),
                   ),
-                  if (!s.serverless) ListTile(
-                    leading: const Icon(Icons.file_download_outlined),
-                    title: const Text('Export data'),
-                    subtitle: const Text('Everything for this family as a CSV file'),
-                    onTap: () => _export(context, f),
-                  ),
-                  if (!s.serverless) ListTile(
-                    leading: const Icon(Icons.group_add_outlined),
-                    title: const Text('Join another family'),
-                    onTap: () => _join(context),
-                  ),
-                  if (!s.serverless) ListTile(
-                    leading: const Icon(Icons.key_outlined),
-                    title: const Text('API token'),
-                    subtitle: const Text('For Home Assistant or scripts'),
-                    onTap: () => _token(context),
-                  ),
+                  if (!s.serverless)
+                    ListTile(
+                      leading: const Icon(Icons.file_download_outlined),
+                      title: const Text('Export data'),
+                      subtitle: const Text('Everything for this family as a CSV file'),
+                      onTap: () => _export(context, f),
+                    ),
+                  if (!s.serverless)
+                    ListTile(
+                      leading: const Icon(Icons.key_outlined),
+                      title: const Text('API token'),
+                      subtitle: const Text('For Home Assistant or scripts'),
+                      onTap: () => _token(context),
+                    ),
                 ],
               ),
             ),
@@ -186,11 +222,8 @@ class FamilyScreen extends StatelessWidget {
                     title: Text(s.serverless ? 'Without a server' : 'Server'),
                     subtitle: Text(s.serverless ? 'Saved on this phone and the phones paired with it' : s.server),
                   ),
-                  if (!s.serverless) ListTile(
-                    leading: const Icon(Icons.password_rounded),
-                    title: const Text('Change password'),
-                    onTap: () => _changePassword(context),
-                  ),
+                  if (!s.serverless)
+                    ListTile(leading: const Icon(Icons.password_rounded), title: const Text('Change password'), onTap: () => _changePassword(context)),
                   if (me.isAdmin)
                     ListTile(
                       leading: const Icon(Icons.admin_panel_settings_outlined),
@@ -229,31 +262,15 @@ class FamilyScreen extends StatelessWidget {
                 ],
               ),
             ),
-            if (f.isOwner && !s.serverless) ...[
-              const SizedBox(height: 16),
-              TextButton(
-                style: TextButton.styleFrom(foregroundColor: context.pal.danger),
-                onPressed: () async {
-                  if (!await confirmByTyping(
-                    context,
-                    'Delete ${f.name}?',
-                    'This permanently deletes the family, its babies and everything logged, for every caregiver. '
-                        'It can\'t be undone.',
-                    expected: f.name,
-                  )) {
-                    return;
-                  }
-                  if (context.mounted) await guard(context, () => s.act((api) => api.delete('/families/${f.id}'), families: true));
-                },
-                child: const Text('Delete family'),
-              ),
-            ],
           ],
         ),
       ),
     );
   }
+}
 
+/// What the family and settings screens both do.
+mixin _FamilyActions {
   Future<void> _invite(BuildContext context, Family f) async {
     final s = context.read<AppState>();
     final res = await guard(context, () => s.api!.post('/families/${f.id}/invites'));
@@ -367,10 +384,7 @@ class FamilyScreen extends StatelessWidget {
             const SizedBox(height: 12),
             SelectableText(res['token'], style: const TextStyle(fontFamily: 'monospace')),
             const SizedBox(height: 12),
-            Text(
-              'Summary sensor: ${s.server}/api/v1/children/${s.childId}/summary',
-              style: TextStyle(color: context.pal.muted, fontSize: 12),
-            ),
+            Text('Summary sensor: ${s.server}/api/v1/children/${s.childId}/summary', style: TextStyle(color: context.pal.muted, fontSize: 12)),
           ],
         ),
         actions: [
@@ -453,18 +467,19 @@ class _NaraImportScreenState extends State<NaraImportScreen> {
           padding: const EdgeInsets.all(20),
           children: [
             // Signing in to Nara goes through the server; without one, the export file is the way.
-            if (!s.serverless) SegmentedButton<_Source>(
-              segments: const [
-                ButtonSegment(value: _Source.csv, label: Text('Export file'), icon: Icon(Icons.description_outlined)),
-                ButtonSegment(value: _Source.account, label: Text('Nara account'), icon: Icon(Icons.login_rounded)),
-              ],
-              selected: {_source},
-              showSelectedIcon: false,
-              onSelectionChanged: (v) => setState(() {
-                _source = v.first;
-                _preview = _done = null;
-              }),
-            ),
+            if (!s.serverless)
+              SegmentedButton<_Source>(
+                segments: const [
+                  ButtonSegment(value: _Source.csv, label: Text('Export file'), icon: Icon(Icons.description_outlined)),
+                  ButtonSegment(value: _Source.account, label: Text('Nara account'), icon: Icon(Icons.login_rounded)),
+                ],
+                selected: {_source},
+                showSelectedIcon: false,
+                onSelectionChanged: (v) => setState(() {
+                  _source = v.first;
+                  _preview = _done = null;
+                }),
+              ),
             if (!s.serverless) const SizedBox(height: 20),
             if (_source == _Source.csv) ...[
               Text(
@@ -574,10 +589,7 @@ class _Result extends StatelessWidget {
             for (final k in kids)
               if (k is Map && k['name'] != null)
                 Text(
-                  [
-                    'Nara profile: ${k['name']}',
-                    if (k['birth_date'] != null) 'born ${dates.format(DateTime.parse(k['birth_date']))}',
-                  ].join(' · '),
+                  ['Nara profile: ${k['name']}', if (k['birth_date'] != null) 'born ${dates.format(DateTime.parse(k['birth_date']))}'].join(' · '),
                   style: TextStyle(color: context.pal.muted),
                 ),
             if (first is int && last is int)
@@ -591,17 +603,13 @@ class _Result extends StatelessWidget {
                 spacing: 8,
                 runSpacing: 8,
                 children: [
-                  for (final e in byType.entries)
-                    Chip(avatar: BlobIcon(Kind.of(e.key), size: 22), label: Text('${_labels[e.key] ?? e.key} ${e.value}')),
+                  for (final e in byType.entries) Chip(avatar: BlobIcon(Kind.of(e.key), size: 22), label: Text('${_labels[e.key] ?? e.key} ${e.value}')),
                 ],
               ),
             ],
             if (skipped.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text(
-                'Skipped: ${skipped.entries.map((e) => '${e.key} (${e.value})').join(', ')}',
-                style: TextStyle(color: context.pal.muted),
-              ),
+              Text('Skipped: ${skipped.entries.map((e) => '${e.key} (${e.value})').join(', ')}', style: TextStyle(color: context.pal.muted)),
             ],
           ],
         ),
