@@ -36,6 +36,11 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
   copied from Nara). **Light + dark themes** (dark uses darker activity shades). Platform
   sans-serif, bold titles (`serifStyle()` is the historic name). Filled Material icons on colored
   circles (`BlobIcon`), no copied artwork.
+- Languages: English, French, Spanish (follows the phone; Settings → Language). Every UI text goes in
+  `app/lib/l10n/app_{en,fr,es}.arb` and is read via the global `l10n` (`app/lib/l10n/l10n.dart`);
+  never hard-code English in a screen. gen-l10n orders a message's parameters **alphabetically**
+  (`"{start}–{end}"` → `foo(end, start)`): check the generated signature. Saved values stay English
+  keys/names; show them translated (`cap()`, book ideas, tooth names). Server errors stay English.
 - Colors: always via `context.pal` (`AppColors` theme extension) and `Kind.on(pal)` for text/marks;
   never hard-code a color in a screen.
 - Server in **Rust**: axum 0.8, sqlx 0.8 (SQLite, runtime queries — no `query!` macros, so no

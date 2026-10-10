@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:provider/provider.dart';
 
+import '../format.dart' show capFirst;
+import '../l10n/l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
@@ -20,14 +22,22 @@ class CalendarScreen extends StatefulWidget {
 }
 
 class _CalendarScreenState extends State<CalendarScreen> {
-  /// Filter groups: label, the look of its chip, the event types it covers.
+  /// Filter groups: id (kept in [_hidden]), the look of its chip, the event types it covers.
   static const _groups = <(String, Kind, Set<String>)>[
-    ('Feeds', Kind.breast, {'feed'}),
-    ('Sleep', Kind.sleep, {'sleep'}),
-    ('Diapers', Kind.diaper, {'diaper'}),
-    ('Pump', Kind.pump, {'pump'}),
-    ('Other', Kind.activity, {'growth', 'health', 'activity', 'milestone', 'note'}),
+    ('feed', Kind.breast, {'feed'}),
+    ('sleep', Kind.sleep, {'sleep'}),
+    ('diaper', Kind.diaper, {'diaper'}),
+    ('pump', Kind.pump, {'pump'}),
+    ('other', Kind.activity, {'growth', 'health', 'activity', 'milestone', 'note'}),
   ];
+
+  static String _groupLabel(String id) => switch (id) {
+    'feed' => l10n.calendarFeeds,
+    'sleep' => l10n.kindSleep,
+    'diaper' => l10n.calendarDiapers,
+    'pump' => l10n.kindPump,
+    _ => l10n.calendarOther,
+  };
   static const _labelWidth = 34.0;
   static const _headerHeight = 58.0;
   static const _visibleDays = 7;
@@ -98,8 +108,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   bool _visible(Event e) {
-    for (final (label, _, types) in _groups) {
-      if (types.contains(e.type)) return !_hidden.contains(label);
+    for (final (id, _, types) in _groups) {
+      if (types.contains(e.type)) return !_hidden.contains(id);
     }
     return true;
   }
@@ -121,7 +131,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
       _loading.clear();
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('Calendar')),
+      appBar: AppBar(title: Text(l10n.calendarTitle)),
       body: Column(
         children: [
           SizedBox(
@@ -130,16 +140,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
               scrollDirection: Axis.horizontal,
               padding: const EdgeInsets.symmetric(horizontal: 16),
               children: [
-                for (final (label, kind, _) in _groups)
+                for (final (id, kind, _) in _groups)
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: FilterChip(
-                      label: Text(label),
+                      label: Text(_groupLabel(id)),
                       avatar: CircleAvatar(backgroundColor: _barColor(kind, c), radius: 6),
-                      selected: !_hidden.contains(label),
+                      selected: !_hidden.contains(id),
                       showCheckmark: false,
                       selectedColor: c.accentSoft,
-                      onSelected: (on) => setState(() => on ? _hidden.remove(label) : _hidden.add(label)),
+                      onSelected: (on) => setState(() => on ? _hidden.remove(id) : _hidden.add(id)),
                     ),
                   ),
               ],
@@ -158,7 +168,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
                 child: Row(
                   children: [
-                    IconButton(tooltip: 'Previous week', icon: const Icon(Icons.chevron_left_rounded), onPressed: () => _jump(7)),
+                    IconButton(tooltip: l10n.calendarPrevWeek, icon: const Icon(Icons.chevron_left_rounded), onPressed: () => _jump(7)),
                     Expanded(
                       child: Text(
                         range,
@@ -166,9 +176,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                     ),
-                    if (first > 0) TextButton(onPressed: () => _jump(-first), child: const Text('Today')),
+                    if (first > 0) TextButton(onPressed: () => _jump(-first), child: Text(l10n.today)),
                     IconButton(
-                      tooltip: 'Next week',
+                      tooltip: l10n.calendarNextWeek,
                       icon: const Icon(Icons.chevron_right_rounded),
                       onPressed: first == 0 ? null : () => _jump(-7),
                     ),
@@ -311,7 +321,7 @@ class _DayColumn extends StatelessWidget {
             children: [
               // The 1st of a month shows the month instead of the weekday.
               Text(
-                day.day == 1 ? DateFormat.MMM().format(day) : DateFormat.E().format(day).substring(0, 2),
+                capFirst(day.day == 1 ? DateFormat.MMM().format(day) : DateFormat.E().format(day).substring(0, 2)),
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: day.day == 1 ? c.accent : c.muted),
               ),
               const SizedBox(height: 4),

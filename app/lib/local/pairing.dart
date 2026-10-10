@@ -9,6 +9,8 @@ import 'dart:math' as math;
 
 import 'package:cryptography/cryptography.dart';
 
+import '../l10n/l10n.dart';
+
 class FamilyKey {
   FamilyKey(this.bytes);
   final List<int> bytes;
@@ -63,7 +65,7 @@ class PairingCode {
 
   static PairingCode parse(String text) {
     final t = text.trim();
-    if (!t.startsWith(_prefix)) throw const FormatException('This isn\'t a Nestling pairing code.');
+    if (!t.startsWith(_prefix)) throw FormatException(l10n.syncNotPairingCode);
     try {
       final j = jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(t.substring(_prefix.length)))));
       return PairingCode(
@@ -74,7 +76,7 @@ class PairingCode {
         name: j['n'] ?? '',
       );
     } catch (_) {
-      throw const FormatException('This pairing code is incomplete. Copy it again.');
+      throw FormatException(l10n.syncPairingIncomplete);
     }
   }
 }

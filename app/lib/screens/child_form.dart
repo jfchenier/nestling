@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../models.dart';
+import '../l10n/l10n.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -48,7 +49,7 @@ class _ChildFormState extends State<_ChildForm> {
   }
 
   Future<void> _save() async {
-    if (_name.text.trim().isEmpty) return showMessage(context, 'Enter a name');
+    if (_name.text.trim().isEmpty) return showMessage(context, l10n.childEnterName);
     // Required when adding; a baby saved earlier without one can still be edited.
     if (_birth == null && widget.child == null) return setState(() => _birthMissing = true);
     setState(() => _busy = true);
@@ -88,14 +89,14 @@ class _ChildFormState extends State<_ChildForm> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(widget.child == null ? 'Add a baby' : 'Edit ${widget.child!.name}', style: t.titleLarge),
+          Text(widget.child == null ? l10n.familyAddBaby : l10n.childEditTitle(widget.child!.name), style: t.titleLarge),
           const SizedBox(height: 16),
           // Profile picture: shown on Home instead of the initial.
           Row(
             children: [
               Semantics(
                 button: true,
-                label: 'Choose a photo',
+                label: l10n.childChoosePhoto,
                 child: GestureDetector(
                   onTap: _busy ? null : _choosePhoto,
                   child: _hasPhoto || widget.child != null
@@ -120,7 +121,7 @@ class _ChildFormState extends State<_ChildForm> {
                     TextButton.icon(
                       onPressed: _busy ? null : _choosePhoto,
                       icon: const Icon(Icons.photo_camera_outlined),
-                      label: Text(_hasPhoto ? 'Change photo' : 'Add a photo'),
+                      label: Text(_hasPhoto ? l10n.childChangePhoto : l10n.childAddPhoto),
                     ),
                     if (_hasPhoto)
                       TextButton(
@@ -131,7 +132,7 @@ class _ChildFormState extends State<_ChildForm> {
                                 _newPhoto = null;
                                 _removePhoto = true;
                               }),
-                        child: const Text('Remove'),
+                        child: Text(l10n.remove),
                       ),
                   ],
                 ),
@@ -143,7 +144,7 @@ class _ChildFormState extends State<_ChildForm> {
             controller: _name,
             autofocus: widget.child == null,
             textCapitalization: TextCapitalization.words,
-            decoration: const InputDecoration(labelText: 'Name'),
+            decoration: InputDecoration(labelText: l10n.childName),
           ),
           const SizedBox(height: 12),
           InkWell(
@@ -164,8 +165,8 @@ class _ChildFormState extends State<_ChildForm> {
             },
             child: InputDecorator(
               decoration: InputDecoration(
-                labelText: widget.child == null ? 'Birth date (or due date) *' : 'Birth date (or due date)',
-                errorText: _birthMissing ? 'Choose a birth date (or due date)' : null,
+                labelText: widget.child == null ? l10n.childBirthDateRequired : l10n.childBirthDate,
+                errorText: _birthMissing ? l10n.childBirthDateMissing : null,
                 suffixIcon: Icon(Icons.calendar_today_rounded, color: context.pal.muted),
                 // The same green outline as the Name field.
                 enabledBorder: OutlineInputBorder(
@@ -173,17 +174,19 @@ class _ChildFormState extends State<_ChildForm> {
                   borderSide: BorderSide(color: context.pal.accent, width: 1.5),
                 ),
               ),
-              child: Text(_birth == null ? (widget.child == null ? 'Tap to choose' : 'Not set') : DateFormat.yMMMMd().format(_birth!)),
+              child: Text(
+                _birth == null ? (widget.child == null ? l10n.childTapToChoose : l10n.notSet) : DateFormat.yMMMMd().format(_birth!),
+              ),
             ),
           ),
           const SizedBox(height: 16),
           ChoiceChips<String>(
-            options: const {'female': 'Girl', 'male': 'Boy', 'other': 'Unknown'},
+            options: {'female': l10n.childGirl, 'male': l10n.childBoy, 'other': l10n.childSexUnknown},
             value: _sex,
             onChanged: (v) => setState(() => _sex = v),
           ),
           const SizedBox(height: 24),
-          FilledButton(onPressed: _busy ? null : _save, child: const Text('Save')),
+          FilledButton(onPressed: _busy ? null : _save, child: Text(l10n.save)),
           if (widget.child != null) ...[
             const SizedBox(height: 8),
             TextButton(
@@ -191,9 +194,8 @@ class _ChildFormState extends State<_ChildForm> {
               onPressed: () async {
                 if (!await confirmByTyping(
                   context,
-                  'Delete ${widget.child!.name}?',
-                  'This permanently deletes ${widget.child!.name} and everything logged for them, for every caregiver. '
-                      'It can\'t be undone.',
+                  l10n.childDeleteTitle(widget.child!.name),
+                  l10n.childDeleteBody(widget.child!.name),
                   expected: widget.child!.name,
                 )) {
                   return;
@@ -206,7 +208,7 @@ class _ChildFormState extends State<_ChildForm> {
                 );
                 if (ok == true && context.mounted) Navigator.pop(context);
               },
-              child: const Text('Delete baby'),
+              child: Text(l10n.childDelete),
             ),
           ],
         ],
@@ -314,7 +316,7 @@ class TimezoneField extends StatelessWidget {
   Widget build(BuildContext context) => DropdownButtonFormField<String>(
     initialValue: value,
     isExpanded: true,
-    decoration: const InputDecoration(labelText: 'Time zone', helperText: 'Sets where each day starts for daily totals'),
+    decoration: InputDecoration(labelText: l10n.familyTimeZone, helperText: l10n.familyTimeZoneHint),
     items: [
       for (final z in {...timezones, value}) DropdownMenuItem(value: z, child: Text(z.replaceAll('_', ' '))),
     ],

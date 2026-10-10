@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
+import '../l10n/l10n.dart';
+
 /// Error returned by the server (`{"error": {"code", "message"}}`) or a network failure.
 class ApiException implements Exception {
   ApiException(this.code, this.message, [this.status = 0]);
@@ -53,9 +55,9 @@ class Api {
     try {
       res = await http.Response.fromStream(await _client.send(req).timeout(const Duration(seconds: 30)));
     } catch (e) {
-      throw ApiException('network', 'Can\'t reach the server ($server).');
+      throw ApiException('network', l10n.syncCantReach(server));
     }
-    if (res.statusCode >= 400) throw ApiException('http_${res.statusCode}', 'Server error (${res.statusCode})', res.statusCode);
+    if (res.statusCode >= 400) throw ApiException('http_${res.statusCode}', l10n.syncServerError(res.statusCode), res.statusCode);
     return res.bodyBytes;
   }
 
@@ -79,7 +81,7 @@ class Api {
     try {
       res = await http.Response.fromStream(await _client.send(req).timeout(timeout));
     } catch (e) {
-      throw ApiException('network', 'Can\'t reach the server ($server). Check the address and your connection.');
+      throw ApiException('network', l10n.syncCantReachCheck(server));
     }
     final text = utf8.decode(res.bodyBytes);
     final data = text.isEmpty ? null : _tryJson(text);
@@ -87,7 +89,7 @@ class Api {
       final err = data is Map ? data['error'] : null;
       throw ApiException(
         err is Map ? '${err['code']}' : 'http_${res.statusCode}',
-        err is Map ? '${err['message']}' : 'Server error (${res.statusCode})',
+        err is Map ? '${err['message']}' : l10n.syncServerError(res.statusCode),
         res.statusCode,
       );
     }

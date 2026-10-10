@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'l10n/l10n.dart';
 import 'local/store.dart';
 import 'screens/baby_book.dart';
 import 'screens/calendar.dart';
@@ -31,6 +33,13 @@ class NestlingApp extends StatelessWidget {
     theme: buildTheme(AppColors.light),
     darkTheme: buildTheme(AppColors.dark),
     themeMode: context.select<AppState, ThemeMode>((s) => s.themeMode),
+    locale: switch (context.select<AppState, String?>((s) => s.language)) {
+      final code? => Locale(code),
+      null => null,
+    },
+    supportedLocales: AppLocalizations.supportedLocales,
+    localizationsDelegates: const [AppLocalizations.delegate, GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
+    builder: (context, child) => LocaleWatcher(child: child!),
     home: const Root(),
   );
 }
@@ -53,8 +62,8 @@ class Root extends StatelessWidget {
                   children: [
                     Text(s.error!, textAlign: TextAlign.center),
                     const SizedBox(height: 16),
-                    FilledButton(onPressed: s.load, child: const Text('Try again')),
-                    TextButton(onPressed: s.signOut, child: const Text('Sign out')),
+                    FilledButton(onPressed: s.load, child: Text(l10n.tryAgain)),
+                    TextButton(onPressed: s.signOut, child: Text(l10n.signOut)),
                   ],
                 ),
         ),
@@ -78,7 +87,7 @@ class _NoBabyYet extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Text(
-          'The baby book shows here once ${context.read<AppState>().family?.name ?? 'the family'} adds a baby.',
+          l10n.bookNoBabyYet(context.read<AppState>().family?.name ?? l10n.bookTheFamily),
           textAlign: TextAlign.center,
           style: TextStyle(color: context.pal.muted, fontSize: 16),
         ),
@@ -130,16 +139,16 @@ class _ShellState extends State<Shell> {
         _tab = i;
         _bookOpened |= i == 4;
       }),
-      destinations: const [
-        NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: 'Home'),
-        NavigationDestination(icon: Icon(Icons.view_agenda_outlined), selectedIcon: Icon(Icons.view_agenda_rounded), label: 'Timeline'),
+      destinations: [
+        NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home_rounded), label: l10n.homeNavHome),
+        NavigationDestination(icon: Icon(Icons.view_agenda_outlined), selectedIcon: Icon(Icons.view_agenda_rounded), label: l10n.homeNavTimeline),
         NavigationDestination(
           icon: Icon(Icons.calendar_month_outlined),
           selectedIcon: Icon(Icons.calendar_month_rounded),
-          label: 'Calendar',
+          label: l10n.homeNavCalendar,
         ),
-        NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights_rounded), label: 'Trends'),
-        NavigationDestination(icon: Icon(Icons.auto_stories_outlined), selectedIcon: Icon(Icons.auto_stories_rounded), label: 'Book'),
+        NavigationDestination(icon: Icon(Icons.insights_outlined), selectedIcon: Icon(Icons.insights_rounded), label: l10n.homeNavTrends),
+        NavigationDestination(icon: Icon(Icons.auto_stories_outlined), selectedIcon: Icon(Icons.auto_stories_rounded), label: l10n.homeNavBook),
       ],
     ),
   );

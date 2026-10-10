@@ -27,6 +27,7 @@ class AppState extends ChangeNotifier {
   AppState(this._prefs, this.store) {
     server = _prefs.getString('server') ?? defaultServer();
     themeMode = ThemeMode.values.where((m) => m.name == _prefs.getString('theme')).firstOrNull ?? ThemeMode.system;
+    language = _prefs.getString('language');
     final token = _prefs.getString('token');
     if (_prefs.getString('mode') == 'serverless' && store.me != null) {
       _useServerless();
@@ -52,6 +53,15 @@ class AppState extends ChangeNotifier {
   void setThemeMode(ThemeMode mode) {
     themeMode = mode;
     _prefs.setString('theme', mode.name);
+    notifyListeners();
+  }
+
+  /// The app's language ('en', 'fr', 'es'), or null to follow the phone; stored on this device.
+  String? language;
+
+  void setLanguage(String? code) {
+    language = code;
+    code == null ? _prefs.remove('language') : _prefs.setString('language', code);
     notifyListeners();
   }
 

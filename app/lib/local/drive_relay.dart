@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:googleapis/drive/v3.dart' as drive;
 
 import '../api/api.dart';
+import '../l10n/l10n.dart';
 import 'drive_backup.dart';
 import 'pairing.dart';
 import 'relay.dart';
@@ -82,7 +83,7 @@ class DriveRelay {
       return await sync.sync(_DriveFolder(api, sync.folderId!));
     } on drive.DetailedApiRequestError catch (e) {
       if (e.status == 404 || e.status == 403) {
-        throw ApiException('drive', 'The family\'s Drive folder can\'t be reached. Turn Drive sync off and on again.');
+        throw ApiException('drive', l10n.syncDriveFolderUnreachable);
       }
       rethrow;
     }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../format.dart';
+import '../l10n/l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
@@ -12,7 +13,7 @@ import '../widgets/common.dart';
 Future<void> showSummary(BuildContext context) => showGeneralDialog(
   context: context,
   barrierDismissible: true,
-  barrierLabel: 'Close summary',
+  barrierLabel: l10n.summaryClose,
   barrierColor: Colors.black54,
   transitionDuration: const Duration(milliseconds: 280),
   pageBuilder: (context, _, _) => Align(
@@ -83,9 +84,9 @@ class _SummarySheetState extends State<_SummarySheet> {
             padding: const EdgeInsets.fromLTRB(8, 8, 8, 4),
             child: Row(
               children: [
-                IconButton(tooltip: 'Close', icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
+                IconButton(tooltip: l10n.close, icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
                 Expanded(
-                  child: Text('Summary', textAlign: TextAlign.center, style: serifStyle(24)),
+                  child: Text(l10n.summaryTitle, textAlign: TextAlign.center, style: serifStyle(24)),
                 ),
                 const SizedBox(width: 48),
               ],
@@ -94,9 +95,9 @@ class _SummarySheetState extends State<_SummarySheet> {
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
             child: SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(value: false, label: Text('Today')),
-                ButtonSegment(value: true, label: Text('Last 24 hours')),
+              segments: [
+                ButtonSegment(value: false, label: Text(l10n.today)),
+                ButtonSegment(value: true, label: Text(l10n.summaryLast24h)),
               ],
               selected: {_rolling},
               showSelectedIcon: false,
@@ -114,7 +115,7 @@ class _SummarySheetState extends State<_SummarySheet> {
                 ? Padding(
                     padding: const EdgeInsets.all(40),
                     child: Text(
-                      'Nothing logged yet.',
+                      l10n.summaryNothing,
                       textAlign: TextAlign.center,
                       style: TextStyle(color: c.muted),
                     ),
@@ -167,58 +168,58 @@ List<_Group> _groups(List<Event> events, Units u) {
   final breast = of((e) => e.type == 'feed' && (e['method'] == 'breast' || e['method'] == null || e['method'] == 'combo'));
   final left = breast.fold<int>(0, (a, e) => a + _secs(e, 'left_seconds')),
       right = breast.fold<int>(0, (a, e) => a + _secs(e, 'right_seconds'));
-  add(Kind.breast, 'Breastfeed', breast, [
-    '${duration(left + right)} total',
-    [if (left > 0) '${duration(left)} left', if (right > 0) '${duration(right)} right'].join(' · '),
+  add(Kind.breast, l10n.kindBreastfeed, breast, [
+    l10n.summaryTotal(duration(left + right)),
+    [if (left > 0) l10n.summaryLeft(duration(left)), if (right > 0) l10n.summaryRight(duration(right))].join(' · '),
   ]);
 
   final bottle = of((e) => e.type == 'feed' && (e['method'] == 'bottle' || e['method'] == 'combo') && toDouble(e['amount_ml']) != null);
   final breastMilk = bottle.where((e) => e['milk'] == 'breast_milk').fold<double>(0.0, (a, e) => a + _num(e, 'amount_ml'));
   final formula = bottle.where((e) => e['milk'] == 'formula').fold<double>(0.0, (a, e) => a + _num(e, 'amount_ml'));
-  add(Kind.bottle, 'Bottle', bottle, [
-    '${u.volume(bottle.fold<double>(0.0, (a, e) => a + _num(e, 'amount_ml')))} total',
-    [if (breastMilk > 0) '${u.volume(breastMilk)} breast milk', if (formula > 0) '${u.volume(formula)} formula'].join(' · '),
+  add(Kind.bottle, l10n.kindBottle, bottle, [
+    l10n.summaryTotal(u.volume(bottle.fold<double>(0.0, (a, e) => a + _num(e, 'amount_ml')))),
+    [if (breastMilk > 0) l10n.summaryBreastMilk(u.volume(breastMilk)), if (formula > 0) l10n.summaryFormula(u.volume(formula))].join(' · '),
   ]);
 
   final solids = of((e) => e.type == 'feed' && e['method'] == 'solids');
-  add(Kind.solids, 'Solids', solids, [names(solids, 'foods')]);
+  add(Kind.solids, l10n.kindSolids, solids, [names(solids, 'foods')]);
 
   final sleeps = of((e) => e.type == 'sleep');
   final slept = sleeps.fold(0, (a, e) => a + (e.durationSeconds ?? 0));
   final longest = sleeps.fold(0, (a, e) => (e.durationSeconds ?? 0) > a ? e.durationSeconds! : a);
-  add(Kind.sleep, 'Sleep', sleeps, ['${duration(slept)} total', if (sleeps.length > 1) 'longest ${duration(longest)}']);
+  add(Kind.sleep, l10n.kindSleep, sleeps, [l10n.summaryTotal(duration(slept)), if (sleeps.length > 1) l10n.summaryLongest(duration(longest))]);
 
   final diapers = of((e) => e.type == 'diaper' && e['potty'] == null);
   final wet = diapers.where((e) => e['wet'] == true).length, dirty = diapers.where((e) => e['dirty'] == true).length;
-  add(Kind.diaper, 'Diaper', diapers, ['$wet wet · $dirty dirty']);
+  add(Kind.diaper, l10n.kindDiaper, diapers, [l10n.summaryWetDirty(dirty, wet)]);
 
   final potty = of((e) => e.type == 'diaper' && e['potty'] != null);
   final inPotty = potty.where((e) => e['potty'] == 'success').length, accidents = potty.where((e) => e['potty'] == 'accident').length;
-  add(Kind.potty, 'Potty', potty, ['$inPotty in the potty · $accidents ${accidents == 1 ? 'accident' : 'accidents'}']);
+  add(Kind.potty, l10n.kindPotty, potty, [l10n.summaryPotty(accidents, inPotty)]);
 
   final pumps = of((e) => e.type == 'pump');
   final pumped = pumps.fold<double>(0.0, (a, e) => a + _num(e, 'left_ml') + _num(e, 'right_ml'));
   final pumpTime = pumps.fold(0, (a, e) => a + (e.durationSeconds ?? 0));
-  add(Kind.pump, 'Pump', pumps, [if (pumped > 0) '${u.volume(pumped)} total', if (pumpTime > 0) '${duration(pumpTime)} pumping']);
+  add(Kind.pump, l10n.kindPump, pumps, [if (pumped > 0) l10n.summaryTotal(u.volume(pumped)), if (pumpTime > 0) l10n.summaryPumping(duration(pumpTime))]);
 
   final growth = of((e) => e.type == 'growth');
-  add(Kind.growth, 'Growth', growth, [
+  add(Kind.growth, l10n.kindGrowth, growth, [
     if (growth.isNotEmpty)
       [
         if (toDouble(growth.first['weight_g']) case final g?) u.weight(g),
         if (toDouble(growth.first['length_cm']) case final l?) u.length(l),
-        if (toDouble(growth.first['head_cm']) case final h?) 'head ${u.length(h)}',
+        if (toDouble(growth.first['head_cm']) case final h?) l10n.summaryHead(u.length(h)),
       ].join(' · '),
   ]);
 
   final health = of((e) => e.type == 'health');
   final temps = [for (final e in health) ?toDouble(e['temperature_c'])];
-  add(Kind.health, 'Health', health, [
+  add(Kind.health, l10n.kindHealth, health, [
     names([
       for (final e in health)
         if (e['kind'] != 'temperature') e,
     ], 'name'),
-    if (temps.isNotEmpty) 'temperature ${temps.map(u.temp).join(', ')}',
+    if (temps.isNotEmpty) l10n.summaryTemperature(temps.map(u.temp).join(', ')),
   ]);
 
   final activities = of((e) => e.type == 'activity');
@@ -228,16 +229,16 @@ List<_Group> _groups(List<Event> events, Units u) {
     final k = cap(e['kind'] as String?);
     kinds[k] = (kinds[k] ?? 0) + 1;
   }
-  add(Kind.activity, 'Routine', activities, [
+  add(Kind.activity, l10n.summaryRoutine, activities, [
     kinds.entries.map((e) => e.value > 1 ? '${e.key} ×${e.value}' : e.key).join(', '),
-    if (activityTime > 0) '${duration(activityTime)} total',
+    if (activityTime > 0) l10n.summaryTotal(duration(activityTime)),
   ]);
 
   final milestones = of((e) => e.type == 'milestone');
-  add(Kind.milestone, 'Firsts', milestones, [names(milestones, 'name')]);
+  add(Kind.milestone, l10n.summaryFirsts, milestones, [names(milestones, 'name')]);
 
   final notes = of((e) => e.type == 'note');
-  add(Kind.note, 'Notes', notes, [names(notes, 'note')]);
+  add(Kind.note, l10n.summaryNotes, notes, [names(notes, 'note')]);
   return out;
 }
 

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../local/domain.dart' show dayWindowOf, hhmm;
+import '../l10n/l10n.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -38,7 +39,7 @@ class _DayHoursScreenState extends State<DayHoursScreen> {
     final v = t.hour * 60 + t.minute;
     final (s, e) = isStart ? (v, end) : (start, v == 0 ? 24 * 60 : v);
     if (s >= e) {
-      showMessage(context, 'Daytime must start before it ends.');
+      showMessage(context, l10n.dayHoursStartBeforeEnd);
       return;
     }
     setState(() {
@@ -54,28 +55,24 @@ class _DayHoursScreenState extends State<DayHoursScreen> {
     final start = _start ?? saved.start, end = _end ?? saved.end;
     final pal = context.pal;
     return Scaffold(
-      appBar: AppBar(title: const Text('Day and night')),
+      appBar: AppBar(title: Text(l10n.familyDayNight)),
       body: Constrained(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
           children: [
-            Text(
-              'These times decide whether a feed, diaper or sleep counts as daytime or nighttime in Trends. '
-              'Sleep that starts during the day is a nap. They apply to everyone in the family.',
-              style: TextStyle(color: pal.muted, fontSize: 14, height: 1.4),
-            ),
+            Text(l10n.dayHoursIntro, style: TextStyle(color: pal.muted, fontSize: 14, height: 1.4)),
             const SizedBox(height: 20),
             Row(
               children: [
                 Expanded(
-                  child: _TimeBox(label: 'Day starts', minutes: start, onTap: () => _pick(true, start, end)),
+                  child: _TimeBox(label: l10n.dayHoursDayStarts, minutes: start, onTap: () => _pick(true, start, end)),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 10),
                   child: Icon(Icons.arrow_forward_rounded, color: pal.muted),
                 ),
                 Expanded(
-                  child: _TimeBox(label: 'Night starts', minutes: end, onTap: () => _pick(false, start, end)),
+                  child: _TimeBox(label: l10n.dayHoursNightStarts, minutes: end, onTap: () => _pick(false, start, end)),
                 ),
               ],
             ),
@@ -228,7 +225,7 @@ class _DayBarState extends State<_DayBar> {
                                   Icon(Icons.wb_sunny_rounded, size: 20, color: pal.bandInk),
                                   const SizedBox(width: 6),
                                   Text(
-                                    'Daytime',
+                                    l10n.dayHoursDaytime,
                                     style: TextStyle(color: pal.bandInk, fontWeight: FontWeight.w700, fontSize: 15),
                                   ),
                                 ],

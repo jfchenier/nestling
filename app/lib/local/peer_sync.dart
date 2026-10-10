@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../api/api.dart';
+import '../l10n/l10n.dart';
 import 'domain.dart';
 import 'engine.dart';
 import 'merge.dart';
@@ -92,7 +93,7 @@ class PeerSync {
     }
     await start();
     final hosts = await transport.localAddresses();
-    if (hosts.isEmpty) throw ApiException('pairing', 'Connect this phone to Wi-Fi first.');
+    if (hosts.isEmpty) throw ApiException('pairing', l10n.syncWifiFirst);
     return PairingCode(familyId: familyId, key: key!, hosts: hosts, port: _port!, name: store.me?['name'] ?? '').toString();
   }
 
@@ -122,8 +123,7 @@ class PeerSync {
       store.serverless = before;
       throw ApiException(
         'pairing',
-        'Couldn\'t reach ${pc.name.isEmpty ? 'the other phone' : '${pc.name}\'s phone'}. '
-        'Both phones need to be on the same Wi-Fi, with the pairing code still showing.',
+        pc.name.isEmpty ? l10n.syncCantReachOtherPhone : l10n.syncCantReachNamedPhone(pc.name),
       );
     }
     _addMeTo(pc.familyId);

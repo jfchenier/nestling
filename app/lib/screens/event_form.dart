@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../format.dart';
+import '../l10n/l10n.dart';
 import '../local/schedule.dart' show medicineKey;
 import '../models.dart';
 import '../state.dart';
@@ -105,13 +106,13 @@ class _EventFormState extends State<EventForm> {
 
   String get _title => switch (widget.type) {
     'feed' => switch (_method) {
-      'bottle' => 'Bottle Feed',
-      'solids' => 'Solids',
-      'combo' => 'Combo Feed',
-      _ => 'Breastfeed',
+      'bottle' => l10n.formTitleBottle,
+      'solids' => l10n.kindSolids,
+      'combo' => l10n.formTitleCombo,
+      _ => l10n.kindBreastfeed,
     },
     'health' => cap(_healthKind),
-    'diaper' when _pottyMode => 'Potty',
+    'diaper' when _pottyMode => l10n.kindPotty,
     _ => kind.label,
   };
 
@@ -154,7 +155,14 @@ class _EventFormState extends State<EventForm> {
         body['location'] = _location;
       case 'diaper' when _pottyMode:
         final dry = _potty == 'sat_dry';
-        body.addAll({'potty': _potty, 'wet': !dry && _wet, 'dirty': !dry && _dirty, 'dry': dry, 'rash': _rash, 'blowout': !dry && _blowout});
+        body.addAll({
+          'potty': _potty,
+          'wet': !dry && _wet,
+          'dirty': !dry && _dirty,
+          'dry': dry,
+          'rash': _rash,
+          'blowout': !dry && _blowout,
+        });
         body['color'] = !dry && _dirty ? _color : null;
         body['consistency'] = !dry && _dirty ? _consistency : null;
       case 'diaper':
@@ -192,13 +200,13 @@ class _EventFormState extends State<EventForm> {
 
   Future<void> _save() async {
     if (widget.type == 'sleep' && _end == null) {
-      return showMessage(context, 'When did the sleep end? Use the sleep timer for a nap in progress.');
+      return showMessage(context, l10n.formSleepEndMissing);
     }
     if (widget.type == 'diaper' && _pottyMode && _potty != 'sat_dry' && !_wet && !_dirty) {
-      return showMessage(context, 'Was it wet, dirty or both?');
+      return showMessage(context, l10n.formPottyWetOrDirty);
     }
     if (widget.type == 'diaper' && !_pottyMode && !_wet && !_dirty && !_dry) {
-      return showMessage(context, 'Was the diaper wet, dirty or dry?');
+      return showMessage(context, l10n.formDiaperWetDirtyDry);
     }
     setState(() => _busy = true);
     final s = context.read<AppState>();
@@ -228,7 +236,7 @@ class _EventFormState extends State<EventForm> {
   /// Continue: saves any edits, turns the entry back into a running timer and opens it.
   Future<void> _continue(String kind) async {
     if (widget.type == 'sleep' && _end == null) {
-      return showMessage(context, 'When did the sleep end?');
+      return showMessage(context, l10n.formSleepEndShort);
     }
     setState(() => _busy = true);
     final s = context.read<AppState>();
@@ -246,11 +254,16 @@ class _EventFormState extends State<EventForm> {
     if (ok is! Event) return;
     final navigator = Navigator.of(context);
     navigator.pop();
-    navigator.push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => TimerScreen(kind: kind, continued: ok)));
+    navigator.push(
+      MaterialPageRoute(
+        fullscreenDialog: true,
+        builder: (_) => TimerScreen(kind: kind, continued: ok),
+      ),
+    );
   }
 
   Future<void> _delete() async {
-    if (!await confirm(context, 'Delete this entry?', 'It will be removed for everyone in the family.')) return;
+    if (!await confirm(context, l10n.formDeleteTitle, l10n.formDeleteMessage)) return;
     if (!mounted) return;
     final s = context.read<AppState>();
     final ok = await guard(context, () => s.act((api) => api.delete('/events/${e!.id}')).then((_) => true));
@@ -287,9 +300,9 @@ class _EventFormState extends State<EventForm> {
                   children: [
                     BlobIcon(k, size: 46),
                     const SizedBox(width: 14),
-                    Expanded(child: Text(e == null ? _title : 'Edit ${_title.toLowerCase()}', style: serifStyle(24))),
+                    Expanded(child: Text(e == null ? _title : l10n.formEditTitle(_title.toLowerCase()), style: serifStyle(24))),
                     if (e != null)
-                      IconButton(onPressed: _delete, tooltip: 'Delete', icon: const Icon(Icons.delete_outline_rounded), color: c.danger),
+                      IconButton(onPressed: _delete, tooltip: l10n.delete, icon: const Icon(Icons.delete_outline_rounded), color: c.danger),
                   ],
                 ),
               ),
@@ -300,14 +313,14 @@ class _EventFormState extends State<EventForm> {
                   children: [
                     ..._fields(),
                     FormRow(
-                      label: widget.type == 'note' ? 'Note' : 'Notes',
+                      label: widget.type == 'note' ? l10n.kindNote : l10n.formNotes,
                       below: TextField(
                         controller: _note,
                         maxLines: null,
                         minLines: widget.type == 'note' ? 4 : 1,
                         autofocus: widget.type == 'note' && e == null,
                         textCapitalization: TextCapitalization.sentences,
-                        decoration: const InputDecoration(hintText: 'Add a note…'),
+                        decoration: InputDecoration(hintText: l10n.formAddNote),
                       ),
                     ),
                   ],
@@ -327,7 +340,7 @@ class _EventFormState extends State<EventForm> {
                             side: BorderSide(color: k.on(c), width: 1.5),
                           ),
                           icon: const Icon(Icons.play_arrow_rounded),
-                          label: const Text('Continue'),
+                          label: Text(l10n.formContinue),
                         ),
                         const SizedBox(width: 12),
                       ],
@@ -335,7 +348,7 @@ class _EventFormState extends State<EventForm> {
                         child: FilledButton(
                           onPressed: _busy ? null : _save,
                           style: FilledButton.styleFrom(backgroundColor: strong, foregroundColor: Colors.white),
-                          child: Text(e == null ? 'Save' : 'Save changes'),
+                          child: Text(e == null ? l10n.save : l10n.formSaveChanges),
                         ),
                       ),
                     ],
@@ -370,7 +383,7 @@ class _EventFormState extends State<EventForm> {
       children: [
         Flexible(
           child: Text(
-            value.isEmpty ? 'Choose' : value,
+            value.isEmpty ? l10n.formChoose : value,
             overflow: TextOverflow.ellipsis,
             maxLines: 2,
             textAlign: TextAlign.right,
@@ -396,8 +409,8 @@ class _EventFormState extends State<EventForm> {
     final next = DateTime.tryParse('${m['next_at']}')?.toLocal(), last = DateTime.tryParse('${m['last_at']}')?.toLocal();
     if (next == null || !_start.isBefore(next)) return null;
     final at = DateFormat.Hm().format(next);
-    if (m['limited'] == true) return 'Already ${m['doses_24h']} doses in 24 hours. Next one allowed at $at.';
-    return 'Last dose at ${last == null ? '?' : DateFormat.Hm().format(last)}. Next one allowed at $at.';
+    if (m['limited'] == true) return l10n.formMedLimited(toInt(m['doses_24h']) ?? 0, at);
+    return l10n.formMedTooSoon(last == null ? '?' : DateFormat.Hm().format(last), at);
   }
 
   Widget _warningRow(String text) => Container(
@@ -408,7 +421,9 @@ class _EventFormState extends State<EventForm> {
       children: [
         Icon(Icons.warning_amber_rounded, color: context.pal.danger),
         const SizedBox(width: 10),
-        Expanded(child: Text(text, style: TextStyle(color: context.pal.ink, height: 1.3))),
+        Expanded(
+          child: Text(text, style: TextStyle(color: context.pal.ink, height: 1.3)),
+        ),
       ],
     ),
   );
@@ -424,7 +439,7 @@ class _EventFormState extends State<EventForm> {
     });
   }
 
-  Widget _timeRow(String label, DateTime? value, ValueChanged<DateTime> set, {String placeholder = 'Add'}) => FormRow(
+  Widget _timeRow(String label, DateTime? value, ValueChanged<DateTime> set, {String? placeholder}) => FormRow(
     label: label,
     child: DateTimeValue(value: value, onChanged: set, placeholder: placeholder),
   );
@@ -472,38 +487,45 @@ class _EventFormState extends State<EventForm> {
     switch (widget.type) {
       case 'feed':
         return [
-          _timeRow('Start Time', _start, (v) => setState(() => _start = v)),
+          _timeRow(l10n.formStartTime, _start, (v) => setState(() => _start = v)),
           if (_method == 'breast' || _method == 'combo') ...[
-            _numRow('Left', _left, 'min'),
-            _numRow('Right', _right, 'min'),
-            _chipsRow<String>('Started on', const {'left': 'Left', 'right': 'Right'}, _startSide, (v) => setState(() => _startSide = v)),
+            _numRow(l10n.left, _left, 'min'),
+            _numRow(l10n.right, _right, 'min'),
+            _chipsRow<String>(
+              l10n.formStartedOn,
+              {'left': l10n.left, 'right': l10n.right},
+              _startSide,
+              (v) => setState(() => _startSide = v),
+            ),
           ],
           if (_method == 'bottle' || _method == 'combo') ...[
-            _numRow('Amount', _amount, u.volumeUnit),
+            _numRow(l10n.formAmount, _amount, u.volumeUnit),
             _chipsRow<String>(
-              'Milk',
-              const {'formula': 'Formula', 'breast_milk': 'Breast milk', 'mixed': 'Mixed'},
+              l10n.formMilk,
+              {'formula': l10n.milkFormula, 'breast_milk': l10n.milkBreastMilk, 'mixed': l10n.milkMixed},
               _milk,
               (v) => setState(() => _milk = v),
             ),
-            if (_milk != 'breast_milk') _textRow('Formula', _formula, hint: 'Brand (optional)'),
+            if (_milk != 'breast_milk') _textRow(l10n.formFormulaName, _formula, hint: l10n.formBrandOptional),
           ],
-          if (_method == 'solids') _pickRow('Foods', _foods.text, _chooseFoods),
+          if (_method == 'solids') _pickRow(l10n.formFoods, _foods.text, _chooseFoods),
         ];
       case 'sleep':
         return [
-          _timeRow('Fell asleep', _start, (v) => setState(() => _start = v)),
-          _timeRow('Woke up', _end, (v) => setState(() => _end = v)),
+          _timeRow(l10n.formFellAsleep, _start, (v) => setState(() => _start = v)),
+          _timeRow(l10n.formWokeUp, _end, (v) => setState(() => _end = v)),
           FormRow(
-            label: 'Total Time',
+            label: l10n.formTotalTime,
             child: Text(
               _end != null && _end!.isAfter(_start) ? duration(_end!.difference(_start).inSeconds) : '—',
               style: TextStyle(fontSize: 17, color: context.pal.muted),
             ),
           ),
           _chipsRow<String>(
-            'Where',
-            const {'crib': 'Crib', 'bassinet': 'Bassinet', 'bed': 'Bed', 'arms': 'Arms', 'stroller': 'Stroller', 'car': 'Car'},
+            l10n.formWhere,
+            {
+              for (final l in const ['crib', 'bassinet', 'bed', 'arms', 'stroller', 'car']) l: cap(l),
+            },
             _location,
             (v) => setState(() => _location = v),
           ),
@@ -513,9 +535,9 @@ class _EventFormState extends State<EventForm> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
             child: SegmentedButton<bool>(
-              segments: const [
-                ButtonSegment(value: false, label: Text('Diaper'), icon: Icon(Icons.baby_changing_station_rounded)),
-                ButtonSegment(value: true, label: Text('Potty'), icon: Icon(Icons.wc_rounded)),
+              segments: [
+                ButtonSegment(value: false, label: Text(l10n.kindDiaper), icon: const Icon(Icons.baby_changing_station_rounded)),
+                ButtonSegment(value: true, label: Text(l10n.kindPotty), icon: const Icon(Icons.wc_rounded)),
               ],
               selected: {_pottyMode},
               showSelectedIcon: false,
@@ -532,64 +554,64 @@ class _EventFormState extends State<EventForm> {
               }),
             ),
           ),
-          _timeRow('Time', _start, (v) => setState(() => _start = v)),
+          _timeRow(l10n.formTime, _start, (v) => setState(() => _start = v)),
           if (_pottyMode) ..._pottyFields() else ..._diaperFields(),
         ];
       case 'pump':
         return [
-          _timeRow('Start Time', _start, (v) => setState(() => _start = v)),
-          _numRow('Left', _leftMl, u.volumeUnit),
-          _numRow('Right', _rightMl, u.volumeUnit),
-          _numRow('Duration', _pumpMinutes, 'min'),
+          _timeRow(l10n.formStartTime, _start, (v) => setState(() => _start = v)),
+          _numRow(l10n.left, _leftMl, u.volumeUnit),
+          _numRow(l10n.right, _rightMl, u.volumeUnit),
+          _numRow(l10n.formDuration, _pumpMinutes, 'min'),
         ];
       case 'growth':
         return [
-          _timeRow('Measured', _start, (v) => setState(() => _start = v)),
-          _numRow('Weight', _weight, u.weightUnit),
-          _numRow('Height', _length, u.lengthUnit),
-          _numRow('Head Size', _head, u.lengthUnit),
+          _timeRow(l10n.formMeasured, _start, (v) => setState(() => _start = v)),
+          _numRow(l10n.formWeight, _weight, u.weightUnit),
+          _numRow(l10n.formHeight, _length, u.lengthUnit),
+          _numRow(l10n.formHeadSize, _head, u.lengthUnit),
         ];
       case 'health':
         return [
           _chipsRow<String>(
-            'Type',
-            const {
-              'medicine': 'Medicine',
-              'temperature': 'Temperature',
-              'vaccine': 'Vaccine',
-              'symptom': 'Symptom',
-              'appointment': 'Appointment',
+            l10n.formType,
+            {
+              'medicine': l10n.healthMedicine,
+              'temperature': l10n.healthTemperature,
+              'vaccine': l10n.healthVaccine,
+              'symptom': l10n.healthSymptom,
+              'appointment': l10n.healthAppointment,
             },
             _healthKind,
             (v) => setState(() => _healthKind = v ?? _healthKind),
           ),
-          _timeRow('Time', _start, (v) => setState(() => _start = v)),
+          _timeRow(l10n.formTime, _start, (v) => setState(() => _start = v)),
           if (_healthKind == 'temperature')
-            _numRow('Temperature', _temp, u.tempUnit)
+            _numRow(l10n.healthTemperature, _temp, u.tempUnit)
           else ...[
             if (_healthKind == 'medicine')
-              _pickRow('Medicine', _name.text, _chooseMedicine)
+              _pickRow(l10n.healthMedicine, _name.text, _chooseMedicine)
             else
               _textRow(switch (_healthKind) {
-                'vaccine' => 'Vaccine',
-                'appointment' => 'Doctor',
-                _ => 'Symptom',
+                'vaccine' => l10n.healthVaccine,
+                'appointment' => l10n.formDoctor,
+                _ => l10n.healthSymptom,
               }, _name),
             if (_healthKind == 'medicine') ...[
               if (_tooSoon() case final warning?) _warningRow(warning),
-              _numRow('Dose', _dose, null),
-              _textRow('Unit', _doseUnit),
+              _numRow(l10n.formDose, _dose, null),
+              _textRow(l10n.formUnit, _doseUnit),
             ],
           ],
         ];
       case 'activity':
         return [
-          _pickRow('Activity', cap(_text(_activityKind)), _chooseActivity),
-          _timeRow('Start Time', _start, (v) => setState(() => _start = v)),
-          _numRow('Duration', _activityMinutes, 'min'),
+          _pickRow(l10n.kindActivity, cap(_text(_activityKind)), _chooseActivity),
+          _timeRow(l10n.formStartTime, _start, (v) => setState(() => _start = v)),
+          _numRow(l10n.formDuration, _activityMinutes, 'min'),
         ];
       default:
-        return [_timeRow('Time', _start, (v) => setState(() => _start = v))];
+        return [_timeRow(l10n.formTime, _start, (v) => setState(() => _start = v))];
     }
   }
 
@@ -603,7 +625,7 @@ class _EventFormState extends State<EventForm> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           CircleToggle(
-            label: 'wet',
+            label: l10n.wet.toLowerCase(),
             selected: _wet,
             onTap: () => setState(() {
               _wet = !_wet;
@@ -612,7 +634,7 @@ class _EventFormState extends State<EventForm> {
           ),
           const SizedBox(width: 20),
           CircleToggle(
-            label: 'dirty',
+            label: l10n.dirty.toLowerCase(),
             selected: _dirty,
             onTap: () => setState(() {
               _dirty = !_dirty;
@@ -621,7 +643,7 @@ class _EventFormState extends State<EventForm> {
           ),
           const SizedBox(width: 20),
           CircleToggle(
-            label: 'dry',
+            label: l10n.dry.toLowerCase(),
             selected: _dry,
             onTap: () => setState(() {
               _dry = !_dry;
@@ -631,9 +653,9 @@ class _EventFormState extends State<EventForm> {
         ],
       ),
     ),
-    if (_dirty) FormRow(label: 'Texture & Color', below: _textureAndColor()),
-    _switchRow('Blowout', _blowout, (v) => setState(() => _blowout = v)),
-    _switchRow('Diaper Rash', _rash, (v) => setState(() => _rash = v)),
+    if (_dirty) FormRow(label: l10n.formTextureColor, below: _textureAndColor()),
+    _switchRow(l10n.formBlowout, _blowout, (v) => setState(() => _blowout = v)),
+    _switchRow(l10n.formDiaperRash, _rash, (v) => setState(() => _rash = v)),
   ];
 
   /// Potty tab: what happened (one of three), then wet/dirty with the diaper's details unless
@@ -656,20 +678,20 @@ class _EventFormState extends State<EventForm> {
     ),
     if (_potty != 'sat_dry') ...[
       FormRow(
-        label: 'What came',
+        label: l10n.formWhatCame,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircleToggle(label: 'wet', size: 60, selected: _wet, onTap: () => setState(() => _wet = !_wet)),
+            CircleToggle(label: l10n.wet.toLowerCase(), size: 60, selected: _wet, onTap: () => setState(() => _wet = !_wet)),
             const SizedBox(width: 12),
-            CircleToggle(label: 'dirty', size: 60, selected: _dirty, onTap: () => setState(() => _dirty = !_dirty)),
+            CircleToggle(label: l10n.dirty.toLowerCase(), size: 60, selected: _dirty, onTap: () => setState(() => _dirty = !_dirty)),
           ],
         ),
       ),
-      if (_dirty) FormRow(label: 'Texture & Color', below: _textureAndColor()),
-      _switchRow('Blowout', _blowout, (v) => setState(() => _blowout = v)),
+      if (_dirty) FormRow(label: l10n.formTextureColor, below: _textureAndColor()),
+      _switchRow(l10n.formBlowout, _blowout, (v) => setState(() => _blowout = v)),
     ],
-    _switchRow('Diaper Rash', _rash, (v) => setState(() => _rash = v)),
+    _switchRow(l10n.formDiaperRash, _rash, (v) => setState(() => _rash = v)),
   ];
 
   Widget _textureAndColor() {

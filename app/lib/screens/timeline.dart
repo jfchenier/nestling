@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../format.dart';
+import '../l10n/l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
@@ -21,14 +22,15 @@ class TimelineScreen extends StatefulWidget {
 }
 
 class _TimelineScreenState extends State<TimelineScreen> {
-  static const _filters = {
-    'feed': 'Feeds',
-    'sleep': 'Sleep',
-    'diaper': 'Diapers',
-    'pump': 'Pump',
-    'growth': 'Growth',
-    'health': 'Health',
-    'activity,milestone,note': 'Other',
+  // Keys are the API's type filters; values are labels.
+  static Map<String, String> get _filters => {
+    'feed': l10n.timelineFeeds,
+    'sleep': l10n.kindSleep,
+    'diaper': l10n.timelineDiapers,
+    'pump': l10n.kindPump,
+    'growth': l10n.kindGrowth,
+    'health': l10n.kindHealth,
+    'activity,milestone,note': l10n.timelineOther,
   };
 
   final _scroll = ScrollController();
@@ -96,7 +98,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('${s.child?.name ?? ''}’s timeline'),
+        title: Text(l10n.timelineTitle(s.child?.name ?? '')),
         actions: [
           FilledButton.icon(
             style: FilledButton.styleFrom(
@@ -110,7 +112,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
             ),
             onPressed: () => showSummary(context),
             icon: const Icon(Icons.bar_chart_rounded, size: 20),
-            label: const Text('Summary'),
+            label: Text(l10n.timelineSummary),
           ),
           const SizedBox(width: 12),
         ],
@@ -128,7 +130,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
-                        label: Text(f == null ? 'All' : _filters[f]!),
+                        label: Text(f == null ? l10n.timelineAll : _filters[f]!),
                         selected: _filter == f,
                         showCheckmark: false,
                         onSelected: (_) {
@@ -158,7 +160,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                       Padding(
                         padding: const EdgeInsets.all(48),
                         child: Text(
-                          'Nothing here yet.',
+                          l10n.timelineEmpty,
                           textAlign: TextAlign.center,
                           style: TextStyle(color: context.pal.muted),
                         ),

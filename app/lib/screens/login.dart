@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api.dart';
+import '../l10n/l10n.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -78,30 +79,30 @@ class _LoginScreenState extends State<LoginScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Use without a server'),
+        title: Text(l10n.loginServerless),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Everything you log is saved on this phone. What\'s your name? Other caregivers see it.'),
+            Text(l10n.loginServerlessIntro),
             const SizedBox(height: 12),
             TextField(
               controller: name,
               autofocus: true,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Your name'),
+              decoration: InputDecoration(labelText: l10n.loginYourName),
               onSubmitted: (_) => Navigator.pop(c, true),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Continue')),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l10n.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l10n.loginContinue)),
         ],
       ),
     );
     if (ok != true || !mounted) return;
-    if (name.text.trim().isEmpty) return showMessage(context, 'Enter your name');
+    if (name.text.trim().isEmpty) return showMessage(context, l10n.loginEnterName);
     await context.read<AppState>().startServerless(name.text);
   }
 
@@ -124,10 +125,10 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 6),
                 Text(
                   _needsSetup
-                      ? 'New server: create the admin account.\nYou\'ll add the other caregivers afterwards.'
+                      ? l10n.loginNewServer
                       : _register
-                      ? 'Create your account'
-                      : 'Welcome back',
+                      ? l10n.loginCreateYourAccount
+                      : l10n.loginWelcomeBack,
                   textAlign: TextAlign.center,
                   style: t.bodyLarge?.copyWith(color: context.pal.muted),
                 ),
@@ -137,12 +138,12 @@ class _LoginScreenState extends State<LoginScreen> {
                     controller: _server,
                     keyboardType: TextInputType.url,
                     autocorrect: false,
-                    decoration: const InputDecoration(
-                      labelText: 'Server address',
+                    decoration: InputDecoration(
+                      labelText: l10n.loginServerAddress,
                       hintText: 'http://192.168.1.10:8080',
-                      prefixIcon: Icon(Icons.dns_outlined),
+                      prefixIcon: const Icon(Icons.dns_outlined),
                     ),
-                    validator: (v) => (v ?? '').trim().isEmpty ? 'Enter your Nestling server address' : null,
+                    validator: (v) => (v ?? '').trim().isEmpty ? l10n.loginEnterServer : null,
                     onChanged: (_) {
                       _debounce?.cancel();
                       _debounce = Timer(const Duration(milliseconds: 600), _checkServer);
@@ -154,8 +155,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   TextFormField(
                     controller: _name,
                     textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(labelText: 'Your name', prefixIcon: Icon(Icons.person_outline)),
-                    validator: (v) => (v ?? '').trim().isEmpty ? 'Enter your name' : null,
+                    decoration: InputDecoration(labelText: l10n.loginYourName, prefixIcon: const Icon(Icons.person_outline)),
+                    validator: (v) => (v ?? '').trim().isEmpty ? l10n.loginEnterName : null,
                   ),
                   const SizedBox(height: 12),
                 ],
@@ -164,19 +165,19 @@ class _LoginScreenState extends State<LoginScreen> {
                   keyboardType: TextInputType.emailAddress,
                   autocorrect: false,
                   autofillHints: const [AutofillHints.email],
-                  decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.mail_outline)),
-                  validator: (v) => (v ?? '').contains('@') ? null : 'Enter your email',
+                  decoration: InputDecoration(labelText: l10n.loginEmail, prefixIcon: const Icon(Icons.mail_outline)),
+                  validator: (v) => (v ?? '').contains('@') ? null : l10n.loginEnterEmail,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _password,
                   obscureText: true,
                   autofillHints: const [AutofillHints.password],
-                  decoration: const InputDecoration(labelText: 'Password', prefixIcon: Icon(Icons.lock_outline)),
+                  decoration: InputDecoration(labelText: l10n.loginPassword, prefixIcon: const Icon(Icons.lock_outline)),
                   validator: (v) => _register && (v ?? '').length < 8
-                      ? 'At least 8 characters'
+                      ? l10n.loginPasswordMin
                       : (v ?? '').isEmpty
-                      ? 'Enter your password'
+                      ? l10n.loginEnterPassword
                       : null,
                   onFieldSubmitted: (_) => _submit(),
                 ),
@@ -187,23 +188,23 @@ class _LoginScreenState extends State<LoginScreen> {
                       ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: context.pal.onAccent))
                       : Text(
                           _needsSetup
-                              ? 'Create admin account'
+                              ? l10n.loginCreateAdmin
                               : _register
-                              ? 'Create account'
-                              : 'Sign in',
+                              ? l10n.loginCreateAccount
+                              : l10n.loginSignIn,
                         ),
                 ),
                 const SizedBox(height: 8),
                 if (_openSignUp && !_needsSetup)
                   TextButton(
                     onPressed: () => setState(() => _register = !_register),
-                    child: Text(_register ? 'I already have an account' : 'New here? Create an account'),
+                    child: Text(_register ? l10n.loginHaveAccount : l10n.loginNewHere),
                   )
                 else if (!_needsSetup)
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Text(
-                      'No account yet? Ask whoever runs this Nestling server to create one for you.',
+                      l10n.loginAskAdmin,
                       textAlign: TextAlign.center,
                       style: TextStyle(color: context.pal.muted, fontSize: 13),
                     ),
@@ -211,21 +212,20 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (!_showServer)
                   TextButton(
                     onPressed: () => setState(() => _showServer = true),
-                    child: Text('Server: ${_server.text}', style: TextStyle(color: context.pal.muted)),
+                    child: Text(l10n.loginServerLink(_server.text), style: TextStyle(color: context.pal.muted)),
                   ),
                 const SizedBox(height: 24),
                 const Divider(),
                 const SizedBox(height: 12),
                 Text(
-                  'No home server? Nestling also works on its own: your data stays on your phone, and you can pair your '
-                  'partner\'s phone over Wi-Fi and back up to Google Drive.',
+                  l10n.loginNoServerIntro,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: context.pal.muted, fontSize: 13),
                 ),
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   icon: const Icon(Icons.smartphone_rounded),
-                  label: const Text('Use without a server'),
+                  label: Text(l10n.loginServerless),
                   onPressed: _busy ? null : _serverless,
                 ),
               ],

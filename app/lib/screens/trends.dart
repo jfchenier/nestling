@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../format.dart';
+import '../l10n/l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
@@ -51,7 +52,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
     final feedColors = [Kind.breast.on(context.pal), Kind.bottle.color, Kind.solids.deepTone];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Trends')),
+      appBar: AppBar(title: Text(l10n.trendsTitle)),
       body: Constrained(
         child: RefreshIndicator(
           onRefresh: _load,
@@ -59,10 +60,8 @@ class _TrendsScreenState extends State<TrendsScreen> {
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
             children: [
               SegmentedButton<int>(
-                segments: const [
-                  ButtonSegment(value: 7, label: Text('7 days')),
-                  ButtonSegment(value: 14, label: Text('14 days')),
-                  ButtonSegment(value: 30, label: Text('30 days')),
+                segments: [
+                  for (final n in const [7, 14, 30]) ButtonSegment(value: n, label: Text(l10n.trendsDays(n))),
                 ],
                 selected: {_days},
                 showSelectedIcon: false,
@@ -72,8 +71,8 @@ class _TrendsScreenState extends State<TrendsScreen> {
               Card(
                 child: ListTile(
                   leading: Icon(Icons.show_chart_rounded, color: Kind.growth.on(context.pal)),
-                  title: const Text('Growth charts'),
-                  subtitle: const Text('Weight, length and head size on the WHO percentile curves'),
+                  title: Text(l10n.growthTitle),
+                  subtitle: Text(l10n.trendsGrowthChartsSub),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GrowthChartScreen())),
                 ),
@@ -87,62 +86,62 @@ class _TrendsScreenState extends State<TrendsScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 14, 4, 0),
                   child: Text(
-                    'Daily averages over ${avg['days'] ?? 0} full days; daytime is ${s.family?.dayStart ?? '06:00'}–${s.family?.dayEnd ?? '18:00'}. '
-                    '${prev == null ? 'Nothing logged in the $_days days before to compare with.' : 'Arrows compare with the $_days days before.'}',
+                    '${l10n.trendsIntro(toInt(avg['days']) ?? 0, s.family?.dayEnd ?? '18:00', s.family?.dayStart ?? '06:00')} '
+                    '${prev == null ? l10n.trendsCompareNone(_days) : l10n.trendsCompareArrows(_days)}',
                     style: TextStyle(color: context.pal.muted, fontSize: 12),
                   ),
                 ),
-                const SectionTitle('Feed'),
+                SectionTitle(l10n.trendsFeed),
                 _AverageGrid(
                   items: [
                     _Stat(
                       Kind.breast,
-                      'Feeds',
+                      l10n.trendsFeeds,
                       'feeds_per_day',
-                      'per day',
+                      l10n.trendsPerDay,
                       count,
                       lines: [
-                        if (either('breast_feeds_per_day')) ('Breastfeed', count(avg['breast_feeds_per_day'])),
-                        if (either('bottle_feeds_per_day')) ('Bottle', count(avg['bottle_feeds_per_day'])),
-                        if (either('solids_per_day')) ('Solids', count(avg['solids_per_day'])),
+                        if (either('breast_feeds_per_day')) (l10n.kindBreastfeed, count(avg['breast_feeds_per_day'])),
+                        if (either('bottle_feeds_per_day')) (l10n.kindBottle, count(avg['bottle_feeds_per_day'])),
+                        if (either('solids_per_day')) (l10n.kindSolids, count(avg['solids_per_day'])),
                       ],
                       lineColors: feedColors,
                     ),
                     if (either('breast_seconds_per_day')) ...[
                       for (final (key, title) in [
-                        ('', 'Breastfeeding'),
-                        ('day_', 'Daytime breastfeeding'),
-                        ('night_', 'Nighttime breastfeeding'),
+                        ('', l10n.trendsBreastfeeding),
+                        ('day_', l10n.trendsDayBreastfeeding),
+                        ('night_', l10n.trendsNightBreastfeeding),
                       ])
                         _Stat(
                           Kind.breast,
                           title,
                           '${key}breast_seconds_per_day',
-                          'per day',
+                          l10n.trendsPerDay,
                           time,
                           lines: [
-                            ('Left', time(avg['${key}breast_left_seconds_per_day'])),
-                            ('Right', time(avg['${key}breast_right_seconds_per_day'])),
+                            (l10n.left, time(avg['${key}breast_left_seconds_per_day'])),
+                            (l10n.right, time(avg['${key}breast_right_seconds_per_day'])),
                           ],
                         ),
-                      _Stat(Kind.breast, 'Breastfeed length', 'avg_breastfeed_seconds', 'average', time),
+                      _Stat(Kind.breast, l10n.trendsBreastfeedLength, 'avg_breastfeed_seconds', l10n.trendsAverage, time),
                     ],
                     if (either('bottle_ml_per_day')) ...[
                       _Stat(
                         Kind.bottle,
-                        'Bottle',
+                        l10n.kindBottle,
                         'bottle_ml_per_day',
-                        'per day',
+                        l10n.trendsPerDay,
                         volume,
                         lines: [
-                          if (either('breast_milk_ml_per_day')) ('Breast milk', volume(avg['breast_milk_ml_per_day'])),
-                          if (either('formula_ml_per_day')) ('Formula', volume(avg['formula_ml_per_day'])),
-                          if (either('mixed_ml_per_day')) ('Mixed', volume(avg['mixed_ml_per_day'])),
+                          if (either('breast_milk_ml_per_day')) (l10n.milkBreastMilk, volume(avg['breast_milk_ml_per_day'])),
+                          if (either('formula_ml_per_day')) (l10n.milkFormula, volume(avg['formula_ml_per_day'])),
+                          if (either('mixed_ml_per_day')) (l10n.milkMixed, volume(avg['mixed_ml_per_day'])),
                         ],
                       ),
-                      _Stat(Kind.bottle, 'Bottle size', 'avg_bottle_ml', 'average', volume),
+                      _Stat(Kind.bottle, l10n.trendsBottleSize, 'avg_bottle_ml', l10n.trendsAverage, volume),
                     ],
-                    _Stat(Kind.breast, 'Time between feeds', 'feed_interval_seconds', 'average', time),
+                    _Stat(Kind.breast, l10n.trendsFeedInterval, 'feed_interval_seconds', l10n.trendsAverage, time),
                   ],
                   previous: prev,
                   current: avg,
@@ -151,7 +150,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                 _Chart(
                   days: days,
                   kind: Kind.breast,
-                  legend: const ['Breastfeed', 'Bottle', 'Solids'],
+                  legend: [l10n.kindBreastfeed, l10n.kindBottle, l10n.kindSolids],
                   stacks: (d) => [
                     (toDouble(d['feed']['breast_count']) ?? 0),
                     (toDouble(d['feed']['bottle_count']) ?? 0),
@@ -161,7 +160,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                   colors: feedColors,
                 ),
                 if (days.any((d) => (toDouble(d['feed']['bottle_ml']) ?? 0) > 0)) ...[
-                  SectionTitle('Bottle (${u.volumeUnit})'),
+                  SectionTitle(l10n.trendsBottleUnit(u.volumeUnit)),
                   _Chart(
                     days: days,
                     kind: Kind.bottle,
@@ -170,12 +169,12 @@ class _TrendsScreenState extends State<TrendsScreen> {
                   ),
                 ],
                 if (either('pumps_per_day')) ...[
-                  const SectionTitle('Pump'),
+                  SectionTitle(l10n.kindPump),
                   _AverageGrid(
                     items: [
-                      _Stat(Kind.pump, 'Pump sessions', 'pumps_per_day', 'per day', count),
-                      _Stat(Kind.pump, 'Amount pumped', 'pumped_ml_per_day', 'per day', volume),
-                      _Stat(Kind.pump, 'Pump time', 'pump_seconds_per_day', 'per day', time),
+                      _Stat(Kind.pump, l10n.trendsPumpSessions, 'pumps_per_day', l10n.trendsPerDay, count),
+                      _Stat(Kind.pump, l10n.trendsAmountPumped, 'pumped_ml_per_day', l10n.trendsPerDay, volume),
+                      _Stat(Kind.pump, l10n.trendsPumpTime, 'pump_seconds_per_day', l10n.trendsPerDay, time),
                     ],
                     previous: prev,
                     current: avg,
@@ -190,17 +189,17 @@ class _TrendsScreenState extends State<TrendsScreen> {
                     ),
                   ],
                 ],
-                const SectionTitle('Diaper'),
+                SectionTitle(l10n.kindDiaper),
                 _AverageGrid(
                   items: [
-                    for (final (key, title) in [('', 'Diapers'), ('day_', 'Daytime diapers'), ('night_', 'Nighttime diapers')])
+                    for (final (key, title) in [('', l10n.trendsDiapers), ('day_', l10n.trendsDayDiapers), ('night_', l10n.trendsNightDiapers)])
                       _Stat(
                         Kind.diaper,
                         title,
                         '${key}diapers_per_day',
-                        'per day',
+                        l10n.trendsPerDay,
                         count,
-                        lines: [('Wet', count(avg['${key}wet_per_day'])), ('Dirty', count(avg['${key}dirty_per_day']))],
+                        lines: [(l10n.wet, count(avg['${key}wet_per_day'])), (l10n.dirty, count(avg['${key}dirty_per_day']))],
                       ),
                   ],
                   previous: prev,
@@ -210,7 +209,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                 _Chart(
                   days: days,
                   kind: Kind.diaper,
-                  legend: const ['Dirty', 'Wet only'],
+                  legend: [l10n.dirty, l10n.trendsWetOnly],
                   stacks: (d) {
                     final count = toDouble(d['diaper']['count']) ?? 0, dirty = toDouble(d['diaper']['dirty']) ?? 0;
                     return [dirty, count - dirty];
@@ -218,19 +217,19 @@ class _TrendsScreenState extends State<TrendsScreen> {
                   label: (v) => v.toStringAsFixed(0),
                 ),
                 if (either('potty_per_day')) ...[
-                  const SectionTitle('Potty'),
+                  SectionTitle(l10n.kindPotty),
                   _AverageGrid(
                     items: [
                       _Stat(
                         Kind.potty,
-                        'Potty trips',
+                        l10n.trendsPottyTrips,
                         'potty_per_day',
-                        'per day',
+                        l10n.trendsPerDay,
                         count,
-                        lines: [('In the potty', count(avg['potty_success_per_day'])), ('Accidents', count(avg['potty_accidents_per_day']))],
+                        lines: [(l10n.inThePotty, count(avg['potty_success_per_day'])), (l10n.trendsAccidents, count(avg['potty_accidents_per_day']))],
                       ),
-                      _Stat(Kind.potty, 'In the potty', 'potty_success_per_day', 'per day', count),
-                      _Stat(Kind.potty, 'Accidents', 'potty_accidents_per_day', 'per day', count),
+                      _Stat(Kind.potty, l10n.inThePotty, 'potty_success_per_day', l10n.trendsPerDay, count),
+                      _Stat(Kind.potty, l10n.trendsAccidents, 'potty_accidents_per_day', l10n.trendsPerDay, count),
                     ],
                     previous: prev,
                     current: avg,
@@ -239,7 +238,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                   _Chart(
                     days: days,
                     kind: Kind.potty,
-                    legend: const ['In the potty', 'Accident', 'Sat but dry'],
+                    legend: [l10n.inThePotty, l10n.pottyAccident, l10n.pottySatDry],
                     stacks: (d) {
                       final all = toDouble(d['diaper']['potty_count']) ?? 0;
                       final ok = toDouble(d['diaper']['potty_success']) ?? 0, oops = toDouble(d['diaper']['potty_accidents']) ?? 0;
@@ -248,16 +247,16 @@ class _TrendsScreenState extends State<TrendsScreen> {
                     label: (v) => v.toStringAsFixed(0),
                   ),
                 ],
-                const SectionTitle('Sleep'),
+                SectionTitle(l10n.kindSleep),
                 _AverageGrid(
                   items: [
-                    _Stat(Kind.sleep, 'Sleep', 'sleep_seconds_per_day', 'per day', time),
-                    _Stat(Kind.sleep, 'Daytime sleep', 'day_sleep_seconds_per_day', 'per day', time),
-                    _Stat(Kind.sleep, 'Nighttime sleep', 'night_sleep_seconds_per_day', 'per day', time),
-                    _Stat(Kind.sleep, 'Longest sleep', 'longest_sleep_seconds', 'average', time),
-                    _Stat(Kind.sleep, 'Naps', 'naps_per_day', 'per day', count),
-                    _Stat(Kind.sleep, 'Nap length', 'avg_nap_seconds', 'average', time),
-                    _Stat(Kind.sleep, 'Wake window', 'wake_window_seconds', 'average', time),
+                    _Stat(Kind.sleep, l10n.kindSleep, 'sleep_seconds_per_day', l10n.trendsPerDay, time),
+                    _Stat(Kind.sleep, l10n.trendsDaySleep, 'day_sleep_seconds_per_day', l10n.trendsPerDay, time),
+                    _Stat(Kind.sleep, l10n.trendsNightSleep, 'night_sleep_seconds_per_day', l10n.trendsPerDay, time),
+                    _Stat(Kind.sleep, l10n.trendsLongestSleep, 'longest_sleep_seconds', l10n.trendsAverage, time),
+                    _Stat(Kind.sleep, l10n.trendsNaps, 'naps_per_day', l10n.trendsPerDay, count),
+                    _Stat(Kind.sleep, l10n.trendsNapLength, 'avg_nap_seconds', l10n.trendsAverage, time),
+                    _Stat(Kind.sleep, l10n.trendsWakeWindow, 'wake_window_seconds', l10n.trendsAverage, time),
                   ],
                   previous: prev,
                   current: avg,
@@ -266,7 +265,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                 _Chart(
                   days: days,
                   kind: Kind.sleep,
-                  legend: const ['Night', 'Day'],
+                  legend: [l10n.trendsNight, l10n.trendsDay],
                   stacks: (d) => [(toDouble(d['sleep']['night_seconds']) ?? 0) / 3600, (toDouble(d['sleep']['day_seconds']) ?? 0) / 3600],
                   label: (v) => '${v.toStringAsFixed(1)} h',
                 ),

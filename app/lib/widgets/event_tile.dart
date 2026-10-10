@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../format.dart';
+import '../l10n/l10n.dart';
 import '../models.dart';
 import '../screens/event_form.dart';
 import '../state.dart';
@@ -19,7 +20,7 @@ class EventTile extends StatelessWidget {
     final u = context.select<AppState, Units>((s) => s.units);
     final (title, detail) = describe(event, u);
     final k = Kind.of(event.type, event.look);
-    final sub = [if (detail.isNotEmpty) detail, if (event.note != null && event.note!.isNotEmpty) '“${event.note}”'].join('\n');
+    final sub = [if (detail.isNotEmpty) detail, if (event.note != null && event.note!.isNotEmpty) l10n.timelineNote(event.note!)].join('\n');
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: BlobIcon(k, size: 46),

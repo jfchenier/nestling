@@ -1,3 +1,4 @@
+import '../l10n/l10n.dart';
 import 'transport.dart';
 
 /// Browsers can't accept connections or announce themselves on the network.
@@ -5,7 +6,7 @@ class WebTransport implements PeerTransport {
   @override
   bool get available => false;
 
-  Never _no() => throw UnsupportedError('Syncing phones directly needs the Android app.');
+  Never _no() => throw UnsupportedError(l10n.syncPhonesNeedAndroid);
 
   @override
   Future<int> listen(PeerHandler handler, {required int preferredPort}) async => _no();

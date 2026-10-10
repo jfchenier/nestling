@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import '../l10n/l10n.dart';
 import 'transport.dart';
 
 const _path = '/nestling/v1/sync';
@@ -62,7 +63,7 @@ class IoTransport implements PeerTransport {
       await for (final chunk in res.timeout(const Duration(seconds: 30))) {
         bytes.addAll(chunk);
       }
-      if (res.statusCode != 200) throw HttpException('the other phone answered ${res.statusCode}');
+      if (res.statusCode != 200) throw HttpException(l10n.syncOtherPhoneAnswered(res.statusCode));
       return bytes;
     } finally {
       client.close(force: true);

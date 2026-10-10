@@ -1,5 +1,6 @@
 import 'package:intl/intl.dart';
 
+import 'l10n/l10n.dart';
 import 'models.dart';
 
 /// Display helpers. The API is metric-only; [Units] converts for imperial users.
@@ -49,11 +50,11 @@ class Units {
 /// "2d 5h", "1h 05m", "12m", "45s".
 String duration(int? seconds, {bool showSeconds = false}) {
   if (seconds == null) return '';
-  if (seconds >= 86400) return '${seconds ~/ 86400}d ${(seconds % 86400) ~/ 3600}h';
+  if (seconds >= 86400) return l10n.durDaysHours(seconds ~/ 86400, (seconds % 86400) ~/ 3600);
   final h = seconds ~/ 3600, m = (seconds % 3600) ~/ 60, s = seconds % 60;
-  if (h > 0) return '${h}h ${m.toString().padLeft(2, '0')}m';
-  if (m > 0) return showSeconds ? '${m}m ${s.toString().padLeft(2, '0')}s' : '${m}m';
-  return showSeconds ? '${s}s' : (seconds > 0 ? '<1m' : '0m');
+  if (h > 0) return l10n.durHoursMinutes(h, m.toString().padLeft(2, '0'));
+  if (m > 0) return showSeconds ? l10n.durMinutesSeconds(m, s.toString().padLeft(2, '0')) : l10n.durMinutes(m);
+  return showSeconds ? l10n.durSeconds(s) : (seconds > 0 ? l10n.durUnderMinute : l10n.durMinutes(0));
 }
 
 /// Stopwatch style: "1:05:09" or "05:09".
@@ -66,10 +67,10 @@ String clock(int seconds) {
 /// "2h 15m ago", "just now".
 String ago(int? seconds) {
   if (seconds == null) return '—';
-  if (seconds < 60) return 'just now';
-  if (seconds >= 86400 * 2) return '${seconds ~/ 86400} days ago';
-  if (seconds >= 86400) return 'Yesterday';
-  return '${duration(seconds)} ago';
+  if (seconds < 60) return l10n.justNow;
+  if (seconds >= 86400 * 2) return l10n.daysAgo(seconds ~/ 86400);
+  if (seconds >= 86400) return l10n.yesterday;
+  return l10n.agoDuration(duration(seconds));
 }
 
 /// 24-hour clock: "07:05", "23:40".
@@ -80,99 +81,152 @@ String dayLabel(DateTime t) {
   final d = DateTime(t.year, t.month, t.day);
   final today = DateTime(now.year, now.month, now.day);
   final diff = today.difference(d).inDays;
-  if (diff == 0) return 'Today';
-  if (diff == 1) return 'Yesterday';
-  if (diff < 7 && diff > 0) return DateFormat.EEEE().format(t);
-  return DateFormat.yMMMEd().format(t);
+  if (diff == 0) return l10n.today;
+  if (diff == 1) return l10n.yesterday;
+  if (diff < 7 && diff > 0) return capFirst(DateFormat.EEEE().format(t));
+  return capFirst(DateFormat.yMMMEd().format(t));
 }
 
+/// "lundi" → "Lundi" (French and Spanish day and month names are lower case).
+String capFirst(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
 String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).replaceAll('_', ' ');
-String cap(String? s) => s == null ? '' : _cap(s);
+
+/// Display name of a value saved as a key (sleep location, poop color, health kind, built-in
+/// activity…) in the app's language; any other text is just capitalized ("tummy_time" → "Tummy time").
+String cap(String? s) => s == null ? '' : (valueLabel(s) ?? _cap(s));
+
+String? valueLabel(String key) {
+  final t = l10n;
+  return switch (key) {
+    'crib' => t.locationCrib,
+    'bassinet' => t.locationBassinet,
+    'bed' => t.locationBed,
+    'arms' => t.locationArms,
+    'stroller' => t.locationStroller,
+    'car' => t.locationCar,
+    'yellow' => t.colorYellow,
+    'green' => t.colorGreen,
+    'brown' => t.colorBrown,
+    'black' => t.colorBlack,
+    'red' => t.colorRed,
+    'gray' => t.colorGray,
+    'runny' => t.consistencyRunny,
+    'mushy' => t.consistencyMushy,
+    'mucousy' => t.consistencyMucousy,
+    'pebbles' => t.consistencyPebbles,
+    'solid' => t.consistencySolid,
+    'medicine' => t.healthMedicine,
+    'temperature' => t.healthTemperature,
+    'vaccine' => t.healthVaccine,
+    'appointment' => t.healthAppointment,
+    'symptom' => t.healthSymptom,
+    'breast_milk' => t.milkBreastMilk,
+    'formula' => t.milkFormula,
+    'mixed' => t.milkMixed,
+    'tummy_time' => t.activityTummyTime,
+    'bath' => t.activityBath,
+    'outdoor' => t.activityOutdoor,
+    'play' => t.activityPlay,
+    'read' => t.activityRead,
+    'nail_trim' => t.activityNailTrim,
+    'vitamin' => t.activityVitamin,
+    'massage' => t.activityMassage,
+    'skin_to_skin' => t.activitySkinToSkin,
+    'swim' => t.activitySwim,
+    'music' => t.activityMusic,
+    'left' => t.left,
+    'right' => t.right,
+    'both' => t.both,
+    _ => null,
+  };
+}
 
 /// "Potty" / "Accident" / "Sat but dry" for a potty entry, null for a diaper.
 String? pottyLabel(dynamic potty) => switch (potty) {
-  'sat_dry' => 'Sat but dry',
-  'success' => 'Potty',
-  'accident' => 'Accident',
+  'sat_dry' => l10n.pottySatDry,
+  'success' => l10n.pottySuccess,
+  'accident' => l10n.pottyAccident,
   _ => null,
 };
 
 /// "Wet", "Dirty" or "Wet + dirty" (as for diapers).
-String wetDirty(Event e) => [if (e['wet'] == true) 'Wet', if (e['dirty'] == true) (e['wet'] == true ? 'dirty' : 'Dirty')].join(' + ');
+String wetDirty(Event e) => switch ((e['wet'] == true, e['dirty'] == true)) {
+  (true, true) => l10n.wetAndDirty,
+  (true, false) => l10n.wet,
+  (false, true) => l10n.dirty,
+  _ => '',
+};
 
 /// Title and one-line detail for an event, e.g. ("Bottle", "120 mL formula").
 (String, String) describe(Event e, Units u) {
   String sides() {
     final l = toInt(e['left_seconds']) ?? 0, r = toInt(e['right_seconds']) ?? 0;
-    return [if (l > 0) 'L ${duration(l)}', if (r > 0) 'R ${duration(r)}'].join(' · ');
+    return [if (l > 0) '${l10n.leftShort} ${duration(l)}', if (r > 0) '${l10n.rightShort} ${duration(r)}'].join(' · ');
   }
 
   switch (e.type) {
     case 'feed':
       final method = e['method'] as String?;
       final amount = toDouble(e['amount_ml']);
-      final milk = e['milk'] == 'breast_milk' ? 'breast milk' : e['milk'] as String?;
+      final milk = switch (e['milk'] as String?) {
+        final m? => cap(m).toLowerCase(),
+        null => null,
+      };
       switch (method) {
         case 'bottle':
-          return ('Bottle', [u.volume(amount), ?milk].where((s) => s.isNotEmpty).join(' '));
+          return (l10n.kindBottle, [u.volume(amount), ?milk].where((s) => s.isNotEmpty).join(' '));
         case 'solids':
-          return ('Solids', (e['foods'] as String?) ?? '');
+          return (l10n.kindSolids, (e['foods'] as String?) ?? '');
         case 'combo':
-          return ('Breastfeed + bottle', [sides(), if (amount != null) u.volume(amount)].where((s) => s.isNotEmpty).join(' · '));
+          return (l10n.breastfeedPlusBottle, [sides(), if (amount != null) u.volume(amount)].where((s) => s.isNotEmpty).join(' · '));
         default:
           final end = e.endSide;
-          return ('Breastfeed', [sides(), if (end != null) 'ended ${end == 'left' ? 'L' : 'R'}'].where((s) => s.isNotEmpty).join(' · '));
+          return (l10n.kindBreastfeed, [sides(), if (end != null) l10n.endedSide(end == 'left' ? l10n.leftShort : l10n.rightShort)].where((s) => s.isNotEmpty).join(' · '));
       }
     case 'sleep':
-      return ('Sleep', [duration(e.durationSeconds), if (e['location'] != null) cap(e['location'])].where((s) => s.isNotEmpty).join(' · '));
+      return (l10n.kindSleep, [duration(e.durationSeconds), if (e['location'] != null) cap(e['location'])].where((s) => s.isNotEmpty).join(' · '));
     case 'diaper' when e['potty'] != null:
       final parts = <String>[
-        e['potty'] == 'success' ? 'In the potty' : pottyLabel(e['potty'])!,
+        e['potty'] == 'success' ? l10n.inThePotty : pottyLabel(e['potty'])!,
         if (e['potty'] != 'sat_dry') wetDirty(e),
         if (e['color'] != null) cap(e['color']),
         if (e['consistency'] != null) cap(e['consistency']),
-        if (e['rash'] == true) 'rash',
-        if (e['blowout'] == true) 'blowout',
+        if (e['rash'] == true) l10n.rash,
+        if (e['blowout'] == true) l10n.blowout,
       ];
-      return ('Potty', parts.where((s) => s.isNotEmpty).join(' · '));
+      return (l10n.kindPotty, parts.where((s) => s.isNotEmpty).join(' · '));
     case 'diaper':
       final parts = <String>[
-        if (e['wet'] == true && e['dirty'] == true)
-          'Wet + dirty'
-        else if (e['wet'] == true)
-          'Wet'
-        else if (e['dirty'] == true)
-          'Dirty'
-        else
-          'Dry',
+        if (e['wet'] == true || e['dirty'] == true) wetDirty(e) else l10n.dry,
         if (e['color'] != null) cap(e['color']),
         if (e['consistency'] != null) cap(e['consistency']),
-        if (e['rash'] == true) 'rash',
-        if (e['blowout'] == true) 'blowout',
+        if (e['rash'] == true) l10n.rash,
+        if (e['blowout'] == true) l10n.blowout,
       ];
-      return ('Diaper', parts.join(' · '));
+      return (l10n.kindDiaper, parts.join(' · '));
     case 'pump':
       final total = (toDouble(e['left_ml']) ?? 0) + (toDouble(e['right_ml']) ?? 0);
-      return ('Pump', [if (total > 0) u.volume(total), if (e.durationSeconds != null) duration(e.durationSeconds)].join(' · '));
+      return (l10n.kindPump, [if (total > 0) u.volume(total), if (e.durationSeconds != null) duration(e.durationSeconds)].join(' · '));
     case 'growth':
       return (
-        'Growth',
+        l10n.kindGrowth,
         [
           u.weight(toDouble(e['weight_g'])),
-          if (e['length_cm'] != null) 'L ${u.length(toDouble(e['length_cm']))}',
-          if (e['head_cm'] != null) 'Head ${u.length(toDouble(e['head_cm']))}',
+          if (e['length_cm'] != null) l10n.lengthShort(u.length(toDouble(e['length_cm']))),
+          if (e['head_cm'] != null) l10n.headShort(u.length(toDouble(e['head_cm']))),
         ].where((s) => s.isNotEmpty).join(' · '),
       );
     case 'health':
       final kind = e['kind'] as String?;
-      if (kind == 'temperature') return ('Temperature', u.temp(toDouble(e['temperature_c'])));
+      if (kind == 'temperature') return (l10n.kindTemperature, u.temp(toDouble(e['temperature_c'])));
       final dose = [if (e['dose'] != null) Units._n(toDouble(e['dose']) ?? 0, 2), if (e['dose_unit'] != null) e['dose_unit']].join(' ');
-      return (cap(kind ?? 'Health'), [if (e['name'] != null) e['name'] as String, if (dose.isNotEmpty) dose].join(' · '));
+      return (kind == null ? l10n.kindHealth : cap(kind), [if (e['name'] != null) e['name'] as String, if (dose.isNotEmpty) dose].join(' · '));
     case 'activity':
-      return (cap(e['kind'] as String? ?? 'Activity'), duration(e.durationSeconds));
+      return (e['kind'] == null ? l10n.kindActivity : cap(e['kind'] as String), duration(e.durationSeconds));
     case 'milestone':
-      return ('Milestone', (e['name'] as String?) ?? '');
+      return (l10n.kindMilestone, (e['name'] as String?) ?? '');
     default:
-      return ('Note', '');
+      return (l10n.kindNote, '');
   }
 }

@@ -1,58 +1,72 @@
 import 'package:flutter/material.dart';
 
 import '../format.dart';
+import '../l10n/l10n.dart';
 import '../models.dart';
 import 'name_picker.dart';
 
-/// Common baby medicines and supplements, shown under the ones this child already had.
-const commonMedicines = [
-  'Vitamin D',
-  'Acetaminophen (Tylenol)',
-  'Ibuprofen (Advil)',
-  'Probiotic (BioGaia)',
-  'Gripe water',
-  'Simethicone (Ovol)',
-  'Saline drops',
-  'Iron drops',
-  'Amoxicillin',
-  'Antihistamine (Benadryl)',
-  'Teething gel',
-  'Diaper cream',
+/// Common baby medicines and supplements, shown under the ones this child already had (in the
+/// app's language: a picked one is saved as that text).
+List<String> get commonMedicines => [
+  l10n.pickerMedVitaminD,
+  l10n.pickerMedAcetaminophen,
+  l10n.pickerMedIbuprofen,
+  l10n.pickerMedProbiotic,
+  l10n.pickerMedGripeWater,
+  l10n.pickerMedSimethicone,
+  l10n.pickerMedSaline,
+  l10n.pickerMedIron,
+  l10n.pickerMedAmoxicillin,
+  l10n.pickerMedAntihistamine,
+  l10n.pickerMedTeethingGel,
+  l10n.pickerMedDiaperCream,
 ];
 
 /// Built-in activities (saved as these keys, shown as "Tummy time"…), under the ones this
 /// child already did; any other name can be added.
-const commonActivities = ['tummy_time', 'bath', 'outdoor', 'play', 'read', 'nail_trim', 'vitamin', 'massage', 'skin_to_skin', 'swim', 'music'];
+const commonActivities = [
+  'tummy_time',
+  'bath',
+  'outdoor',
+  'play',
+  'read',
+  'nail_trim',
+  'vitamin',
+  'massage',
+  'skin_to_skin',
+  'swim',
+  'music',
+];
 
-/// Usual first foods, under the ones this child already had.
-const commonFoods = [
-  'Avocado',
-  'Banana',
-  'Sweet potato',
-  'Carrot',
-  'Squash',
-  'Peas',
-  'Green beans',
-  'Broccoli',
-  'Apple',
-  'Pear',
-  'Peach',
-  'Mango',
-  'Blueberries',
-  'Strawberries',
-  'Oatmeal',
-  'Rice cereal',
-  'Pasta',
-  'Bread',
-  'Yogurt',
-  'Cheese',
-  'Egg',
-  'Peanut butter',
-  'Chicken',
-  'Beef',
-  'Fish',
-  'Lentils',
-  'Tofu',
+/// Usual first foods, under the ones this child already had (in the app's language, saved as text).
+List<String> get commonFoods => [
+  l10n.pickerFoodAvocado,
+  l10n.pickerFoodBanana,
+  l10n.pickerFoodSweetPotato,
+  l10n.pickerFoodCarrot,
+  l10n.pickerFoodSquash,
+  l10n.pickerFoodPeas,
+  l10n.pickerFoodGreenBeans,
+  l10n.pickerFoodBroccoli,
+  l10n.pickerFoodApple,
+  l10n.pickerFoodPear,
+  l10n.pickerFoodPeach,
+  l10n.pickerFoodMango,
+  l10n.pickerFoodBlueberries,
+  l10n.pickerFoodStrawberries,
+  l10n.pickerFoodOatmeal,
+  l10n.pickerFoodRiceCereal,
+  l10n.pickerFoodPasta,
+  l10n.pickerFoodBread,
+  l10n.pickerFoodYogurt,
+  l10n.pickerFoodCheese,
+  l10n.pickerFoodEgg,
+  l10n.pickerFoodPeanutButter,
+  l10n.pickerFoodChicken,
+  l10n.pickerFoodBeef,
+  l10n.pickerFoodFish,
+  l10n.pickerFoodLentils,
+  l10n.pickerFoodTofu,
 ];
 
 String _n(double v) => v == v.roundToDouble() ? v.round().toString() : v.toString();
@@ -65,8 +79,8 @@ typedef MedicinePick = ({String name, double? dose, String? unit});
 Future<MedicinePick?> showMedicinePicker(BuildContext context) async {
   final picked = await showNamePicker(
     context,
-    title: 'Medicine',
-    addHint: 'Add a medicine',
+    title: l10n.healthMedicine,
+    addHint: l10n.pickerAddMedicine,
     common: [for (final m in commonMedicines) PickItem(m)],
     recent: (s) async {
       final recent = <String, PickItem>{};
@@ -78,7 +92,7 @@ Future<MedicinePick?> showMedicinePicker(BuildContext context) async {
           name.toLowerCase(),
           () => PickItem(
             name,
-            subtitle: dose == null ? null : 'Last dose ${_n(dose)} ${unit ?? ''}'.trim(),
+            subtitle: dose == null ? null : l10n.pickerLastDose('${_n(dose)} ${unit ?? ''}'.trim()),
             data: (name: name, dose: dose, unit: unit),
           ),
         );
@@ -95,8 +109,8 @@ Future<MedicinePick?> showMedicinePicker(BuildContext context) async {
 Future<String?> showActivityPicker(BuildContext context) async {
   final picked = await showNamePicker(
     context,
-    title: 'Activity',
-    addHint: 'Add an activity',
+    title: l10n.kindActivity,
+    addHint: l10n.pickerAddActivity,
     common: [for (final a in commonActivities) PickItem(a, label: cap(a))],
     recent: (s) async {
       final done = <String, _Count>{};
@@ -122,7 +136,7 @@ class _Count {
 
   String get subtitle {
     final day = dayLabel(last);
-    return '${times == 1 ? 'Once' : '$times times'} · last ${day == 'Today' || day == 'Yesterday' ? day.toLowerCase() : day}';
+    return l10n.pickerUsedLast(day == l10n.today || day == l10n.yesterday ? day.toLowerCase() : day, l10n.pickerTimes(times));
   }
 }
 
@@ -137,9 +151,9 @@ List<String> splitFoods(String? foods) => [
 Future<List<String>?> showFoodPicker(BuildContext context, List<String> selected) async {
   final picked = await showNamePicker(
     context,
-    title: 'Foods',
-    addHint: 'Add a food',
-    recentTitle: 'Already tried',
+    title: l10n.formFoods,
+    addHint: l10n.pickerAddFood,
+    recentTitle: l10n.pickerAlreadyTried,
     multiple: true,
     selected: selected,
     common: [for (final f in commonFoods) PickItem(f)],

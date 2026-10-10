@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api.dart';
+import '../l10n/l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
@@ -21,111 +22,173 @@ import 'teeth_chart.dart';
 
 /// The book's chapters, in order (`BOOK_CHAPTERS` in src/model.rs).
 enum BookChapter {
-  waiting('waiting', 'Waiting for you', 'Waiting', 'Before you arrived', Icons.pregnant_woman_rounded),
-  hello('hello', 'Hello, world', 'Hello', 'The very beginning', Icons.child_friendly_rounded),
-  firsts('firsts', 'Firsts', 'Firsts', 'Every new thing, month by month', Icons.auto_awesome_rounded),
-  growing('growing', 'Growing up', 'Growing', 'Teeth, size, and how fast it goes', Icons.straighten_rounded),
-  celebrations('celebrations', 'Celebrations', 'Celebrations', 'Holidays and special days', Icons.celebration_rounded);
+  waiting('waiting', Icons.pregnant_woman_rounded),
+  hello('hello', Icons.child_friendly_rounded),
+  firsts('firsts', Icons.auto_awesome_rounded),
+  growing('growing', Icons.straighten_rounded),
+  celebrations('celebrations', Icons.celebration_rounded);
 
-  const BookChapter(this.id, this.title, this.tab, this.subtitle, this.icon);
-  final String id, title, tab, subtitle;
+  const BookChapter(this.id, this.icon);
+
+  /// Saved on a memory (`chapter`); never translated.
+  final String id;
   final IconData icon;
+
+  String get title => switch (this) {
+    waiting => l10n.bookChapterWaiting,
+    hello => l10n.bookChapterHello,
+    firsts => l10n.bookChapterFirsts,
+    growing => l10n.bookChapterGrowing,
+    celebrations => l10n.bookChapterCelebrations,
+  };
+
+  /// The short name on the contents tabs.
+  String get tab => switch (this) {
+    waiting => l10n.bookTabWaiting,
+    hello => l10n.bookTabHello,
+    firsts => l10n.bookTabFirsts,
+    growing => l10n.bookTabGrowing,
+    celebrations => l10n.bookTabCelebrations,
+  };
+
+  String get subtitle => switch (this) {
+    waiting => l10n.bookChapterSubWaiting,
+    hello => l10n.bookChapterSubHello,
+    firsts => l10n.bookChapterSubFirsts,
+    growing => l10n.bookChapterSubGrowing,
+    celebrations => l10n.bookChapterSubCelebrations,
+  };
 
   static BookChapter? byId(Object? id) => values.where((c) => c.id == id).firstOrNull;
 }
 
 /// A first worth remembering, offered in the baby book and the memory form.
 class MilestoneIdea {
-  const MilestoneIdea(this.name, this.icon, this.when, [this.chapter = BookChapter.firsts, this.repeats = false]);
-  final String name;
-  final IconData icon;
+  const MilestoneIdea(this.id, this._label, this.icon, this._when, [this.chapter = BookChapter.firsts, this.repeats = false]);
 
-  /// Roughly when it happens, as a hint.
-  final String when;
+  /// The English name: what a memory picked from this idea is saved as (the teeth chart saves
+  /// "First tooth" too), so the book finds it again in any language.
+  final String id;
+  final String Function(AppLocalizations) _label, _when;
+  final IconData icon;
   final BookChapter chapter;
 
   /// Stays offered once in the book (a belly photo at 20 weeks, another at 36).
   final bool repeats;
+
+  /// The name shown, in the app's language.
+  String get label => _label(l10n);
+
+  /// Roughly when it happens, as a hint.
+  String get when => _when(l10n);
 }
 
+/// A month's name ("December"), as a "when" hint.
+String _month(int month) => DateFormat.LLLL().format(DateTime(2000, month));
+
 /// Ideas for the baby book, by chapter, in about the order they come. Any other name works too.
-const milestoneIdeas = [
-  MilestoneIdea('We found out', Icons.favorite_border_rounded, 'the test', BookChapter.waiting),
-  MilestoneIdea('First ultrasound', Icons.monitor_heart_rounded, 'around 8–12 weeks', BookChapter.waiting),
-  MilestoneIdea('Heard the heartbeat', Icons.graphic_eq_rounded, 'around 10–12 weeks', BookChapter.waiting),
-  MilestoneIdea('Boy or girl?', Icons.help_outline_rounded, 'around 20 weeks', BookChapter.waiting),
-  MilestoneIdea('The belly', Icons.pregnant_woman_rounded, 'one now and then', BookChapter.waiting, true),
-  MilestoneIdea('Baby shower', Icons.card_giftcard_rounded, 'last weeks', BookChapter.waiting),
-  MilestoneIdea('Came home', Icons.home_rounded, 'first days', BookChapter.hello),
-  MilestoneIdea('First bath', Icons.bathtub_rounded, 'first weeks', BookChapter.hello),
-  MilestoneIdea('Met the grandparents', Icons.diversity_1_rounded, 'first weeks', BookChapter.hello),
-  MilestoneIdea('First walk outside', Icons.park_rounded, 'first weeks', BookChapter.hello),
+final milestoneIdeas = [
+  MilestoneIdea('We found out', (t) => t.bookIdeaFoundOut, Icons.favorite_border_rounded, (t) => t.bookWhenTest, BookChapter.waiting),
+  MilestoneIdea('First ultrasound', (t) => t.bookIdeaUltrasound, Icons.monitor_heart_rounded, (t) => t.bookWhenAroundWeeksRange(8, 12), BookChapter.waiting),
+  MilestoneIdea('Heard the heartbeat', (t) => t.bookIdeaHeartbeat, Icons.graphic_eq_rounded, (t) => t.bookWhenAroundWeeksRange(10, 12), BookChapter.waiting),
+  MilestoneIdea('Boy or girl?', (t) => t.bookIdeaBoyOrGirl, Icons.help_outline_rounded, (t) => t.bookWhenAroundWeeks(20), BookChapter.waiting),
+  MilestoneIdea('The belly', (t) => t.bookIdeaBelly, Icons.pregnant_woman_rounded, (t) => t.bookWhenNowAndThen, BookChapter.waiting, true),
+  MilestoneIdea('Baby shower', (t) => t.bookIdeaBabyShower, Icons.card_giftcard_rounded, (t) => t.bookWhenLastWeeks, BookChapter.waiting),
+  MilestoneIdea('Came home', (t) => t.bookIdeaCameHome, Icons.home_rounded, (t) => t.bookWhenFirstDays, BookChapter.hello),
+  MilestoneIdea('First bath', (t) => t.bookIdeaFirstBath, Icons.bathtub_rounded, (t) => t.bookWhenFirstWeeks, BookChapter.hello),
+  MilestoneIdea('Met the grandparents', (t) => t.bookIdeaGrandparents, Icons.diversity_1_rounded, (t) => t.bookWhenFirstWeeks, BookChapter.hello),
+  MilestoneIdea('First walk outside', (t) => t.bookIdeaFirstWalk, Icons.park_rounded, (t) => t.bookWhenFirstWeeks, BookChapter.hello),
   // Firsts: talking and listening, moving, eating, the rest.
-  MilestoneIdea('Cooed', Icons.music_note_rounded, '6–8 weeks'),
-  MilestoneIdea('First smile', Icons.sentiment_very_satisfied_rounded, 'around 6 weeks'),
-  MilestoneIdea('Found hands', Icons.back_hand_rounded, '2–3 months'),
-  MilestoneIdea('Held head up', Icons.face_rounded, '2–4 months'),
-  MilestoneIdea('Turned toward sounds', Icons.hearing_rounded, '3–4 months'),
-  MilestoneIdea('First laugh', Icons.emoji_emotions_rounded, '3–4 months'),
-  MilestoneIdea('Reached for a toy', Icons.toys_rounded, '3–5 months'),
-  MilestoneIdea('Found toes', Icons.do_not_step_rounded, '4–6 months'),
-  MilestoneIdea('Rolled over', Icons.sync_rounded, '4–6 months'),
-  MilestoneIdea('First bottle', Icons.local_drink_rounded, 'any time'),
-  MilestoneIdea('Slept through the night', Icons.nights_stay_rounded, 'any time'),
-  MilestoneIdea('First solid food', Icons.restaurant_rounded, 'around 6 months'),
-  MilestoneIdea('Knew own name', Icons.record_voice_over_rounded, '5–7 months'),
-  MilestoneIdea('Sat up alone', Icons.event_seat_rounded, '6–8 months'),
-  MilestoneIdea('Held own bottle', Icons.sports_bar_rounded, '6–10 months'),
-  MilestoneIdea('Crawled', Icons.child_care_rounded, '7–10 months'),
-  MilestoneIdea('Waved bye-bye', Icons.waving_hand_rounded, '8–10 months'),
-  MilestoneIdea('Clapped hands', Icons.front_hand_rounded, '8–10 months'),
-  MilestoneIdea('Said "mama"', Icons.chat_bubble_rounded, '8–12 months'),
-  MilestoneIdea('Said "dada"', Icons.chat_rounded, '8–12 months'),
-  MilestoneIdea('Pulled to stand', Icons.accessibility_new_rounded, '9–12 months'),
-  MilestoneIdea('First drink from a cup', Icons.coffee_rounded, '9–12 months'),
-  MilestoneIdea('Gave a kiss', Icons.favorite_rounded, '10–14 months'),
-  MilestoneIdea('First word', Icons.forum_rounded, '10–14 months'),
-  MilestoneIdea('Stood alone', Icons.man_rounded, '10–14 months'),
-  MilestoneIdea('First steps', Icons.directions_walk_rounded, '9–15 months'),
-  MilestoneIdea('Fed self with a spoon', Icons.soup_kitchen_rounded, '12–18 months'),
-  MilestoneIdea('First dance', Icons.nightlife_rounded, 'any time'),
-  MilestoneIdea('First haircut', Icons.content_cut_rounded, 'any time'),
-  MilestoneIdea('First swim', Icons.pool_rounded, 'any time'),
-  MilestoneIdea('First snow', Icons.ac_unit_rounded, 'any time'),
-  MilestoneIdea('First day at daycare', Icons.school_rounded, 'any time'),
-  MilestoneIdea('First tooth', Icons.auto_awesome_rounded, '6–10 months', BookChapter.growing),
-  MilestoneIdea('Up a diaper size', Icons.baby_changing_station_rounded, 'now and then', BookChapter.growing, true),
-  MilestoneIdea('Up a clothes size', Icons.checkroom_rounded, 'now and then', BookChapter.growing, true),
-  MilestoneIdea('Outgrew the bassinet', Icons.crib_rounded, '3–6 months', BookChapter.growing),
-  MilestoneIdea('Own room', Icons.bedroom_baby_rounded, 'any time', BookChapter.growing),
-  MilestoneIdea('Forward-facing car seat', Icons.directions_car_rounded, 'after 2 years', BookChapter.growing),
-  MilestoneIdea('First shoes', Icons.directions_run_rounded, 'first steps', BookChapter.growing),
-  MilestoneIdea('First Christmas', Icons.park_rounded, 'December', BookChapter.celebrations),
-  MilestoneIdea('First Halloween', Icons.dark_mode_rounded, 'October', BookChapter.celebrations),
-  MilestoneIdea('First Easter', Icons.egg_rounded, 'spring', BookChapter.celebrations),
-  MilestoneIdea("First Mother's Day", Icons.local_florist_rounded, 'May', BookChapter.celebrations),
-  MilestoneIdea("First Father's Day", Icons.redeem_rounded, 'June', BookChapter.celebrations),
-  MilestoneIdea('Baptism or naming day', Icons.water_drop_rounded, 'any time', BookChapter.celebrations),
-  MilestoneIdea('First trip', Icons.luggage_rounded, 'any time', BookChapter.celebrations),
-  MilestoneIdea('First birthday', Icons.cake_rounded, '1 year', BookChapter.celebrations),
+  MilestoneIdea('Cooed', (t) => t.bookIdeaCooed, Icons.music_note_rounded, (t) => t.bookWhenWeeksRange(6, 8)),
+  MilestoneIdea('First smile', (t) => t.bookIdeaFirstSmile, Icons.sentiment_very_satisfied_rounded, (t) => t.bookWhenAroundWeeks(6)),
+  MilestoneIdea('Found hands', (t) => t.bookIdeaFoundHands, Icons.back_hand_rounded, (t) => t.bookWhenMonthsRange(2, 3)),
+  MilestoneIdea('Held head up', (t) => t.bookIdeaHeldHead, Icons.face_rounded, (t) => t.bookWhenMonthsRange(2, 4)),
+  MilestoneIdea('Turned toward sounds', (t) => t.bookIdeaSounds, Icons.hearing_rounded, (t) => t.bookWhenMonthsRange(3, 4)),
+  MilestoneIdea('First laugh', (t) => t.bookIdeaFirstLaugh, Icons.emoji_emotions_rounded, (t) => t.bookWhenMonthsRange(3, 4)),
+  MilestoneIdea('Reached for a toy', (t) => t.bookIdeaReachedToy, Icons.toys_rounded, (t) => t.bookWhenMonthsRange(3, 5)),
+  MilestoneIdea('Found toes', (t) => t.bookIdeaFoundToes, Icons.do_not_step_rounded, (t) => t.bookWhenMonthsRange(4, 6)),
+  MilestoneIdea('Rolled over', (t) => t.bookIdeaRolledOver, Icons.sync_rounded, (t) => t.bookWhenMonthsRange(4, 6)),
+  MilestoneIdea('First bottle', (t) => t.bookIdeaFirstBottle, Icons.local_drink_rounded, (t) => t.bookWhenAnyTime),
+  MilestoneIdea('Slept through the night', (t) => t.bookIdeaSleptNight, Icons.nights_stay_rounded, (t) => t.bookWhenAnyTime),
+  MilestoneIdea('First solid food', (t) => t.bookIdeaFirstSolid, Icons.restaurant_rounded, (t) => t.bookWhenAroundMonths(6)),
+  MilestoneIdea('Knew own name', (t) => t.bookIdeaOwnName, Icons.record_voice_over_rounded, (t) => t.bookWhenMonthsRange(5, 7)),
+  MilestoneIdea('Sat up alone', (t) => t.bookIdeaSatUp, Icons.event_seat_rounded, (t) => t.bookWhenMonthsRange(6, 8)),
+  MilestoneIdea('Held own bottle', (t) => t.bookIdeaOwnBottle, Icons.sports_bar_rounded, (t) => t.bookWhenMonthsRange(6, 10)),
+  MilestoneIdea('Crawled', (t) => t.bookIdeaCrawled, Icons.child_care_rounded, (t) => t.bookWhenMonthsRange(7, 10)),
+  MilestoneIdea('Waved bye-bye', (t) => t.bookIdeaWaved, Icons.waving_hand_rounded, (t) => t.bookWhenMonthsRange(8, 10)),
+  MilestoneIdea('Clapped hands', (t) => t.bookIdeaClapped, Icons.front_hand_rounded, (t) => t.bookWhenMonthsRange(8, 10)),
+  MilestoneIdea('Said "mama"', (t) => t.bookIdeaMama, Icons.chat_bubble_rounded, (t) => t.bookWhenMonthsRange(8, 12)),
+  MilestoneIdea('Said "dada"', (t) => t.bookIdeaDada, Icons.chat_rounded, (t) => t.bookWhenMonthsRange(8, 12)),
+  MilestoneIdea('Pulled to stand', (t) => t.bookIdeaPulledStand, Icons.accessibility_new_rounded, (t) => t.bookWhenMonthsRange(9, 12)),
+  MilestoneIdea('First drink from a cup', (t) => t.bookIdeaCup, Icons.coffee_rounded, (t) => t.bookWhenMonthsRange(9, 12)),
+  MilestoneIdea('Gave a kiss', (t) => t.bookIdeaKiss, Icons.favorite_rounded, (t) => t.bookWhenMonthsRange(10, 14)),
+  MilestoneIdea('First word', (t) => t.bookIdeaFirstWord, Icons.forum_rounded, (t) => t.bookWhenMonthsRange(10, 14)),
+  MilestoneIdea('Stood alone', (t) => t.bookIdeaStoodAlone, Icons.man_rounded, (t) => t.bookWhenMonthsRange(10, 14)),
+  MilestoneIdea('First steps', (t) => t.bookIdeaFirstSteps, Icons.directions_walk_rounded, (t) => t.bookWhenMonthsRange(9, 15)),
+  MilestoneIdea('Fed self with a spoon', (t) => t.bookIdeaSpoon, Icons.soup_kitchen_rounded, (t) => t.bookWhenMonthsRange(12, 18)),
+  MilestoneIdea('First dance', (t) => t.bookIdeaFirstDance, Icons.nightlife_rounded, (t) => t.bookWhenAnyTime),
+  MilestoneIdea('First haircut', (t) => t.bookIdeaHaircut, Icons.content_cut_rounded, (t) => t.bookWhenAnyTime),
+  MilestoneIdea('First swim', (t) => t.bookIdeaSwim, Icons.pool_rounded, (t) => t.bookWhenAnyTime),
+  MilestoneIdea('First snow', (t) => t.bookIdeaSnow, Icons.ac_unit_rounded, (t) => t.bookWhenAnyTime),
+  MilestoneIdea('First day at daycare', (t) => t.bookIdeaDaycare, Icons.school_rounded, (t) => t.bookWhenAnyTime),
+  MilestoneIdea('First tooth', (t) => t.bookIdeaFirstTooth, Icons.auto_awesome_rounded, (t) => t.bookWhenMonthsRange(6, 10), BookChapter.growing),
+  MilestoneIdea('Up a diaper size', (t) => t.bookIdeaDiaperSize, Icons.baby_changing_station_rounded, (t) => t.bookWhenNowAndThen, BookChapter.growing, true),
+  MilestoneIdea('Up a clothes size', (t) => t.bookIdeaClothesSize, Icons.checkroom_rounded, (t) => t.bookWhenNowAndThen, BookChapter.growing, true),
+  MilestoneIdea('Outgrew the bassinet', (t) => t.bookIdeaBassinet, Icons.crib_rounded, (t) => t.bookWhenMonthsRange(3, 6), BookChapter.growing),
+  MilestoneIdea('Own room', (t) => t.bookIdeaOwnRoom, Icons.bedroom_baby_rounded, (t) => t.bookWhenAnyTime, BookChapter.growing),
+  MilestoneIdea('Forward-facing car seat', (t) => t.bookIdeaCarSeat, Icons.directions_car_rounded, (t) => t.bookWhenAfterYears(2), BookChapter.growing),
+  MilestoneIdea('First shoes', (t) => t.bookIdeaFirstShoes, Icons.directions_run_rounded, (t) => t.bookWhenWithFirstSteps, BookChapter.growing),
+  MilestoneIdea('First Christmas', (t) => t.bookIdeaChristmas, Icons.park_rounded, (t) => _month(12), BookChapter.celebrations),
+  MilestoneIdea('First Halloween', (t) => t.bookIdeaHalloween, Icons.dark_mode_rounded, (t) => _month(10), BookChapter.celebrations),
+  MilestoneIdea('First Easter', (t) => t.bookIdeaEaster, Icons.egg_rounded, (t) => t.bookWhenSpring, BookChapter.celebrations),
+  MilestoneIdea("First Mother's Day", (t) => t.bookIdeaMothersDay, Icons.local_florist_rounded, (t) => _month(5), BookChapter.celebrations),
+  MilestoneIdea("First Father's Day", (t) => t.bookIdeaFathersDay, Icons.redeem_rounded, (t) => _month(6), BookChapter.celebrations),
+  MilestoneIdea('Baptism or naming day', (t) => t.bookIdeaBaptism, Icons.water_drop_rounded, (t) => t.bookWhenAnyTime, BookChapter.celebrations),
+  MilestoneIdea('First trip', (t) => t.bookIdeaTrip, Icons.luggage_rounded, (t) => t.bookWhenAnyTime, BookChapter.celebrations),
+  MilestoneIdea('First birthday', (t) => t.bookIdeaBirthday, Icons.cake_rounded, (t) => t.ageYears(1), BookChapter.celebrations),
 ];
 
 String _key(String name) => name.trim().toLowerCase();
 
-MilestoneIdea? ideaFor(String? name) => name == null ? null : milestoneIdeas.where((i) => _key(i.name) == _key(name)).firstOrNull;
+/// Every language's name of each idea (and the English id) → the idea.
+final Map<String, MilestoneIdea> _ideasByKey = {
+  for (final locale in AppLocalizations.supportedLocales)
+    for (final i in milestoneIdeas) _key(i._label(lookupAppLocalizations(locale))): i,
+  for (final i in milestoneIdeas) _key(i.id): i,
+};
+
+/// The idea a memory's name is, whichever language it was typed in.
+MilestoneIdea? ideaFor(String? name) => name == null ? null : _ideasByKey[_key(name)];
+
+/// Whether [name] is the "First tooth" memory (saved in English, typed in any language).
+bool isFirstTooth(String? name) => ideaFor(name)?.id == 'First tooth';
+
+/// A memory's name as shown: an idea's (or the banana's) in the app's language, else as typed.
+String memoryLabel(String name) => ideaFor(name)?.label ?? (_isBananaName(name) ? l10n.bookBananaName : name);
 
 /// The monthly photo next to a banana, to see how much they grew: any number of these, shown as
-/// a strip in Growing up rather than as memories.
+/// a strip in Growing up rather than as memories. Saved under this English name.
 const bananaName = 'Banana for scale';
 
-bool isBanana(Event e) => _key((e['name'] as String?) ?? '') == _key(bananaName);
+final Set<String> _bananaKeys = {
+  _key(bananaName),
+  for (final locale in AppLocalizations.supportedLocales) _key(lookupAppLocalizations(locale).bookBananaName),
+};
+
+bool _isBananaName(String? name) => name != null && _bananaKeys.contains(_key(name));
+
+bool isBanana(Event e) => _isBananaName(e['name'] as String?);
+
+/// The name a memory is saved under: an idea's (or the banana's) English id when it is one,
+/// in whatever language it was typed, else the name as typed.
+String storedMemoryName(String name) => ideaFor(name)?.id ?? (_isBananaName(name) ? bananaName : name);
 
 /// The chapter a memory goes in when none was picked: its idea's, Waiting for you before the
 /// [birth] day, else Firsts.
 BookChapter autoChapter(String? name, {DateTime? at, DateTime? birth}) {
   final idea = ideaFor(name);
   if (idea != null) return idea.chapter;
-  if (name != null && _key(name) == _key(bananaName)) return BookChapter.growing;
+  if (_isBananaName(name)) return BookChapter.growing;
   if (at != null && birth != null && at.isBefore(DateTime(birth.year, birth.month, birth.day))) return BookChapter.waiting;
   return BookChapter.firsts;
 }
@@ -162,7 +225,8 @@ mixin _Memories<T extends StatefulWidget> on State<T> {
     });
   }
 
-  Set<String> get loggedKeys => {for (final e in memories ?? const <Event>[]) _key((e['name'] as String?) ?? '')};
+  /// Ids of the ideas already in the book.
+  Set<String> get loggedIdeas => {for (final e in memories ?? const <Event>[]) ?ideaFor(e['name'] as String?)?.id};
 }
 
 /// The baby book: a cover, then four chapters (Hello world, Firsts, Growing up, Celebrations)
@@ -257,13 +321,13 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
     watchMemories(s);
     if (child == null) return const Scaffold();
     // Teeth are on the chart; only the first one is a memory of its own.
-    final list = memories?.where((e) => e['tooth'] == null || _key((e['name'] as String?) ?? '') == 'first tooth').toList();
+    final list = memories?.where((e) => e['tooth'] == null || isFirstTooth(e['name'] as String?)).toList();
     final byChapter = {for (final c in BookChapter.values) c: <Event>[]};
     final bananas = <Event>[];
     for (final e in list ?? const <Event>[]) {
       (isBanana(e) ? bananas : byChapter[chapterOf(e, birth: child.birthDate)]!).add(e);
     }
-    final logged = loggedKeys;
+    final logged = loggedIdeas;
     // Book viewers (e.g. grandparents) read it: no ideas, nothing to add or edit.
     final readOnly = s.bookOnly;
     var printIndex = 0;
@@ -286,13 +350,13 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
 
     Widget ideas(BookChapter chapter, {bool seeAll = false}) {
       if (readOnly) return const SizedBox.shrink();
-      final left = milestoneIdeas.where((i) => i.chapter == chapter && (i.repeats || !logged.contains(_key(i.name)))).toList();
+      final left = milestoneIdeas.where((i) => i.chapter == chapter && (i.repeats || !logged.contains(i.id))).toList();
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SectionTitle(
-            chapter == BookChapter.firsts ? 'Ideas to remember' : 'Ideas for this chapter',
-            trailing: seeAll ? TextButton(onPressed: () => _showAllIdeas(context), child: const Text('See all')) : null,
+            chapter == BookChapter.firsts ? l10n.bookIdeasToRemember : l10n.bookIdeasForChapter,
+            trailing: seeAll ? TextButton(onPressed: () => _showAllIdeas(context), child: Text(l10n.bookSeeAll)) : null,
           ),
           SizedBox(
             height: 128,
@@ -303,16 +367,16 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
               separatorBuilder: (_, _) => const SizedBox(width: 10),
               itemBuilder: (context, i) => i == 0
                   ? _IdeaSticker(
-                      name: 'Your own',
+                      name: l10n.bookYourOwn,
                       icon: Icons.add_rounded,
-                      when: 'anything special',
+                      when: l10n.bookWhenAnythingSpecial,
                       onTap: () => showMemoryForm(context, chapter: chapter),
                     )
                   : _IdeaSticker(
-                      name: left[i - 1].name,
+                      name: left[i - 1].label,
                       icon: left[i - 1].icon,
                       when: left[i - 1].when,
-                      onTap: () => showMemoryForm(context, name: left[i - 1].name),
+                      onTap: () => showMemoryForm(context, name: left[i - 1].label),
                     ),
             ),
           ),
@@ -353,12 +417,12 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
       // Growing up
       heading(BookChapter.growing),
       SectionTitle(
-        'Teeth',
-        trailing: Text('as you look at ${child.name}', style: TextStyle(color: context.pal.muted, fontSize: 13)),
+        l10n.bookTeeth,
+        trailing: Text(l10n.bookAsYouLookAt(child.name), style: TextStyle(color: context.pal.muted, fontSize: 13)),
       ),
       TeethChart(child: child, milestones: memories ?? const []),
       if (!readOnly || bananas.isNotEmpty) ...[
-        SectionTitle('Banana for scale 🍌', trailing: Text('a photo a month', style: TextStyle(color: context.pal.muted, fontSize: 13))),
+        SectionTitle('${l10n.bookBananaName} 🍌', trailing: Text(l10n.bookPhotoAMonth, style: TextStyle(color: context.pal.muted, fontSize: 13))),
         _BananaStrip(child: child, photos: bananas),
       ],
       ...prints(byChapter[BookChapter.growing]!),
@@ -371,7 +435,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
     ];
 
     return Scaffold(
-      appBar: AppBar(title: Text('${child.name}’s book'), automaticallyImplyLeading: !widget.asTab, actions: [if (readOnly) const BookViewerActions()]),
+      appBar: AppBar(title: Text(l10n.bookTitle(child.name)), automaticallyImplyLeading: !widget.asTab, actions: [if (readOnly) const BookViewerActions()]),
       body: Constrained(
         child: CustomScrollView(
           controller: _scroll,
@@ -404,8 +468,11 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
     backgroundColor: context.pal.background,
     builder: (sheet) {
       final c = context.pal;
-      final byKey = {for (final e in memories ?? const <Event>[]) _key((e['name'] as String?) ?? ''): e};
-      final done = milestoneIdeas.where((i) => byKey.containsKey(_key(i.name))).length;
+      final byId = {
+        for (final e in memories ?? const <Event>[])
+          if (ideaFor(e['name'] as String?) case final idea?) idea.id: e,
+      };
+      final done = milestoneIdeas.where((i) => byId.containsKey(i.id)).length;
       return ConstrainedBox(
         constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * 0.85),
         child: Column(
@@ -414,11 +481,11 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
-              child: Text('Ideas to remember', style: serifStyle(24)),
+              child: Text(l10n.bookIdeasToRemember, style: serifStyle(24)),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-              child: Text('$done of ${milestoneIdeas.length} in the book. Tap one to add it.', style: TextStyle(color: c.muted)),
+              child: Text(l10n.bookIdeasProgress(done, milestoneIdeas.length), style: TextStyle(color: c.muted)),
             ),
             Divider(height: 1, color: c.line),
             Flexible(
@@ -432,17 +499,17 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
                     ),
                     for (final idea in milestoneIdeas.where((i) => i.chapter == chapter))
                       () {
-                        final e = byKey[_key(idea.name)];
+                        final e = byId[idea.id];
                         return ListTile(
                           leading: BlobIcon(Kind.milestone, size: 40, icon: idea.icon),
-                          title: Text(idea.name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                          title: Text(idea.label, style: const TextStyle(fontWeight: FontWeight.w600)),
                           subtitle: Text(e == null ? idea.when : DateFormat.yMMMd().format(e.start)),
                           trailing: e == null
                               ? Icon(Icons.add_circle_outline_rounded, color: c.accent)
                               : Icon(Icons.check_circle_rounded, color: Kind.milestone.on(c)),
                           onTap: () {
                             Navigator.pop(sheet);
-                            showMemoryForm(context, event: e, name: idea.name);
+                            showMemoryForm(context, event: e, name: idea.label);
                           },
                         );
                       }(),
@@ -472,7 +539,7 @@ class _DueDate extends StatelessWidget {
       initialDate: current ?? born,
       firstDate: born.subtract(const Duration(days: 120)),
       lastDate: born.add(const Duration(days: 120)),
-      helpText: 'Due date',
+      helpText: l10n.bookDueDate,
     );
     if (day == null || !context.mounted) return;
     final book = {...child.book, 'due_date': DateFormat('yyyy-MM-dd').format(day)};
@@ -490,11 +557,11 @@ class _DueDate extends StatelessWidget {
         child: context.select<AppState, bool>((s) => s.bookOnly)
             ? Chip(
                 avatar: Icon(Icons.event_rounded, size: 18, color: Kind.milestone.on(c)),
-                label: Text('Due ${due == null ? '' : DateFormat.yMMMMd().format(due)}'),
+                label: Text(due == null ? l10n.bookSetDueDate : l10n.bookDueOn(DateFormat.yMMMMd().format(due))),
               )
             : ActionChip(
                 avatar: Icon(Icons.event_rounded, size: 18, color: Kind.milestone.on(c)),
-                label: Text(due == null ? 'Set the due date' : 'Due ${DateFormat.yMMMMd().format(due)}'),
+                label: Text(due == null ? l10n.bookSetDueDate : l10n.bookDueOn(DateFormat.yMMMMd().format(due))),
                 onPressed: () => _pick(context),
               ),
       ),
@@ -521,7 +588,7 @@ class _BananaStrip extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
           child: Text(
-            'The same banana next to ${child.name} every month: the best way to see how fast it goes.',
+            l10n.bookBananaIntro(child.name),
             style: TextStyle(color: c.muted, height: 1.35),
           ),
         ),
@@ -544,14 +611,14 @@ class _BananaStrip extends StatelessWidget {
                     ),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(18),
-                      onTap: () => showMemoryForm(context, name: bananaName),
+                      onTap: () => showMemoryForm(context, name: l10n.bookBananaName),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.add_a_photo_rounded, size: 32, color: k.on(c)),
                           const SizedBox(height: 10),
                           Text(
-                            photos.isEmpty ? 'Take the first one' : 'This month’s',
+                            photos.isEmpty ? l10n.bookTakeFirst : l10n.bookThisMonth,
                             textAlign: TextAlign.center,
                             style: TextStyle(fontWeight: FontWeight.w700, color: k.on(c)),
                           ),
@@ -587,7 +654,7 @@ class _BananaStrip extends StatelessWidget {
                                       alignment: Alignment.center,
                                       child: Icon(Icons.photo_rounded, size: 32, color: k.iconOn(c)),
                                     )
-                                  : Image.memory(bytes, fit: BoxFit.cover, cacheWidth: 300, gaplessPlayback: true, semanticLabel: 'Banana for scale'),
+                                  : Image.memory(bytes, fit: BoxFit.cover, cacheWidth: 300, gaplessPlayback: true, semanticLabel: l10n.bookBananaName),
                             ),
                           ),
                           const SizedBox(height: 7),
@@ -721,7 +788,7 @@ class _ChapterHeading extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'CHAPTER ${chapter.index + 1}',
+                  l10n.bookChapterNumber(chapter.index + 1),
                   style: TextStyle(color: k.on(c), fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.4),
                 ),
                 Text(chapter.title, style: serifStyle(28)),
@@ -740,18 +807,18 @@ class _ChapterHeading extends StatelessWidget {
 String _chapter(Child child, DateTime day) {
   final b = child.birthDate;
   if (b == null) return DateFormat.yMMMM().format(day);
-  if (day.isBefore(b)) return 'Before birth';
+  if (day.isBefore(b)) return l10n.bookBeforeBirth;
   var months = (day.year - b.year) * 12 + day.month - b.month;
   if (day.day < b.day) months--;
-  if (months < 1) return 'Newborn';
-  if (months < 24) return '$months month${months == 1 ? '' : 's'}';
-  return '${months ~/ 12} years';
+  if (months < 1) return l10n.bookNewborn;
+  if (months < 24) return l10n.ageMonths(months);
+  return l10n.ageYears(months ~/ 12);
 }
 
 /// "Saturday 12 July 2026 · 6 weeks old".
 String _dateLine(Child child, DateTime day) {
   final born = child.birthDate;
-  final age = born == null || day.isBefore(born) ? null : '${child.ageAt(day)} old';
+  final age = born == null || day.isBefore(born) ? null : l10n.bookAgeOld(child.ageAt(day)!);
   return [DateFormat.yMMMMEEEEd().format(day), ?age ?? pregnancyWeeks(child, day)].join(' · ');
 }
 
@@ -764,10 +831,10 @@ String? pregnancyWeeks(Child child, DateTime day) {
   final due = DateTime.tryParse(child.book['due_date'] ?? '');
   if (due != null) {
     final weeks = 40 - (due.difference(d).inDays / 7).ceil();
-    if (weeks >= 1 && weeks <= 44) return '$weeks week${weeks == 1 ? '' : 's'} along';
+    if (weeks >= 1 && weeks <= 44) return l10n.bookWeeksAlong(weeks);
   }
   final before = born.difference(d).inDays ~/ 7;
-  return before == 0 ? 'days before birth' : '$before week${before == 1 ? '' : 's'} before birth';
+  return before == 0 ? l10n.bookDaysBeforeBirth : l10n.bookWeeksBeforeBirth(before);
 }
 
 /// The book's first page: the baby, how many memories and photos, and the button to add one.
@@ -805,11 +872,11 @@ class _Cover extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'The book of',
+                              l10n.bookTheBookOf,
                               style: TextStyle(color: c.bandInk.withValues(alpha: 0.75), fontWeight: FontWeight.w600),
                             ),
                             Text(child.name, style: serifStyle(32, color: c.bandInk)),
-                            if (born != null) Text('Born ${DateFormat.yMMMMd().format(born)}', style: TextStyle(color: c.bandInk.withValues(alpha: 0.8))),
+                            if (born != null) Text(l10n.bookBorn(DateFormat.yMMMMd().format(born)), style: TextStyle(color: c.bandInk.withValues(alpha: 0.8))),
                           ],
                         ),
                       ),
@@ -821,8 +888,8 @@ class _Cover extends StatelessWidget {
                       Expanded(
                         child: Text(
                           memories.isEmpty
-                              ? 'No memories yet'
-                              : '${memories.length} ${memories.length == 1 ? 'memory' : 'memories'} · $photos photo${photos == 1 ? '' : 's'}',
+                              ? l10n.bookNoMemories
+                              : '${l10n.bookMemoryCount(memories.length)} · ${l10n.bookPhotoCount(photos)}',
                           style: TextStyle(color: c.bandInk, fontWeight: FontWeight.w700, fontSize: 15),
                         ),
                       ),
@@ -836,7 +903,7 @@ class _Cover extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(horizontal: 16),
                           ),
                           icon: const Icon(Icons.add_rounded),
-                          label: const Text('Add a memory'),
+                          label: Text(l10n.bookAddMemory),
                         ),
                     ],
                   ),
@@ -864,9 +931,9 @@ class BookViewerActions extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (babies > 1) IconButton(tooltip: 'Switch baby', icon: const Icon(Icons.swap_horiz_rounded), onPressed: () => showChildSwitcher(context)),
+        if (babies > 1) IconButton(tooltip: l10n.homeSwitchBaby, icon: const Icon(Icons.swap_horiz_rounded), onPressed: () => showChildSwitcher(context)),
         IconButton(
-          tooltip: 'Settings',
+          tooltip: l10n.familySettings,
           icon: const Icon(Icons.settings_rounded),
           onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
         ),
@@ -961,10 +1028,10 @@ class _EmptyBook extends StatelessWidget {
       children: [
         const BlobIcon(Kind.milestone, size: 84, icon: Icons.auto_stories_rounded),
         const SizedBox(height: 16),
-        Text('The first page is waiting', style: serifStyle(22), textAlign: TextAlign.center),
+        Text(l10n.bookEmptyTitle, style: serifStyle(22), textAlign: TextAlign.center),
         const SizedBox(height: 6),
         Text(
-          readOnly ? 'Memories show here as the family adds them.' : 'Pick an idea below or add your own: a photo, the day and a few words about it.',
+          readOnly ? l10n.bookEmptyReadOnly : l10n.bookEmptyBody,
           textAlign: TextAlign.center,
           style: TextStyle(color: context.pal.muted, height: 1.35),
         ),
@@ -989,7 +1056,7 @@ class _MemoryCard extends StatelessWidget {
     final hasPhoto = event['photo_version'] != null;
     final bytes = hasPhoto ? s.eventPhoto(event) : null;
     final left = index.isEven;
-    final name = (event['name'] as String?) ?? 'Milestone';
+    final name = memoryLabel((event['name'] as String?) ?? l10n.kindMilestone);
     final note = event.note;
     final idea = ideaFor(name);
 
@@ -1026,7 +1093,7 @@ class _MemoryCard extends StatelessWidget {
                               width: double.infinity,
                               cacheWidth: 1000,
                               gaplessPlayback: true,
-                              semanticLabel: 'Photo: $name',
+                              semanticLabel: l10n.bookPhotoOf(name),
                             ),
                           ),
                   ),
@@ -1098,7 +1165,7 @@ void _showPhoto(BuildContext context, Uint8List bytes, String name) => Navigator
       body: SafeArea(
         child: InteractiveViewer(
           maxScale: 5,
-          child: Center(child: Image.memory(bytes, semanticLabel: 'Photo: $name')),
+          child: Center(child: Image.memory(bytes, semanticLabel: l10n.bookPhotoOf(name))),
         ),
       ),
     ),
@@ -1128,7 +1195,7 @@ class MemoryForm extends StatefulWidget {
 
 class _MemoryFormState extends State<MemoryForm> with _Memories {
   Event? get e => widget.event;
-  late final _name = TextEditingController(text: e?['name'] ?? widget.name ?? '');
+  late final _name = TextEditingController(text: e?['name'] == null ? widget.name ?? '' : memoryLabel(e!['name'] as String));
   late final _note = TextEditingController(text: e?.note ?? '');
   late DateTime _start = e?.start ?? DateTime.now();
   late String? _tooth = e?['tooth'];
@@ -1145,6 +1212,7 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
   bool _removePhoto = false, _busy = false, _preparing = false;
 
   bool get _hadPhoto => e?['photo_version'] != null;
+
 
   /// The browser in serverless mode keeps a few MB at most: no photos there.
   bool _photosAllowed(AppState s) => !(kIsWeb && s.serverless);
@@ -1170,15 +1238,15 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
 
   Future<void> _save() async {
     final name = _name.text.trim();
-    if (name.isEmpty) return showMessage(context, 'What happened? Give the memory a name.');
+    if (name.isEmpty) return showMessage(context, l10n.bookNameNeeded);
     setState(() => _busy = true);
     final s = context.read<AppState>();
     final messenger = ScaffoldMessenger.of(context);
     final note = _note.text.trim();
-    final tooth = _key(name) == 'first tooth' || e?['tooth'] != null ? _tooth : null;
+    final tooth = isFirstTooth(name) || e?['tooth'] != null ? _tooth : null;
     // Always saved, so a renamed memory (or a later list of ideas) never moves it.
     final chapter = _chapterNow(s).id;
-    final body = {'type': 'milestone', 'name': name, 'start': formatTime(_start), 'note': note.isEmpty ? null : note, 'tooth': tooth, 'chapter': chapter};
+    final body = {'type': 'milestone', 'name': storedMemoryName(name), 'start': formatTime(_start), 'note': note.isEmpty ? null : note, 'tooth': tooth, 'chapter': chapter};
     if (e == null) body.removeWhere((k, v) => v == null);
     final saved = await guard(context, () => s.act((api) => e == null ? api.post('/children/${s.childId}/events', body) : api.patch('/events/${e!.id}', body)));
     if (saved is! Map) {
@@ -1196,7 +1264,7 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
         await s.act((api) => api.delete('/events/$id/photo'));
       }
     } on Exception catch (err) {
-      problem = 'The memory is saved, but not its photo: ${err is ApiException ? err.message : err}';
+      problem = l10n.bookPhotoNotSaved(err is ApiException ? err.message : '$err');
     }
     if (!mounted) return;
     Navigator.pop(context);
@@ -1204,7 +1272,7 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
   }
 
   Future<void> _delete() async {
-    if (!await confirm(context, 'Delete this memory?', 'It will be removed for everyone in the family, with its photo.')) return;
+    if (!await confirm(context, l10n.bookDeleteTitle, l10n.bookDeleteBody)) return;
     if (!mounted) return;
     final s = context.read<AppState>();
     final ok = await guard(context, () => s.act((api) => api.delete('/events/${e!.id}')).then((_) => true));
@@ -1227,8 +1295,8 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
 
     // Ideas not in the book yet: the chapter's, or, once something is typed, any that match
     // (the chapter's first).
-    final typed = _key(_name.text), logged = loggedKeys;
-    final open = milestoneIdeas.where((i) => (i.repeats || !logged.contains(_key(i.name))) && (typed.isEmpty ? i.chapter == chapter : _key(i.name).contains(typed)));
+    final typed = _key(_name.text), logged = loggedIdeas;
+    final open = milestoneIdeas.where((i) => (i.repeats || !logged.contains(i.id)) && (typed.isEmpty ? i.chapter == chapter : _key(i.label).contains(typed)));
     final suggestions = e != null || idea != null
         ? const <MilestoneIdea>[]
         : [...open.where((i) => i.chapter == chapter), ...open.where((i) => i.chapter != chapter)].take(12).toList();
@@ -1258,8 +1326,8 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
                   children: [
                     BlobIcon(k, size: 46, icon: idea?.icon),
                     const SizedBox(width: 14),
-                    Expanded(child: Text(e == null ? 'New memory' : 'Edit memory', style: serifStyle(24))),
-                    if (e != null) IconButton(onPressed: _delete, tooltip: 'Delete', icon: const Icon(Icons.delete_outline_rounded), color: c.danger),
+                    Expanded(child: Text(e == null ? l10n.bookNewMemory : l10n.bookEditMemory, style: serifStyle(24))),
+                    if (e != null) IconButton(onPressed: _delete, tooltip: l10n.delete, icon: const Icon(Icons.delete_outline_rounded), color: c.danger),
                   ],
                 ),
               ),
@@ -1272,7 +1340,7 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
                       Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 16), child: showsPhoto ? _photoPreview(picture) : _addPhoto()),
                     Divider(height: 1, color: c.line),
                     FormRow(
-                      label: 'Chapter',
+                      label: l10n.bookChapter,
                       below: Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -1288,14 +1356,14 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
                       ),
                     ),
                     FormRow(
-                      label: 'What happened?',
+                      label: l10n.bookWhatHappened,
                       below: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           TextField(
                             controller: _name,
                             textCapitalization: TextCapitalization.sentences,
-                            decoration: const InputDecoration(hintText: 'First smile, rolled over…'),
+                            decoration: InputDecoration(hintText: l10n.bookNameHint),
                           ),
                           if (suggestions.isNotEmpty) ...[
                             const SizedBox(height: 12),
@@ -1306,10 +1374,10 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
                                 for (final i in suggestions)
                                   ActionChip(
                                     avatar: Icon(i.icon, size: 18, color: k.on(c)),
-                                    label: Text(i.name),
+                                    label: Text(i.label),
                                     onPressed: () => setState(() {
                                       _chapter = i.chapter;
-                                      _name.text = i.name;
+                                      _name.text = i.label;
                                     }),
                                   ),
                               ],
@@ -1318,31 +1386,31 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
                         ],
                       ),
                     ),
-                    if (_key(_name.text) == 'first tooth' || e?['tooth'] != null)
+                    if (isFirstTooth(_name.text) || e?['tooth'] != null)
                       FormRow(
-                        label: 'Which tooth?',
+                        label: l10n.bookWhichTooth,
                         child: DropdownButton<String?>(
                           value: _tooth,
                           isDense: true,
                           isExpanded: true,
                           underline: const SizedBox(),
-                          hint: const Text('Choose'),
+                          hint: Text(l10n.formChoose),
                           items: [for (final t in babyTeeth) DropdownMenuItem(value: t.code, child: Text(t.name))],
                           onChanged: (v) => setState(() => _tooth = v),
                         ),
                       ),
                     FormRow(
-                      label: 'When',
+                      label: l10n.formWhen,
                       child: DateTimeValue(value: _start, onChanged: (v) => setState(() => _start = v)),
                     ),
                     FormRow(
-                      label: 'The story',
+                      label: l10n.bookStory,
                       below: TextField(
                         controller: _note,
                         maxLines: null,
                         minLines: 3,
                         textCapitalization: TextCapitalization.sentences,
-                        decoration: const InputDecoration(hintText: 'Where you were, who was there, how it felt…'),
+                        decoration: InputDecoration(hintText: l10n.bookStoryHint),
                       ),
                     ),
                   ],
@@ -1355,7 +1423,7 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
                   child: FilledButton(
                     onPressed: _busy || _preparing ? null : _save,
                     style: FilledButton.styleFrom(backgroundColor: strong, foregroundColor: c.onAccent),
-                    child: Text(_busy ? 'Saving…' : (e == null ? 'Save to the book' : 'Save changes')),
+                    child: Text(_busy ? l10n.bookSaving : (e == null ? l10n.bookSaveToBook : l10n.formSaveChanges)),
                   ),
                 ),
               ),
@@ -1389,7 +1457,7 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
                 Icon(Icons.add_a_photo_rounded, size: 34, color: k.on(c)),
               const SizedBox(height: 10),
               Text(
-                _preparing ? 'Preparing the photo…' : 'Add a photo',
+                _preparing ? l10n.bookPreparingPhoto : l10n.bookAddPhoto,
                 style: TextStyle(fontWeight: FontWeight.w700, color: k.on(c), fontSize: 16),
               ),
             ],
@@ -1417,11 +1485,11 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
           bottom: 10,
           child: Row(
             children: [
-              _photoButton(Icons.photo_library_rounded, 'Change', _preparing ? null : _choosePhoto),
+              _photoButton(Icons.photo_library_rounded, l10n.bookChangePhoto, _preparing ? null : _choosePhoto),
               const SizedBox(width: 8),
               _photoButton(
                 Icons.delete_outline_rounded,
-                'Remove',
+                l10n.remove,
                 () => setState(() {
                   _newPhoto = null;
                   _removePhoto = true;

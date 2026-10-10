@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 
+import '../l10n/l10n.dart';
 import 'domain.dart';
 import 'merge.dart';
 import 'store.dart';
@@ -44,14 +45,14 @@ class DriveBackup {
   /// Drive with [scopes] for the signed-in Google account. [interactive]: may ask the user to
   /// sign in or to allow access; otherwise fails if that would be needed.
   static Future<(drive.DriveApi, String)> googleDrive(List<String> scopes, {required bool interactive}) async {
-    if (!available) throw UnsupportedError('Google Drive needs the Android app.');
+    if (!available) throw UnsupportedError(l10n.syncDriveNeedsAndroid);
     await (_init ??= GoogleSignIn.instance.initialize(serverClientId: _clientId));
     GoogleSignInAccount? user = await GoogleSignIn.instance.attemptLightweightAuthentication();
     if (user == null && interactive) user = await GoogleSignIn.instance.authenticate(scopeHint: scopes);
-    if (user == null) throw StateError('Not signed in to Google.');
+    if (user == null) throw StateError(l10n.syncGoogleNotSignedIn);
     var auth = await user.authorizationClient.authorizationForScopes(scopes);
     if (auth == null && interactive) auth = await user.authorizationClient.authorizeScopes(scopes);
-    if (auth == null) throw StateError('Google Drive access wasn\'t granted.');
+    if (auth == null) throw StateError(l10n.syncDriveNotGranted);
     return (drive.DriveApi(auth.authClient(scopes: scopes)), user.email);
   }
 
