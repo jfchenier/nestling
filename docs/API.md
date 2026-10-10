@@ -41,8 +41,14 @@ missing from it.
 
 ## Families and caregivers
 
-A family holds children and their data. Everyone in the family (`owner` or `caregiver`) can read and log
-everything; owners can also remove members and delete the family.
+A family holds children and their data. Owners and caregivers (`owner`, `caregiver`) can read and log
+everything; owners can also change roles, remove members and delete the family.
+
+A `book_viewer` (e.g. grandparents) only reads the baby book: the family and its children (without
+`medicines` and `reminders`), the children's photos, `milestone` and `growth` entries
+(`GET /children/{id}/events`, `GET /events/{id}`, their photos), `GET /families/{id}/sync` (those
+entries only, no timers) and the live stream (those changes only). Everything else answers 403; they
+can still leave the family. Their phones get no timer or reminder notifications.
 
 | | | |
 |---|---|---|
@@ -51,8 +57,9 @@ everything; owners can also remove members and delete the family.
 | `GET /families/{id}` | | |
 | `PATCH /families/{id}` | `{name?, timezone?, day_start?, day_end?}` | the timezone sets day boundaries for trends; `day_start` / `day_end` (`"HH:MM"`, default `"06:00"` / `"18:00"`) set daytime for the day/night split |
 | `DELETE /families/{id}` | | owner only; deletes everything |
-| `POST /families/{id}/invites` | `{role?}` (default `caregiver`) | → `{code: "K7M2QX9A", expires_at}`; valid 7 days, single use |
+| `POST /families/{id}/invites` | `{role?}`: `caregiver` (default), `book_viewer`, or `owner` (owners only) | → `{code: "K7M2QX9A", expires_at}`; valid 7 days, single use |
 | `POST /invites/{code}/accept` | | join the family |
+| `PATCH /families/{id}/members/{user_id}` | `{role}` | owner only; → the family. A family keeps at least one owner (409) |
 | `DELETE /families/{id}/members/{user_id}` | | owner removes someone, or anyone leaves |
 
 ## Children

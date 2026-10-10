@@ -140,10 +140,10 @@ impl Push {
         anyhow::bail!("FCM answered {status}: {text}")
     }
 
-    /// Sends [data] to every phone of the family's members.
+    /// Sends [data] to every phone of the family's caregivers (not book viewers).
     pub(crate) async fn send_family(&self, state: &AppState, family_id: &str, data: Value, collapse_key: &str) -> anyhow::Result<()> {
         let tokens: Vec<(String,)> = sqlx::query_as(
-            "SELECT p.fcm_token FROM push_devices p JOIN memberships m ON m.user_id = p.user_id WHERE m.family_id = ?",
+            "SELECT p.fcm_token FROM push_devices p JOIN memberships m ON m.user_id = p.user_id WHERE m.family_id = ? AND m.role != 'book_viewer'",
         )
         .bind(family_id)
         .fetch_all(&state.db)

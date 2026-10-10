@@ -42,6 +42,10 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
   DATABASE_URL needed at build time), tokio. Single binary + one SQLite file.
 - Hosting: **home server / NAS via Docker** (`docker compose up -d --build`).
 - Multi-tenant: any number of caregivers and children. Family = sharing unit; invites by short code.
+  Roles: `owner`, `caregiver`, `book_viewer` (book only, read-only, e.g. grandparents: milestone and
+  growth entries, children without medicines/reminders; `auth::require_member` / `child_access`
+  refuse them, `member_role` / `child_book_access` let them read). Owners change roles
+  (`PATCH /families/{id}/members/{user_id}`).
 - Accounts: the first account on a server is the **admin**; sign-up is then closed
   (`NESTLING_OPEN_REGISTRATION` default false) and admins create accounts (`/admin/users`, app:
   Settings → Users). Recovery CLI: `nestling set-password <email> <pw>`, `nestling make-admin <email>`.

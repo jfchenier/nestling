@@ -532,13 +532,13 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) => Row(
     children: [
       GestureDetector(
-        onTap: () => _switchChild(context),
+        onTap: () => showChildSwitcher(context),
         child: ChildAvatar(child: child, size: 66),
       ),
       const SizedBox(width: 14),
       Expanded(
         child: GestureDetector(
-          onTap: () => _switchChild(context),
+          onTap: () => showChildSwitcher(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -603,28 +603,31 @@ class _Header extends StatelessWidget {
       ),
     ],
   );
+}
 
-  void _switchChild(BuildContext context) {
-    final s = context.read<AppState>();
-    showModalBottomSheet(
-      context: context,
-      builder: (c) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 12),
-            for (final f in s.families)
-              for (final ch in f.children)
-                ListTile(
-                  leading: ChildAvatar(child: ch, size: 44),
-                  title: Text(ch.name, style: serifStyle(20)),
-                  subtitle: Text([?ch.age, if (s.families.length > 1) f.name].join(' · ')),
-                  trailing: ch.id == s.childId ? Icon(Icons.check_rounded, color: context.pal.accent) : null,
-                  onTap: () {
-                    Navigator.pop(c);
-                    s.selectChild(ch.id);
-                  },
-                ),
+/// Picks the baby (of any family) the app shows; "Add a baby" for caregivers.
+void showChildSwitcher(BuildContext context) {
+  final s = context.read<AppState>();
+  showModalBottomSheet(
+    context: context,
+    builder: (c) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(height: 12),
+          for (final f in s.families)
+            for (final ch in f.children)
+              ListTile(
+                leading: ChildAvatar(child: ch, size: 44),
+                title: Text(ch.name, style: serifStyle(20)),
+                subtitle: Text([?ch.age, if (s.families.length > 1) f.name].join(' · ')),
+                trailing: ch.id == s.childId ? Icon(Icons.check_rounded, color: context.pal.accent) : null,
+                onTap: () {
+                  Navigator.pop(c);
+                  s.selectChild(ch.id);
+                },
+              ),
+          if (!s.bookOnly)
             ListTile(
               leading: CircleAvatar(
                 radius: 22,
@@ -637,12 +640,11 @@ class _Header extends StatelessWidget {
                 showChildForm(context, familyId: s.familyId!);
               },
             ),
-            const SizedBox(height: 8),
-          ],
-        ),
+          const SizedBox(height: 8),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }
 
 class _SquareButton extends StatelessWidget {

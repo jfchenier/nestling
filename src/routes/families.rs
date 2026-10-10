@@ -7,9 +7,9 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::{
-    auth::{family_tz, require_member, require_owner, AuthUser},
+    auth::{family_tz, member_role, require_member, require_owner, AuthUser, BOOK_VIEWER},
     error::{bad, ApiJson, AppError, AppResult},
-    routes::children::children_json,
+    routes::children::{book_view, children_json},
     state::AppState,
     trends::{self, DayWindow},
     util::{fmt_time, invite_code, new_id, now_ms, parse_tz},
@@ -18,7 +18,7 @@ use crate::{
 const INVITE_TTL_MS: i64 = 7 * 24 * 3600 * 1000;
 
 pub async fn family_json(state: &AppState, family_id: &str, user_id: &str) -> AppResult<Value> {
-    let role = require_member(&state.db, family_id, user_id).await?;
+    let role = member_role(&state.db, family_id, user_id).await?;
     let (id, name, timezone, created_at, day_start, day_end): (String, String, String, i64, u32, u32) =
         sqlx::query_as("SELECT id, name, timezone, created_at, day_start, day_end FROM families WHERE id = ?")
             .bind(family_id)
@@ -32,6 +32,10 @@ pub async fn family_json(state: &AppState, family_id: &str, user_id: &str) -> Ap
     .fetch_all(&state.db)
     .await?;
     let tz = parse_tz(&timezone)?;
+    let mut children = children_json(state, family_id, tz).await?;
+    if role == BOOK_VIEWER {
+        children.iter_mut().for_each(book_view);
+    }
     Ok(json!({
         "id": id,
         "name": name,
@@ -43,7 +47,7 @@ pub async fn family_json(state: &AppState, family_id: &str, user_id: &str) -> Ap
         "members": members.into_iter().map(|(id, name, email, role)| json!({
             "user_id": id, "name": name, "email": email, "role": role
         })).collect::<Vec<_>>(),
-        "children": children_json(state, family_id, tz).await?,
+        "children": children,
     }))
 }
 
@@ -158,9 +162,7 @@ pub async fn create_invite(State(state): State<AppState>, user: AuthUser, Path(i
     };
     let my_role = require_member(&state.db, &id, &user.id).await?;
     let role = req.role.unwrap_or_else(|| "caregiver".into());
-    if role != "caregiver" && role != "owner" {
-        return bad("role must be 'caregiver' or 'owner'");
-    }
+    check_role(&role)?;
     if role == "owner" && my_role != "owner" {
         return Err(AppError::Forbidden("only an owner can invite another owner".into()));
     }
@@ -176,6 +178,52 @@ pub async fn create_invite(State(state): State<AppState>, user: AuthUser, Path(i
         .await?;
     Ok((StatusCode::CREATED, Json(json!({ "code": code, "family_id": id, "role": role,
         "expires_at": fmt_time(expires_at, family_tz(&state.db, &id).await?) }))))
+}
+
+/// Roles a member can have: `owner` (manages the family), `caregiver` (logs everything) or
+/// `book_viewer` (reads the baby book only, e.g. grandparents).
+fn check_role(role: &str) -> AppResult<()> {
+    match role {
+        "owner" | "caregiver" | BOOK_VIEWER => Ok(()),
+        _ => bad("role must be 'owner', 'caregiver' or 'book_viewer'"),
+    }
+}
+
+/// How many owners the family has.
+async fn owner_count(state: &AppState, family_id: &str) -> AppResult<i64> {
+    let (owners,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM memberships WHERE family_id = ? AND role = 'owner'")
+        .bind(family_id)
+        .fetch_one(&state.db)
+        .await?;
+    Ok(owners)
+}
+
+#[derive(Deserialize)]
+pub struct UpdateMemberReq {
+    role: String,
+}
+
+/// Change a member's role (owners only). The last owner can't step down.
+pub async fn update_member(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path((family_id, member_id)): Path<(String, String)>,
+    ApiJson(req): ApiJson<UpdateMemberReq>,
+) -> AppResult<Json<Value>> {
+    require_owner(&state.db, &family_id, &user.id).await?;
+    check_role(&req.role)?;
+    let current = member_role(&state.db, &family_id, &member_id).await.map_err(|_| AppError::NotFound("member"))?;
+    if current == "owner" && req.role != "owner" && owner_count(&state, &family_id).await? <= 1 {
+        return Err(AppError::Conflict("a family needs at least one owner".into()));
+    }
+    sqlx::query("UPDATE memberships SET role = ? WHERE family_id = ? AND user_id = ?")
+        .bind(&req.role)
+        .bind(&family_id)
+        .bind(&member_id)
+        .execute(&state.db)
+        .await?;
+    state.publish(&family_id, "family", "updated", json!({ "id": family_id }));
+    Ok(Json(family_json(&state, &family_id, &user.id).await?))
 }
 
 pub async fn accept_invite(State(state): State<AppState>, user: AuthUser, Path(code): Path<String>) -> AppResult<Json<Value>> {
@@ -204,21 +252,16 @@ pub async fn accept_invite(State(state): State<AppState>, user: AuthUser, Path(c
 }
 
 pub async fn remove_member(State(state): State<AppState>, user: AuthUser, Path((family_id, member_id)): Path<(String, String)>) -> AppResult<StatusCode> {
-    let my_role = require_member(&state.db, &family_id, &user.id).await?;
+    // Anyone may leave (book viewers too); only owners remove others.
+    let my_role = member_role(&state.db, &family_id, &user.id).await?;
     if member_id != user.id && my_role != "owner" {
         return Err(AppError::Forbidden("only an owner can remove other members".into()));
     }
-    let target_role = require_member(&state.db, &family_id, &member_id)
+    let target_role = member_role(&state.db, &family_id, &member_id)
         .await
         .map_err(|_| AppError::NotFound("member"))?;
-    if target_role == "owner" {
-        let (owners,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM memberships WHERE family_id = ? AND role = 'owner'")
-            .bind(&family_id)
-            .fetch_one(&state.db)
-            .await?;
-        if owners <= 1 {
-            return Err(AppError::Conflict("a family needs at least one owner; delete the family instead".into()));
-        }
+    if target_role == "owner" && owner_count(&state, &family_id).await? <= 1 {
+        return Err(AppError::Conflict("a family needs at least one owner; delete the family instead".into()));
     }
     sqlx::query("DELETE FROM memberships WHERE family_id = ? AND user_id = ?")
         .bind(&family_id)

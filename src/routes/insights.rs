@@ -18,7 +18,7 @@ use serde_json::{json, Value};
 use tokio_stream::wrappers::BroadcastStream;
 
 use crate::{
-    auth::{child_access, require_member, AuthUser},
+    auth::{child_access, member_role, AuthUser, BOOK_TYPES, BOOK_VIEWER},
     error::{bad, ApiQuery, AppResult},
     routes::{
         children::child_json,
@@ -27,7 +27,7 @@ use crate::{
     },
     reminders::medicines_status,
     schedule::{medicine_json, parse_medicines},
-    state::AppState,
+    state::{AppState, Change},
     trends::{self, TrendEvent},
     util::{fmt_time, now_ms},
 };
@@ -132,7 +132,7 @@ pub async fn summary(State(state): State<AppState>, user: AuthUser, Path(child_i
 /// An `event: ping` is sent every [KEEP_ALIVE] so clients can tell a dead connection from a quiet
 /// one (a comment would be invisible to browsers' `EventSource`).
 pub async fn stream(State(state): State<AppState>, user: AuthUser, Path(family_id): Path<String>) -> AppResult<impl IntoResponse> {
-    require_member(&state.db, &family_id, &user.id).await?;
+    let book_only = member_role(&state.db, &family_id, &user.id).await? == BOOK_VIEWER;
     let rx = state.changes.subscribe();
     let hello = stream::once(async { Ok::<_, Infallible>(SseEvent::default().event("ready").data("{}")) });
     let fid = family_id.clone();
@@ -141,6 +141,7 @@ pub async fn stream(State(state): State<AppState>, user: AuthUser, Path(family_i
         async move {
             match msg {
                 Ok(change) if change.family_id == fid => {
+                    let change = if book_only { book_change(change)? } else { change };
                     let data = serde_json::to_string(&change).unwrap_or_else(|_| "{}".into());
                     Some(Ok(SseEvent::default().event("change").data(data)))
                 }
@@ -152,6 +153,22 @@ pub async fn stream(State(state): State<AppState>, user: AuthUser, Path(family_i
     let sse = Sse::new(hello.chain(changes)).keep_alive(KeepAlive::new().interval(KEEP_ALIVE).event(SseEvent::default().event("ping").data("{}")));
     // nginx (and proxies built on it) would otherwise hold events back until its buffer fills.
     Ok(([(HeaderName::from_static("x-accel-buffering"), HeaderValue::from_static("no"))], sse))
+}
+
+/// What a book viewer hears of a change: the book's entries, the children (without medicines
+/// and reminders) and the family; nothing about timers or other entries.
+fn book_change(mut change: Change) -> Option<Change> {
+    match change.entity {
+        "family" | "import" => Some(change),
+        "child" => {
+            crate::routes::children::book_view(&mut change.data);
+            Some(change)
+        }
+        // A deletion carries no type; the id alone says nothing.
+        "event" if change.action == "deleted" => Some(change),
+        "event" if change.data.get("type").and_then(|t| t.as_str()).is_some_and(|t| BOOK_TYPES.contains(&t)) => Some(change),
+        _ => None,
+    }
 }
 
 pub const KEEP_ALIVE: std::time::Duration = std::time::Duration::from_secs(15);

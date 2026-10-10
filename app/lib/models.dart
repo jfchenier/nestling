@@ -34,7 +34,24 @@ class Member {
   String get name => json['name'] ?? '';
   String get email => json['email'] ?? '';
   String get role => json['role'] ?? 'caregiver';
+  String get roleLabel => roleName(role);
 }
+
+/// What a member may do: `owner` manages the family, `caregiver` logs everything, `book_viewer`
+/// (e.g. grandparents) only reads the baby book.
+const memberRoles = ['owner', 'caregiver', 'book_viewer'];
+
+String roleName(String role) => switch (role) {
+  'owner' => 'Owner',
+  'book_viewer' => 'Book only',
+  _ => 'Caregiver',
+};
+
+String roleHint(String role) => switch (role) {
+  'owner' => 'Logs everything and manages the family',
+  'book_viewer' => 'Sees the baby book, can\'t change anything',
+  _ => 'Logs feeds, sleep, diapers and everything else',
+};
 
 class Child {
   Child(this.json);
@@ -97,6 +114,9 @@ class Family {
   String get dayEnd => json['day_end'] ?? '18:00';
   String? get role => json['role'];
   bool get isOwner => role == 'owner';
+
+  /// This account only reads the baby book here (e.g. grandparents).
+  bool get bookOnly => role == 'book_viewer';
   List<Member> get members => [for (final m in (json['members'] as List? ?? [])) Member(m)];
   List<Child> get children => [for (final c in (json['children'] as List? ?? [])) Child(c)];
 }

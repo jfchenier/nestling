@@ -1065,3 +1065,108 @@ async fn medicine_schedule_and_reminders() {
     nestling::reminders::check(&state, &push, nestling::util::now_ms()).await.unwrap();
     assert_eq!(sent.lock().unwrap().len(), 2);
 }
+
+#[tokio::test]
+async fn book_viewer_reads_the_book_only() {
+    let c = Client::new().await;
+    let mom = c.register("mom@example.com", "Mom").await;
+    let dad = c.register("dad@example.com", "Dad").await;
+    let gran = c.register("gran@example.com", "Gran").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&mom), Some(json!({ "name": "Home" }))).await;
+    let fid = fam["id"].as_str().unwrap().to_string();
+    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&mom), Some(json!({ "name": "B", "birth_date": "2026-06-01" }))).await;
+    let cid = child["id"].as_str().unwrap().to_string();
+    c.call(Method::PATCH, &format!("/children/{cid}"), Some(&mom), Some(json!({ "medicines": [{ "name": "Tylenol", "every_hours": 4, "remind": false }] }))).await;
+    let (_, memory) = c
+        .call(Method::POST, &format!("/children/{cid}/events"), Some(&mom), Some(json!({ "type": "milestone", "name": "First smile", "start": "2026-07-01T10:00" })))
+        .await;
+    let mid = memory["id"].as_str().unwrap().to_string();
+    c.call(Method::POST, &format!("/children/{cid}/events"), Some(&mom), Some(json!({ "type": "growth", "weight_g": 5000, "start": "2026-07-01T10:00" }))).await;
+    let (_, feed) = c
+        .call(Method::POST, &format!("/children/{cid}/events"), Some(&mom), Some(json!({ "type": "feed", "method": "bottle", "amount_ml": 90, "start": "2026-07-01T11:00" })))
+        .await;
+    let feed_id = feed["id"].as_str().unwrap().to_string();
+    c.call_raw(Method::PUT, &format!("/events/{mid}/photo"), &mom, b"\xFF\xD8\xFF\xE0 jpeg".to_vec()).await;
+
+    // Unknown roles are refused; any caregiver may invite a book viewer.
+    let (s, _) = c.call(Method::POST, &format!("/families/{fid}/invites"), Some(&mom), Some(json!({ "role": "reader" }))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let (s, inv) = c.call(Method::POST, &format!("/families/{fid}/invites"), Some(&mom), Some(json!({ "role": "book_viewer" }))).await;
+    assert_eq!((s, inv["role"].as_str()), (StatusCode::CREATED, Some("book_viewer")), "{inv}");
+    let (s, joined) = c.call(Method::POST, &format!("/invites/{}/accept", inv["code"].as_str().unwrap()), Some(&gran), None).await;
+    assert_eq!(s, StatusCode::OK, "{joined}");
+    assert_eq!(joined["role"], "book_viewer");
+    // The children come without their medicines and reminders.
+    assert!(joined["children"][0].get("medicines").is_none(), "{joined}");
+    assert_eq!(joined["children"][0]["name"], "B");
+
+    // The book: memories (with their photos), growth, the child and its photo.
+    let (s, list) = c.call(Method::GET, &format!("/children/{cid}/events"), Some(&gran), None).await;
+    assert_eq!(s, StatusCode::OK, "{list}");
+    let mut types: Vec<_> = list["events"].as_array().unwrap().iter().map(|e| e["type"].as_str().unwrap().to_string()).collect();
+    types.sort();
+    assert_eq!(types, ["growth", "milestone"]);
+    let (s, _) = c.call(Method::GET, &format!("/children/{cid}/events?type=milestone"), Some(&gran), None).await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, _) = c.call(Method::GET, &format!("/children/{cid}/events?type=feed"), Some(&gran), None).await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    let (s, _) = c.call(Method::GET, &format!("/events/{mid}"), Some(&gran), None).await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, _, _) = c.call_raw(Method::GET, &format!("/events/{mid}/photo"), &gran, vec![]).await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, _) = c.call(Method::GET, &format!("/events/{feed_id}"), Some(&gran), None).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    let (s, ch) = c.call(Method::GET, &format!("/children/{cid}"), Some(&gran), None).await;
+    assert_eq!(s, StatusCode::OK);
+    assert!(ch.get("reminders").is_none() && ch.get("book").is_some(), "{ch}");
+    let (s, synced) = c.call(Method::GET, &format!("/families/{fid}/sync"), Some(&gran), None).await;
+    assert_eq!(s, StatusCode::OK);
+    assert_eq!(synced["events"].as_array().unwrap().len(), 2, "{synced}");
+    assert_eq!(synced["timers"], json!([]));
+
+    // Nothing else, and no changes.
+    for (method, path, body) in [
+        (Method::GET, format!("/children/{cid}/summary"), None),
+        (Method::GET, format!("/children/{cid}/trends"), None),
+        (Method::GET, format!("/children/{cid}/timers"), None),
+        (Method::GET, format!("/families/{fid}/export.csv"), None),
+        (Method::POST, format!("/children/{cid}/events"), Some(json!({ "type": "milestone", "name": "Hi" }))),
+        (Method::PATCH, format!("/events/{mid}"), Some(json!({ "name": "Changed" }))),
+        (Method::DELETE, format!("/events/{mid}"), None),
+        (Method::PATCH, format!("/children/{cid}"), Some(json!({ "book": { "birth_place": "Here" } }))),
+        (Method::PATCH, format!("/families/{fid}"), Some(json!({ "name": "Mine" }))),
+        (Method::POST, format!("/families/{fid}/invites"), None),
+        (Method::POST, format!("/children/{cid}/timers"), Some(json!({ "kind": "sleep" }))),
+        (Method::POST, format!("/families/{fid}/sync"), Some(json!({ "events": [] }))),
+    ] {
+        let (s, b) = c.call(method.clone(), &path, Some(&gran), body).await;
+        assert_eq!(s, StatusCode::FORBIDDEN, "{method} {path}: {b}");
+    }
+    let (s, _, _) = c.call_raw(Method::DELETE, &format!("/events/{mid}/photo"), &gran, vec![]).await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+
+    // Owners change roles; caregivers can't, and the last owner can't step down.
+    let (_, inv) = c.call(Method::POST, &format!("/families/{fid}/invites"), Some(&mom), None).await;
+    c.call(Method::POST, &format!("/invites/{}/accept", inv["code"].as_str().unwrap()), Some(&dad), None).await;
+    let (_, me) = c.call(Method::GET, "/me", Some(&gran), None).await;
+    let gran_id = me["id"].as_str().unwrap().to_string();
+    let (_, me) = c.call(Method::GET, "/me", Some(&mom), None).await;
+    let mom_id = me["id"].as_str().unwrap().to_string();
+    let (s, _) = c.call(Method::PATCH, &format!("/families/{fid}/members/{gran_id}"), Some(&dad), Some(json!({ "role": "caregiver" }))).await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    let (s, _) = c.call(Method::PATCH, &format!("/families/{fid}/members/{mom_id}"), Some(&mom), Some(json!({ "role": "book_viewer" }))).await;
+    assert_eq!(s, StatusCode::CONFLICT);
+    let (s, _) = c.call(Method::PATCH, &format!("/families/{fid}/members/{gran_id}"), Some(&mom), Some(json!({ "role": "viewer" }))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let (s, f) = c.call(Method::PATCH, &format!("/families/{fid}/members/{gran_id}"), Some(&mom), Some(json!({ "role": "caregiver" }))).await;
+    assert_eq!(s, StatusCode::OK, "{f}");
+    assert!(f["members"].as_array().unwrap().iter().any(|m| m["user_id"] == gran_id.as_str() && m["role"] == "caregiver"), "{f}");
+    let (s, _) = c.call(Method::GET, &format!("/children/{cid}/summary"), Some(&gran), None).await;
+    assert_eq!(s, StatusCode::OK);
+    // And back; a book viewer can still leave the family.
+    c.call(Method::PATCH, &format!("/families/{fid}/members/{gran_id}"), Some(&mom), Some(json!({ "role": "book_viewer" }))).await;
+    let (s, _) = c.call(Method::DELETE, &format!("/families/{fid}/members/{gran_id}"), Some(&gran), None).await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    let (s, _) = c.call(Method::GET, &format!("/children/{cid}"), Some(&gran), None).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+}
