@@ -24,7 +24,7 @@ activity color. Colors live in
 - **Home** — running-timer banners, today's totals, then two cards per row in a fixed order
   (Feed · Sleep / Diaper · Pump / Growth · Health / Routine · Firsts). Each card shows the latest
   entry and a big value ("last side", "dirty", "1h 06m"…), or the live clock of a running timer.
-  **Tap a card to log** (Feed asks Breastfeed / Bottle / Solids / Combo; Firsts opens the baby book); the clock icon in its header
+  **Tap a card to log** (Feed asks Breastfeed / Bottle / Solids / Combo; Firsts opens the baby book, as does its book icon); the clock icon in its header
   opens its history. "Add a note" sits under the grid.
 - **Timers** — breastfeed (tap Left/Right to start, switch sides, pause), sleep (with location) and pump
   (left/right/both, asks for amounts at the end). Shared live with every caregiver. While one runs you can

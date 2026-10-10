@@ -137,7 +137,7 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       (any mode) and are pushed only when Firebase is set up (`state.push`), checked every minute,
       once per entry (`reminders_sent`). App: Family → Medicines and reminders; home strip
       (`_ReminderStrip`, same due rule as `reminders.rs`); early-dose warning in the medicine form.
-- [x] **Baby book** (tap the Firsts card, `app/lib/screens/baby_book.dart`): milestones as a
+- [x] **Baby book** (tap the Firsts card or its book icon, `app/lib/screens/baby_book.dart`): milestones as a
       scrapbook with one photo each (`/events/{id}/photo`, table `event_photos`; events carry
       `photo_version`), built-in ideas of firsts plus custom ones. Serverless: `LocalStore.eventPhotos`
       (saved apart, clocks `ep:<id>`), Drive sync sends each photo once as `photo-<id>-<version>.bin`.

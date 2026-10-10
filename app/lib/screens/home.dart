@@ -157,18 +157,30 @@ class HomeScreen extends StatelessWidget {
           }();
 
     void open(String timerKind) => TimerScreen.open(context, timerKind);
+    void openBook() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BabyBookScreen()));
     // Tapping a card logs one (or opens its running timer); the clock icon opens its history.
     _ActivityCard card(Kind kind, String title, _CardData data, VoidCallback log, String filter, [TimerModel? running]) => _ActivityCard(
       kind: kind,
       title: title,
       data: data,
       onLog: running != null ? () => open(running.kind) : log,
-      onHistory: filter == 'growth'
-          ? () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GrowthChartScreen()))
-          : () => history(filter),
-      // Growth's header icon opens the growth charts (its history is listed there too).
-      historyIcon: filter == 'growth' ? Icons.show_chart_rounded : Icons.history_rounded,
-      historyLabel: filter == 'growth' ? 'Growth charts' : '$title history',
+      onHistory: switch (filter) {
+        'growth' => () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GrowthChartScreen())),
+        'milestone' => openBook,
+        _ => () => history(filter),
+      },
+      // Growth's header icon opens the growth charts (its history is listed there too), Firsts'
+      // the baby book (like tapping the card).
+      historyIcon: switch (filter) {
+        'growth' => Icons.show_chart_rounded,
+        'milestone' => Icons.auto_stories_rounded,
+        _ => Icons.history_rounded,
+      },
+      historyLabel: switch (filter) {
+        'growth' => 'Growth charts',
+        'milestone' => 'Baby book',
+        _ => '$title history',
+      },
     );
     return [
       card(Kind.breast, 'Feed', feedCard, () => showFeedPicker(context), 'feed', nursing),
@@ -189,8 +201,8 @@ class HomeScreen extends StatelessWidget {
         'Firsts',
         simple(latest('milestone'), (e) => (e['name'] as String?) ?? 'Milestone'),
         // Opens the baby book (memories with photos, ideas of firsts, "Add a memory").
-        () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BabyBookScreen())),
-        'activity,milestone,note',
+        openBook,
+        'milestone',
       ),
     ];
   }
