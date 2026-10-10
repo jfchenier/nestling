@@ -157,7 +157,8 @@ class HomeScreen extends StatelessWidget {
           }();
 
     void open(String timerKind) => TimerScreen.open(context, timerKind);
-    void openBook() => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const BabyBookScreen()));
+    void openBook({bool addMemory = false}) =>
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => BabyBookScreen(addMemory: addMemory)));
     // Tapping a card logs one (or opens its running timer); the clock icon opens its history.
     _ActivityCard card(Kind kind, String title, _CardData data, VoidCallback log, String filter, [TimerModel? running]) => _ActivityCard(
       kind: kind,
@@ -166,7 +167,7 @@ class HomeScreen extends StatelessWidget {
       onLog: running != null ? () => open(running.kind) : log,
       onHistory: switch (filter) {
         'growth' => () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GrowthChartScreen())),
-        'milestone' => openBook,
+        'milestone' => () => openBook(),
         _ => () => history(filter),
       },
       // Growth's header button opens the growth charts (its history is listed there too), Firsts'
@@ -205,7 +206,8 @@ class HomeScreen extends StatelessWidget {
         Kind.milestone,
         'Firsts',
         simple(latest('milestone'), (e) => (e['name'] as String?) ?? 'Milestone'),
-        () => showEventForm(context, type: 'milestone'),
+        // "New memory" over the baby book, which shows once it's saved or closed.
+        () => openBook(addMemory: true),
         'milestone',
       ),
     ];

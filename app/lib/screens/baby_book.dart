@@ -79,13 +79,22 @@ mixin _Memories<T extends StatefulWidget> on State<T> {
 /// The baby book: the child's firsts as a scrapbook (photo, story, age), grouped by age, with
 /// ideas of firsts still to come. Tap a memory to edit it, its photo to see it big.
 class BabyBookScreen extends StatefulWidget {
-  const BabyBookScreen({super.key});
+  const BabyBookScreen({super.key, this.addMemory = false});
+
+  /// Opens "New memory" over the book right away (the Firsts card), so closing it shows the book.
+  final bool addMemory;
 
   @override
   State<BabyBookScreen> createState() => _BabyBookScreenState();
 }
 
 class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
+  @override
+  void initState() {
+    super.initState();
+    if (widget.addMemory) WidgetsBinding.instance.addPostFrameCallback((_) => showMemoryForm(context));
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = context.watch<AppState>();
