@@ -720,20 +720,48 @@ class _ReminderStripState extends State<_ReminderStrip> {
       required bool urgent,
       String? action,
       VoidCallback? onTap,
-    }) => Dismissible(
-      key: ValueKey(key),
-      onDismissed: (_) => s.dismiss(key),
-      child: ListTile(
-        leading: BlobIcon(kind, icon: icon, size: 38),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text(
-          status,
-          style: TextStyle(color: urgent ? kind.on(pal) : pal.muted, fontWeight: urgent ? FontWeight.w700 : null),
+    }) {
+      final shape = RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
+      // Shown under the card while it is swiped, on the side it uncovers.
+      Widget behind(Alignment side) => Container(
+        alignment: side,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(color: pal.accentSoft, borderRadius: BorderRadius.circular(14)),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.visibility_off_rounded, size: 20, color: pal.accent),
+            const SizedBox(width: 6),
+            Text('Hide', style: TextStyle(color: pal.accent, fontWeight: FontWeight.w700)),
+          ],
         ),
-        trailing: action == null ? null : FilledButton.tonal(onPressed: onTap, child: Text(action)),
-        onTap: onTap,
-      ),
-    );
+      );
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Dismissible(
+          key: ValueKey(key),
+          onDismissed: (_) => s.dismiss(key),
+          background: behind(Alignment.centerLeft),
+          secondaryBackground: behind(Alignment.centerRight),
+          child: Material(
+            color: pal.surface,
+            shape: shape.copyWith(side: BorderSide(color: pal.line)),
+            clipBehavior: Clip.antiAlias,
+            child: ListTile(
+              shape: shape,
+              leading: BlobIcon(kind, icon: icon, size: 38),
+              title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+              subtitle: Text(
+                status,
+                style: TextStyle(color: urgent ? kind.on(pal) : pal.muted, fontWeight: urgent ? FontWeight.w700 : null),
+              ),
+              trailing: action == null ? null : FilledButton.tonal(onPressed: onTap, child: Text(action)),
+              onTap: onTap,
+            ),
+          ),
+        ),
+      );
+    }
     final rows = <(String, Widget Function(String))>[
       for (final (type, since, key) in dueReminders(s, now))
         (
@@ -795,14 +823,9 @@ class _ReminderStripState extends State<_ReminderStrip> {
           }(),
     ].where((r) => !s.dismissed.contains(r.$1)).toList();
     if (rows.isEmpty) return const SizedBox.shrink();
-    return Container(
-      margin: const EdgeInsets.only(bottom: 18),
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: pal.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: pal.line),
-      ),
+    // One card per row, so each one can be swiped away on its own.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
       child: Column(children: [for (final (key, build) in rows) build(key)]),
     );
   }
