@@ -45,7 +45,7 @@ everything; owners can also remove members and delete the family.
 | `GET /families` | | families with members and children |
 | `POST /families` | `{name, timezone?}` (IANA, default UTC) | creator becomes owner |
 | `GET /families/{id}` | | |
-| `PATCH /families/{id}` | `{name?, timezone?}` | the timezone sets day boundaries for trends |
+| `PATCH /families/{id}` | `{name?, timezone?, day_start?, day_end?}` | the timezone sets day boundaries for trends; `day_start` / `day_end` (`"HH:MM"`, default `"06:00"` / `"18:00"`) set daytime for the day/night split |
 | `DELETE /families/{id}` | | owner only; deletes everything |
 | `POST /families/{id}/invites` | `{role?}` (default `caregiver`) | → `{code: "K7M2QX9A", expires_at}`; valid 7 days, single use |
 | `POST /invites/{code}/accept` | | join the family |
@@ -159,12 +159,17 @@ Timer shape: `{id, child_id, kind, started_at, running, side, elapsed_seconds, l
     "pump":   {"count": 1, "total_ml": 150, "total_seconds": 900}
   }],
   "averages": {"days": 6, "feeds_per_day": 8.2, "sleep_seconds_per_day": 51000, "feed_interval_seconds": 10200,
-               "wake_window_seconds": 5400, "avg_nap_seconds": 4100, "avg_bottle_ml": 115, …}
+               "wake_window_seconds": 5400, "avg_nap_seconds": 4100, "avg_bottle_ml": 115, …},
+  "previous": { same keys as averages } | null
 }
 ```
 
-Days are calendar days in the family timezone; daytime is 06:00–18:00. Sleep crossing midnight is split between days.
+Days are calendar days in the family timezone; daytime is the family's `day_start`–`day_end` (06:00–18:00 by default). Sleep crossing midnight is split between days.
 Daily averages use complete days only.
+Feeds and diapers count as daytime by their start time; feed days also carry `breast_left_seconds` /
+`breast_right_seconds`, their `day_…` parts and bottle amounts by milk (`breast_milk_ml`, `formula_ml`, `mixed_ml`).
+`previous` holds the same `averages` for the `days` days just before `from` (for "↑ 1.1 vs last week"), or
+`null` when nothing was logged then.
 
 ## Live updates and sync
 

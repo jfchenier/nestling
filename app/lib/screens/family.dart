@@ -12,6 +12,7 @@ import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import 'child_form.dart';
+import 'day_hours.dart';
 import 'home.dart' show ChildAvatar;
 import 'pairing.dart';
 import 'users.dart';
@@ -124,6 +125,13 @@ class FamilyScreen extends StatelessWidget {
                         onSelectionChanged: (v) => s.setThemeMode(v.first),
                       ),
                     ),
+                  ),
+                  ListTile(
+                    leading: const Icon(Icons.wb_twilight_rounded),
+                    title: const Text('Day and night'),
+                    subtitle: Text('Daytime ${f.dayStart}–${f.dayEnd}'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DayHoursScreen())),
                   ),
                   ListTile(
                     leading: const Icon(Icons.public),

@@ -11,6 +11,7 @@ use crate::{
     error::{bad, ApiJson, AppError, AppResult},
     routes::children::children_json,
     state::AppState,
+    trends::{self, DayWindow},
     util::{invite_code, new_id, now_ms, parse_tz},
 };
 
@@ -18,8 +19,8 @@ const INVITE_TTL_MS: i64 = 7 * 24 * 3600 * 1000;
 
 pub async fn family_json(state: &AppState, family_id: &str, user_id: &str) -> AppResult<Value> {
     let role = require_member(&state.db, family_id, user_id).await?;
-    let (id, name, timezone, created_at): (String, String, String, i64) =
-        sqlx::query_as("SELECT id, name, timezone, created_at FROM families WHERE id = ?")
+    let (id, name, timezone, created_at, day_start, day_end): (String, String, String, i64, u32, u32) =
+        sqlx::query_as("SELECT id, name, timezone, created_at, day_start, day_end FROM families WHERE id = ?")
             .bind(family_id)
             .fetch_one(&state.db)
             .await?;
@@ -36,6 +37,8 @@ pub async fn family_json(state: &AppState, family_id: &str, user_id: &str) -> Ap
         "name": name,
         "timezone": timezone,
         "created_at": created_at,
+        "day_start": trends::hhmm(day_start),
+        "day_end": trends::hhmm(day_end),
         "role": role,
         "members": members.into_iter().map(|(id, name, email, role)| json!({
             "user_id": id, "name": name, "email": email, "role": role
@@ -99,6 +102,9 @@ pub async fn get(State(state): State<AppState>, user: AuthUser, Path(id): Path<S
 pub struct UpdateFamilyReq {
     name: Option<String>,
     timezone: Option<String>,
+    /// Daytime for the stats, "HH:MM" local.
+    day_start: Option<String>,
+    day_end: Option<String>,
 }
 
 pub async fn update(State(state): State<AppState>, user: AuthUser, Path(id): Path<String>, ApiJson(req): ApiJson<UpdateFamilyReq>) -> AppResult<Json<Value>> {
@@ -112,6 +118,18 @@ pub async fn update(State(state): State<AppState>, user: AuthUser, Path(id): Pat
     if let Some(tz) = &req.timezone {
         parse_tz(tz)?;
         sqlx::query("UPDATE families SET timezone = ? WHERE id = ?").bind(tz).bind(&id).execute(&state.db).await?;
+    }
+    if req.day_start.is_some() || req.day_end.is_some() {
+        let (start, end): (u32, u32) = sqlx::query_as("SELECT day_start, day_end FROM families WHERE id = ?").bind(&id).fetch_one(&state.db).await?;
+        let parse = |v: &Option<String>, old: u32| match v {
+            None => Ok(old),
+            Some(s) => trends::parse_hhmm(s).ok_or_else(|| AppError::BadRequest(format!("'{s}' is not a time like '06:00'"))),
+        };
+        let (start, end) = (parse(&req.day_start, start)?, parse(&req.day_end, end)?);
+        let Some(day) = DayWindow::new(start, end) else {
+            return bad("daytime must start before it ends");
+        };
+        sqlx::query("UPDATE families SET day_start = ?, day_end = ? WHERE id = ?").bind(day.start).bind(day.end).bind(&id).execute(&state.db).await?;
     }
     let family = family_json(&state, &id, &user.id).await?;
     state.publish(&id, "family", "updated", json!({ "id": id }));

@@ -64,9 +64,10 @@ pub async fn get_trends(State(state): State<AppState>, user: AuthUser, Path(chil
     let today = chrono::Utc::now().with_timezone(&ctx.tz).date_naive();
     let to = q.to.unwrap_or(today);
     let from = to - Duration::days(days as i64 - 1);
-    let (r0, r1) = trends::range_ms(ctx.tz, from, days);
+    // From the start of the previous period, for the comparison.
+    let (r0, r1) = trends::range_ms(ctx.tz, from - Duration::days(days as i64), days * 2);
     let events = trend_events(&state, &child_id, r0, r1).await?;
-    Ok(Json(serde_json::to_value(trends::compute(&events, ctx.tz, from, days, now))?))
+    Ok(Json(serde_json::to_value(trends::compute_with_previous(&events, ctx.tz, ctx.day, from, days, now))?))
 }
 
 /// Everything a home screen needs: last feed/sleep/diaper/pump, running timers, today's totals.
@@ -103,7 +104,7 @@ pub async fn summary(State(state): State<AppState>, user: AuthUser, Path(child_i
     let today = chrono::Utc::now().with_timezone(&ctx.tz).date_naive();
     let (r0, r1) = trends::range_ms(ctx.tz, today, 1);
     let events = trend_events(&state, &child_id, r0, r1).await?;
-    let t = trends::compute(&events, ctx.tz, today, 1, now);
+    let t = trends::compute(&events, ctx.tz, ctx.day, today, 1, now);
     Ok(Json(json!({
         "child": child_json(&state, &child_id, ctx.tz).await?,
         "last": last,
@@ -111,7 +112,7 @@ pub async fn summary(State(state): State<AppState>, user: AuthUser, Path(child_i
         "timers": timers,
         "today": t.days.into_iter().next(),
         // Rolling: the 24 hours up to now (what the home screen's totals show).
-        "last_24h": trends::last_24h(&events, ctx.tz, now),
+        "last_24h": trends::last_24h(&events, ctx.tz, ctx.day, now),
     })))
 }
 

@@ -122,11 +122,12 @@ pub struct ChildCtx {
     pub child_id: String,
     pub family_id: String,
     pub tz: Tz,
+    pub day: crate::trends::DayWindow,
 }
 
 pub async fn child_access(db: &SqlitePool, child_id: &str, user_id: &str) -> AppResult<ChildCtx> {
-    let row: Option<(String, String)> = sqlx::query_as(
-        "SELECT c.family_id, f.timezone FROM children c
+    let row: Option<(String, String, u32, u32)> = sqlx::query_as(
+        "SELECT c.family_id, f.timezone, f.day_start, f.day_end FROM children c
          JOIN families f ON f.id = c.family_id
          JOIN memberships m ON m.family_id = c.family_id AND m.user_id = ?
          WHERE c.id = ?",
@@ -135,6 +136,7 @@ pub async fn child_access(db: &SqlitePool, child_id: &str, user_id: &str) -> App
     .bind(child_id)
     .fetch_optional(db)
     .await?;
-    let (family_id, tz) = row.ok_or(AppError::NotFound("child"))?;
-    Ok(ChildCtx { child_id: child_id.to_string(), family_id, tz: parse_tz(&tz)? })
+    let (family_id, tz, start, end) = row.ok_or(AppError::NotFound("child"))?;
+    let day = crate::trends::DayWindow::new(start, end).unwrap_or_default();
+    Ok(ChildCtx { child_id: child_id.to_string(), family_id, tz: parse_tz(&tz)?, day })
 }
