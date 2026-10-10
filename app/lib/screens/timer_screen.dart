@@ -472,7 +472,7 @@ class _TimerScreenState extends State<TimerScreen> {
           clipBehavior: Clip.none,
           children: [
             _circle(t, side),
-            if (t == null && _lastSide(context.read<AppState>()) == side) Positioned(left: -6, top: -6, child: _lastSideBadge()),
+            if (t == null && _lastSide(context.read<AppState>()) == side) Positioned(left: -9, top: -9, child: _lastSideBadge()),
           ],
         ),
         const SizedBox(height: 10),
@@ -505,8 +505,8 @@ class _TimerScreenState extends State<TimerScreen> {
     final c = context.pal;
     return ExcludeSemantics(
       child: Container(
-        width: 50,
-        height: 50,
+        width: 42,
+        height: 42,
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: c.ink,
@@ -516,7 +516,7 @@ class _TimerScreenState extends State<TimerScreen> {
         child: Text(
           'Last\nside',
           textAlign: TextAlign.center,
-          style: TextStyle(color: c.background, fontSize: 12, height: 1.1, fontWeight: FontWeight.w700),
+          style: TextStyle(color: c.background, fontSize: 10, height: 1.1, fontWeight: FontWeight.w700),
         ),
       ),
     );
