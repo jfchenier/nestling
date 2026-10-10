@@ -71,6 +71,40 @@ void main() {
     expect(a.handle('PATCH', '/children/${old['id']}', body: {'name': 'Bea', 'birth_date': null})['name'], 'Bea');
   });
 
+  test('a saved feed can be continued as a timer, like on the server', () async {
+    final (store, a) = await phone('Mom');
+    final fam = a.createFamily({'name': 'Home', 'timezone': 'UTC'});
+    final c = a.createChild(fam['id'], {'name': 'Léa', 'birth_date': '2026-06-01'});
+    final start = DateTime.now().subtract(const Duration(minutes: 30));
+    final ev = a.handle('POST', '/children/${c['id']}/events', body: {
+      'type': 'feed',
+      'method': 'breast',
+      'start': start.toIso8601String(),
+      'end': start.add(const Duration(minutes: 20)).toIso8601String(),
+      'left_seconds': 600,
+      'right_seconds': 300,
+      'start_side': 'left',
+    });
+    final t = a.handle('POST', '/events/${ev['id']}/continue', body: {});
+    expect(t['kind'], 'breastfeed');
+    expect(t['running'], isTrue);
+    expect(t['side'], 'right', reason: 'goes on where it ended');
+    expect(t['left_seconds'], 600);
+    expect(t['right_seconds'], inInclusiveRange(300, 301));
+    expect(DateTime.parse(t['started_at']).difference(start).inSeconds.abs(), lessThan(1));
+    expect(() => a.handle('GET', '/events/${ev['id']}'), throwsA(isA<ApiException>()));
+    expect(store.pending.keys, containsAll(['e:${ev['id']}', 't:${t['id']}']));
+    // Saved again: the same start and start side, a bit more time.
+    final again = a.handle('POST', '/timers/${t['id']}/stop', body: {});
+    expect(again['start_side'], 'left');
+    expect(again['right_seconds'], greaterThanOrEqualTo(300));
+    // Only while no timer of that kind runs, and only for timed entries.
+    a.handle('POST', '/children/${c['id']}/timers', body: {'kind': 'breastfeed'});
+    expect(() => a.handle('POST', '/events/${again['id']}/continue', body: {}), throwsA(isA<ApiException>()));
+    final bottle = a.handle('POST', '/children/${c['id']}/events', body: {'type': 'feed', 'method': 'bottle', 'amount_ml': 90});
+    expect(() => a.handle('POST', '/events/${bottle['id']}/continue', body: {}), throwsA(isA<ApiException>()));
+  });
+
   test('pairing brings the family over, and changes flow both ways', () async {
     final wifi = FakeWifi();
     final (storeA, a) = await phone('Mom');

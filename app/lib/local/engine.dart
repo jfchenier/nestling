@@ -29,6 +29,7 @@ class LocalEngine {
     ('POST', RegExp(r'^/children/([^/]+)/(timers|events)$')),
     ('GET|PATCH|DELETE', RegExp(r'^/(events|timers)/([^/]+)$')),
     ('POST', RegExp(r'^/timers/([^/]+)/(pause|resume|switch|stop)$')),
+    ('POST', RegExp(r'^/events/([^/]+)/continue$')),
   ];
 
   static final _serverlessRoutes = <(String, RegExp)>[
@@ -98,6 +99,8 @@ class LocalEngine {
         return switchTimer(id, b);
       case ('POST', ['timers', final id, 'stop']):
         return stopTimer(id, b);
+      case ('POST', ['events', final id, 'continue']):
+        return continueEvent(id, b);
     }
     if (serverless) {
       switch ((method, seg)) {
@@ -743,6 +746,27 @@ class LocalEngine {
     t.deleted = true;
     _save(t);
     return json;
+  }
+
+  /// A saved breastfeed / pump / sleep entry becomes a running timer again (see
+  /// `continue_event` on the server).
+  Map<String, dynamic> continueEvent(String eventId, Map<String, dynamic> req) {
+    final id = req['timer_id'] as String? ?? newId();
+    final same = store.timers[id];
+    if (same != null && !same.deleted) return same.toApi();
+    final e = _event(eventId);
+    final kind = continuableKind(e) ?? (throw badRequest('only a breastfeed, pump or sleep entry can be continued'));
+    final childId = e['child_id'] as String;
+    final running = _timersOf(childId).where((t) => t.kind == kind).firstOrNull;
+    if (running != null) throw conflict('a $kind timer is already running (${running.id})');
+    final now = nowMs();
+    final segs = segmentsFromEvent(kind, startOf(e), endOf(e), e, now);
+    final side = checkSide(kind, req['side'] ?? segs.reversed.map((s) => s.side).whereType<String>().firstOrNull);
+    segs.add(Segment(side, now));
+    deleteEvent(eventId);
+    final t = StoredTimer(id: id, childId: childId, kind: kind, segments: segs, createdBy: _userId, createdAt: now, updatedAt: now);
+    store.timers[id] = t;
+    return _save(t);
   }
 
   dynamic discardTimer(String id) {

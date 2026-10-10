@@ -256,6 +256,48 @@ void setSide(List<Segment> segs, String? side, int target, int now) {
   }
 }
 
+/// The timer kind a saved entry can be continued as (null: it can't be).
+String? continuableKind(Map<String, dynamic> event) => switch (event['type']) {
+  'feed' when event['method'] == 'breast' => 'breastfeed',
+  'pump' => 'pump',
+  'sleep' => 'sleep',
+  _ => null,
+};
+
+/// Segments rebuilt from a saved breastfeed / pump / sleep entry (see `segments_from_event` on
+/// the server): one after the other from its start, moved back if they would end after [now].
+List<Segment> segmentsFromEvent(String kind, int start, int? end, Map<String, dynamic> details, int now) {
+  int ms(dynamic s) => s is num ? s.round() * 1000 : 0;
+  final List<(String?, int)> parts;
+  switch (kind) {
+    case 'breastfeed':
+      final (left, right) = (ms(details['left_seconds']), ms(details['right_seconds']));
+      final first = details['start_side'] as String? ?? (left == 0 && right > 0 ? 'right' : 'left');
+      parts = first == 'left' ? [('left', left), ('right', right)] : [('right', right), ('left', left)];
+    case 'pump':
+      final (left, right) = (ms(details['left_seconds']), ms(details['right_seconds']));
+      parts = left == right ? [('both', left)] : [('left', left), ('right', right)];
+    default:
+      parts = [(null, (end ?? start) - start)];
+  }
+  final segs = <Segment>[];
+  var at = start;
+  for (final (side, len) in parts.where((p) => p.$2 > 0)) {
+    segs.add(Segment(side, at, at + len));
+    at += len;
+  }
+  // Nothing timed: keep the start time with an empty segment.
+  if (segs.isEmpty) segs.add(Segment(parts.first.$1, start, start));
+  final over = at - now;
+  if (over > 0) {
+    for (final s in segs) {
+      s.start -= over;
+      s.end = s.end! - over;
+    }
+  }
+  return segs;
+}
+
 /// Closes the timer at [end] (capped at now) and returns the event it becomes:
 /// `(start, end, details)`.
 (int, int, Map<String, dynamic>) stopTimerSegments(String kind, List<Segment> segs, int? requestedEnd, Map<String, dynamic> req, int now) {

@@ -12,11 +12,16 @@ import 'event_form.dart';
 
 /// Live timer for `breastfeed`, `sleep` or `pump`, shared with every caregiver.
 class TimerScreen extends StatefulWidget {
-  const TimerScreen({super.key, required this.kind});
+  const TimerScreen({super.key, required this.kind, this.continued});
   final String kind;
 
-  static Future<void> open(BuildContext context, String kind) =>
-      Navigator.of(context).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => TimerScreen(kind: kind)));
+  /// The saved entry this timer continues (Continue on its edit sheet): its note, sleep location
+  /// and pump amounts are kept here, since a timer doesn't store them.
+  final Event? continued;
+
+  static Future<void> open(BuildContext context, String kind, {Event? continued}) => Navigator.of(
+    context,
+  ).push(MaterialPageRoute(fullscreenDialog: true, builder: (_) => TimerScreen(kind: kind, continued: continued)));
 
   @override
   State<TimerScreen> createState() => _TimerScreenState();
@@ -167,6 +172,18 @@ class _TimerScreenState extends State<TimerScreen> {
     return s.act((api) => api.post('/timers/${t.id}/resume', widget.kind == 'pump' ? {'side': _pumpSide} : {}));
   });
 
+  /// Pump amounts of a continued entry, offered again when it's saved.
+  late final Map<String, dynamic>? _pumped = widget.kind == 'pump' && widget.continued != null
+      ? {'left_ml': widget.continued!.json['left_ml'], 'right_ml': widget.continued!.json['right_ml']}
+      : null;
+
+  @override
+  void initState() {
+    super.initState();
+    _note.text = widget.continued?.note ?? '';
+    _location = widget.continued?.json['location'] as String?;
+  }
+
   Future<void> _stop(TimerModel t, {DateTime? end}) async {
     final body = <String, dynamic>{if (end != null) 'end': formatTime(end)};
     if (_note.text.trim().isNotEmpty) body['note'] = _note.text.trim();
@@ -190,7 +207,11 @@ class _TimerScreenState extends State<TimerScreen> {
 
   Future<Map<String, dynamic>?> _askPumpAmounts(TimerModel t) {
     final u = context.read<AppState>().units;
-    final left = TextEditingController(), right = TextEditingController();
+    String prior(String key) => switch (_pumped?[key]) {
+      final num v => u.volumeIn(v.toDouble()).toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), ''),
+      _ => '',
+    };
+    final left = TextEditingController(text: prior('left_ml')), right = TextEditingController(text: prior('right_ml'));
     double? read(TextEditingController c) {
       final v = double.tryParse(c.text.replaceAll(',', '.'));
       return v == null ? null : double.parse(u.volumeOut(v).toStringAsFixed(1));
@@ -447,7 +468,13 @@ class _TimerScreenState extends State<TimerScreen> {
     final name = side == 'left' ? 'left' : 'right';
     return Column(
       children: [
-        _circle(t, side),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            _circle(t, side),
+            if (t == null && _lastSide(context.read<AppState>()) == side) Positioned(left: -9, top: -9, child: _lastSideBadge()),
+          ],
+        ),
         const SizedBox(height: 10),
         Row(
           mainAxisSize: MainAxisSize.min,
@@ -468,6 +495,33 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
+  /// Side the last breastfeed ended on, marked on its circle before a new one starts.
+  String? _lastSide(AppState s) {
+    final last = s.summary?['last']?['feed'];
+    return last is Map<String, dynamic> && last['method'] == 'breast' ? Event(last).endSide : null;
+  }
+
+  Widget _lastSideBadge() {
+    final c = context.pal;
+    return ExcludeSemantics(
+      child: Container(
+        width: 42,
+        height: 42,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: c.ink,
+          shape: BoxShape.circle,
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 6)],
+        ),
+        child: Text(
+          'Last\nside',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: c.background, fontSize: 10, height: 1.1, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+
   /// Big round side button: start, pause (same side), switch (other side) or resume.
   Widget _circle(TimerModel? t, String side) {
     final c = context.pal;
@@ -476,7 +530,7 @@ class _TimerScreenState extends State<TimerScreen> {
     final strong = c.isDark ? kind.fill(c) : kind.deepTone;
     final name = side == 'left' ? 'left' : 'right';
     final action = t == null
-        ? 'Start $name'
+        ? 'Start $name${_lastSide(context.read<AppState>()) == side ? ' (last side)' : ''}'
         : active
         ? 'Pause $name'
         : t.running

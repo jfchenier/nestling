@@ -202,6 +202,8 @@ class SyncApi extends Api {
       b['id'] ??= LocalEngine.newId();
     } else if (RegExp(r'^/timers/[^/]+/stop$').hasMatch(path)) {
       b['event_id'] ??= LocalEngine.newId();
+    } else if (RegExp(r'^/events/[^/]+/continue$').hasMatch(path)) {
+      b['timer_id'] ??= LocalEngine.newId();
     } else {
       return body;
     }
@@ -236,6 +238,9 @@ class SyncApi extends Api {
         store.removeTimer(id);
       case ('DELETE', ['timers', final id]):
         store.removeTimer(id);
+      case ('POST', ['events', final id, 'continue']):
+        store.removeEvent(id);
+        store.putTimer(res);
       default:
         return;
     }
