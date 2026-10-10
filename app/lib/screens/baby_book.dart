@@ -15,7 +15,8 @@ import '../widgets/common.dart';
 import '../widgets/date_time.dart';
 import '../widgets/photo.dart';
 import 'book_pages.dart';
-import 'home.dart' show ChildAvatar;
+import 'family.dart' show SettingsScreen;
+import 'home.dart' show ChildAvatar, showChildSwitcher;
 import 'teeth_chart.dart';
 
 /// The book's chapters, in order (`BOOK_CHAPTERS` in src/model.rs).
@@ -263,6 +264,8 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
       (isBanana(e) ? bananas : byChapter[chapterOf(e, birth: child.birthDate)]!).add(e);
     }
     final logged = loggedKeys;
+    // Book viewers (e.g. grandparents) read it: no ideas, nothing to add or edit.
+    final readOnly = s.bookOnly;
     var printIndex = 0;
 
     List<Widget> prints(List<Event> events, {bool byAge = false}) {
@@ -282,6 +285,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
     }
 
     Widget ideas(BookChapter chapter, {bool seeAll = false}) {
+      if (readOnly) return const SizedBox.shrink();
       final left = milestoneIdeas.where((i) => i.chapter == chapter && (i.repeats || !logged.contains(_key(i.name)))).toList();
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -330,20 +334,20 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
     final rows = <Widget>[
       // Waiting for you (the pregnancy)
       heading(BookChapter.waiting),
-      _DueDate(child: child),
+      if (!readOnly || child.book['due_date'] != null) _DueDate(child: child),
       ...prints(byChapter[BookChapter.waiting]!),
       ideas(BookChapter.waiting),
       // Hello, world
       heading(BookChapter.hello),
       BornPage(child: child, growth: growth),
       NamePage(child: child),
-      WorldPage(child: child),
+      if (!readOnly || WorldPage.hasText(child)) WorldPage(child: child),
       ...?loading,
       ...prints(byChapter[BookChapter.hello]!),
       ideas(BookChapter.hello),
       // Firsts
       heading(BookChapter.firsts),
-      if (list != null && byChapter[BookChapter.firsts]!.isEmpty) const _EmptyBook(),
+      if (list != null && byChapter[BookChapter.firsts]!.isEmpty) _EmptyBook(readOnly: readOnly),
       ...prints(byChapter[BookChapter.firsts]!, byAge: true),
       ideas(BookChapter.firsts, seeAll: true),
       // Growing up
@@ -353,10 +357,12 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
         trailing: Text('as you look at ${child.name}', style: TextStyle(color: context.pal.muted, fontSize: 13)),
       ),
       TeethChart(child: child, milestones: memories ?? const []),
-      SectionTitle('Banana for scale 🍌', trailing: Text('a photo a month', style: TextStyle(color: context.pal.muted, fontSize: 13))),
-      _BananaStrip(child: child, photos: bananas),
+      if (!readOnly || bananas.isNotEmpty) ...[
+        SectionTitle('Banana for scale 🍌', trailing: Text('a photo a month', style: TextStyle(color: context.pal.muted, fontSize: 13))),
+        _BananaStrip(child: child, photos: bananas),
+      ],
       ...prints(byChapter[BookChapter.growing]!),
-      GrowthPage(child: child, growth: growth),
+      if (!readOnly || growth.isNotEmpty) GrowthPage(child: child, growth: growth),
       ideas(BookChapter.growing),
       // Celebrations
       heading(BookChapter.celebrations),
@@ -365,7 +371,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
     ];
 
     return Scaffold(
-      appBar: AppBar(title: Text('${child.name}’s book'), automaticallyImplyLeading: !widget.asTab),
+      appBar: AppBar(title: Text('${child.name}’s book'), automaticallyImplyLeading: !widget.asTab, actions: [if (readOnly) const BookViewerActions()]),
       body: Constrained(
         child: CustomScrollView(
           controller: _scroll,
@@ -481,11 +487,16 @@ class _DueDate extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(4, 8, 4, 4),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: ActionChip(
-          avatar: Icon(Icons.event_rounded, size: 18, color: Kind.milestone.on(c)),
-          label: Text(due == null ? 'Set the due date' : 'Due ${DateFormat.yMMMMd().format(due)}'),
-          onPressed: () => _pick(context),
-        ),
+        child: context.select<AppState, bool>((s) => s.bookOnly)
+            ? Chip(
+                avatar: Icon(Icons.event_rounded, size: 18, color: Kind.milestone.on(c)),
+                label: Text('Due ${due == null ? '' : DateFormat.yMMMMd().format(due)}'),
+              )
+            : ActionChip(
+                avatar: Icon(Icons.event_rounded, size: 18, color: Kind.milestone.on(c)),
+                label: Text(due == null ? 'Set the due date' : 'Due ${DateFormat.yMMMMd().format(due)}'),
+                onPressed: () => _pick(context),
+              ),
       ),
     );
   }
@@ -503,6 +514,7 @@ class _BananaStrip extends StatelessWidget {
     final c = context.pal;
     final k = Kind.milestone;
     final s = context.watch<AppState>();
+    final readOnly = s.bookOnly;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -518,10 +530,10 @@ class _BananaStrip extends StatelessWidget {
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             clipBehavior: Clip.none,
-            itemCount: photos.length + 1,
+            itemCount: photos.length + (readOnly ? 0 : 1),
             separatorBuilder: (_, _) => const SizedBox(width: 10),
             itemBuilder: (context, i) {
-              if (i == 0) {
+              if (!readOnly && i == 0) {
                 return SizedBox(
                   width: 128,
                   child: Material(
@@ -549,7 +561,7 @@ class _BananaStrip extends StatelessWidget {
                   ),
                 );
               }
-              final e = photos[i - 1];
+              final e = photos[readOnly ? i : i - 1];
               final bytes = e['photo_version'] == null ? null : s.eventPhoto(e);
               return SizedBox(
                 width: 128,
@@ -560,7 +572,7 @@ class _BananaStrip extends StatelessWidget {
                   borderRadius: BorderRadius.circular(6),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(6),
-                    onTap: () => showMemoryForm(context, event: e),
+                    onTap: readOnly ? (bytes == null ? null : () => _showPhoto(context, bytes, bananaName)) : () => showMemoryForm(context, event: e),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(7, 7, 7, 8),
                       child: Column(
@@ -814,17 +826,18 @@ class _Cover extends StatelessWidget {
                           style: TextStyle(color: c.bandInk, fontWeight: FontWeight.w700, fontSize: 15),
                         ),
                       ),
-                      FilledButton.icon(
-                        onPressed: () => showMemoryForm(context),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: c.accent,
-                          foregroundColor: c.onAccent,
-                          minimumSize: const Size(0, 44),
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                      if (!context.select<AppState, bool>((s) => s.bookOnly))
+                        FilledButton.icon(
+                          onPressed: () => showMemoryForm(context),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: c.accent,
+                            foregroundColor: c.onAccent,
+                            minimumSize: const Size(0, 44),
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                          ),
+                          icon: const Icon(Icons.add_rounded),
+                          label: const Text('Add a memory'),
                         ),
-                        icon: const Icon(Icons.add_rounded),
-                        label: const Text('Add a memory'),
-                      ),
                     ],
                   ),
                 ],
@@ -837,6 +850,30 @@ class _Cover extends StatelessWidget {
   }
 
   Widget _blob(Color color, double size, int seed) => CustomPaint(size: Size.square(size), painter: BlobPainter(color, seed));
+}
+
+/// A book viewer's buttons in the book's top bar: switch baby (when there are several) and
+/// Settings (account, appearance, joining another family, signing out).
+class BookViewerActions extends StatelessWidget {
+  const BookViewerActions({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.watch<AppState>();
+    final babies = s.families.fold(0, (n, f) => n + f.children.length);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (babies > 1) IconButton(tooltip: 'Switch baby', icon: const Icon(Icons.swap_horiz_rounded), onPressed: () => showChildSwitcher(context)),
+        IconButton(
+          tooltip: 'Settings',
+          icon: const Icon(Icons.settings_rounded),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+        ),
+        const SizedBox(width: 4),
+      ],
+    );
+  }
 }
 
 /// One idea in the strip: a little card with its icon, tapped to log it.
@@ -914,7 +951,8 @@ class _ChapterTitle extends StatelessWidget {
 }
 
 class _EmptyBook extends StatelessWidget {
-  const _EmptyBook();
+  const _EmptyBook({this.readOnly = false});
+  final bool readOnly;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -926,7 +964,7 @@ class _EmptyBook extends StatelessWidget {
         Text('The first page is waiting', style: serifStyle(22), textAlign: TextAlign.center),
         const SizedBox(height: 6),
         Text(
-          'Pick an idea below or add your own: a photo, the day and a few words about it.',
+          readOnly ? 'Memories show here as the family adds them.' : 'Pick an idea below or add your own: a photo, the day and a few words about it.',
           textAlign: TextAlign.center,
           style: TextStyle(color: context.pal.muted, height: 1.35),
         ),
@@ -962,7 +1000,7 @@ class _MemoryCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(6),
       child: InkWell(
         borderRadius: BorderRadius.circular(6),
-        onTap: () => showMemoryForm(context, event: event),
+        onTap: s.bookOnly ? null : () => showMemoryForm(context, event: event),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 18),
           child: Column(

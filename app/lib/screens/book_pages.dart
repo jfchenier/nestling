@@ -135,7 +135,7 @@ class _PageHead extends StatelessWidget {
               ],
             ),
           ),
-          Icon(Icons.edit_rounded, size: 18, color: c.muted),
+          if (!context.select<AppState, bool>((s) => s.bookOnly)) Icon(Icons.edit_rounded, size: 18, color: c.muted),
         ],
       ),
     );
@@ -221,11 +221,12 @@ class BornPage extends StatelessWidget {
     final rows = growthByMonth(child, growth);
     final first = rows.isNotEmpty && rows.first.$1 == 0 ? rows.first : null;
     final moon = born == null ? null : moonPhase(born);
-    final filled = book.keys.any((k) => const ['birth_time', 'birth_place', 'hair', 'eyes', 'birth_note'].contains(k));
+    final readOnly = context.select<AppState, bool>((s) => s.bookOnly);
+    final filled = readOnly || book.keys.any((k) => const ['birth_time', 'birth_place', 'hair', 'eyes', 'birth_note'].contains(k));
     return TapedPaper(
       tilt: -0.008,
-      semanticLabel: 'The day you were born. Tap to edit.',
-      onTap: () => editBornPage(context, child),
+      semanticLabel: readOnly ? 'The day you were born' : 'The day you were born. Tap to edit.',
+      onTap: readOnly ? null : () => editBornPage(context, child),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -239,9 +240,9 @@ class BornPage extends StatelessWidget {
           if (book['eyes'] case final e?) _Line('Eyes', e),
           if (moon != null) _Line('The moon', moon.name, icon: moon.lit > 0.5 ? Icons.circle : Icons.dark_mode_rounded),
           if (book['birth_note'] case final n?) _Block('We remember', n),
-          if (born == null) const _Prompt('Add the birth date in Family → the baby to start this page.'),
+          if (born == null && !readOnly) const _Prompt('Add the birth date in Family → the baby to start this page.'),
           if (!filled) const _Prompt('Tap to add the time, the place, hair and eyes.'),
-          if (first == null && born != null)
+          if (first == null && born != null && !readOnly)
             Padding(
               padding: const EdgeInsets.only(top: 6),
               child: Text('Birth weight and length come from a Growth entry on the birth day.', style: TextStyle(color: context.pal.muted, fontSize: 13)),
@@ -260,11 +261,12 @@ class NamePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final book = child.book;
-    final filled = book.keys.any((k) => k.startsWith('name_') || k == 'full_name');
+    final readOnly = context.select<AppState, bool>((s) => s.bookOnly);
+    final filled = readOnly || book.keys.any((k) => k.startsWith('name_') || k == 'full_name');
     return TapedPaper(
       tilt: 0.007,
-      semanticLabel: 'Your name. Tap to edit.',
-      onTap: () => editNamePage(context, child),
+      semanticLabel: readOnly ? 'Your name' : 'Your name. Tap to edit.',
+      onTap: readOnly ? null : () => editNamePage(context, child),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -311,6 +313,9 @@ class WorldPage extends StatelessWidget {
   const WorldPage({super.key, required this.child});
   final Child child;
 
+  /// Anything was written on it (book viewers don't see it empty).
+  static bool hasText(Child child) => child.book.keys.any((k) => k.startsWith('world_') || k.startsWith('price_'));
+
   @override
   Widget build(BuildContext context) {
     final c = context.pal;
@@ -324,10 +329,11 @@ class WorldPage extends StatelessWidget {
       for (final (k, label) in worldPrices)
         if (book[k] case final v?) (label, v),
     ];
+    final readOnly = context.select<AppState, bool>((s) => s.bookOnly);
     return TapedPaper(
       tilt: -0.006,
-      semanticLabel: 'The world you were born into. Tap to edit.',
-      onTap: () => editWorldPage(context, child),
+      semanticLabel: readOnly ? 'The world you were born into' : 'The world you were born into. Tap to edit.',
+      onTap: readOnly ? null : () => editWorldPage(context, child),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

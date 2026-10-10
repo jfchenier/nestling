@@ -90,15 +90,35 @@ impl FromRequestParts<AppState> for AuthUser {
     }
 }
 
-/// Returns the caller's role in the family, or 404 if they are not a member
+/// Members who only see the baby book (e.g. grandparents): its memories and growth pages,
+/// read-only. Every other family route refuses them.
+pub const BOOK_VIEWER: &str = "book_viewer";
+
+/// Event types a [BOOK_VIEWER] can read: the memories and the growth pages.
+pub const BOOK_TYPES: [&str; 2] = ["milestone", "growth"];
+
+/// Returns the caller's role in the family, whatever it is, or 404 if they are not a member
 /// (so family ids can't be probed).
-pub async fn require_member(db: &SqlitePool, family_id: &str, user_id: &str) -> AppResult<String> {
+pub async fn member_role(db: &SqlitePool, family_id: &str, user_id: &str) -> AppResult<String> {
     let role: Option<(String,)> = sqlx::query_as("SELECT role FROM memberships WHERE family_id = ? AND user_id = ?")
         .bind(family_id)
         .bind(user_id)
         .fetch_optional(db)
         .await?;
     role.map(|r| r.0).ok_or(AppError::NotFound("family"))
+}
+
+/// Like [member_role], but refuses book viewers (403): everything but the book needs a caregiver.
+pub async fn require_member(db: &SqlitePool, family_id: &str, user_id: &str) -> AppResult<String> {
+    let role = member_role(db, family_id, user_id).await?;
+    if role == BOOK_VIEWER {
+        return Err(book_only());
+    }
+    Ok(role)
+}
+
+pub fn book_only() -> AppError {
+    AppError::Forbidden("this account can only see the baby book".into())
 }
 
 pub async fn require_owner(db: &SqlitePool, family_id: &str, user_id: &str) -> AppResult<()> {
@@ -123,11 +143,23 @@ pub struct ChildCtx {
     pub family_id: String,
     pub tz: Tz,
     pub day: crate::trends::DayWindow,
+    /// The caller is a [BOOK_VIEWER] (only [child_book_access] lets them through).
+    pub book_only: bool,
 }
 
+/// A child of a family the caller cares for (book viewers get 403).
 pub async fn child_access(db: &SqlitePool, child_id: &str, user_id: &str) -> AppResult<ChildCtx> {
-    let row: Option<(String, String, u32, u32)> = sqlx::query_as(
-        "SELECT c.family_id, f.timezone, f.day_start, f.day_end FROM children c
+    let ctx = child_book_access(db, child_id, user_id).await?;
+    if ctx.book_only {
+        return Err(book_only());
+    }
+    Ok(ctx)
+}
+
+/// A child whose book the caller may read: caregivers and book viewers alike.
+pub async fn child_book_access(db: &SqlitePool, child_id: &str, user_id: &str) -> AppResult<ChildCtx> {
+    let row: Option<(String, String, u32, u32, String)> = sqlx::query_as(
+        "SELECT c.family_id, f.timezone, f.day_start, f.day_end, m.role FROM children c
          JOIN families f ON f.id = c.family_id
          JOIN memberships m ON m.family_id = c.family_id AND m.user_id = ?
          WHERE c.id = ?",
@@ -136,7 +168,7 @@ pub async fn child_access(db: &SqlitePool, child_id: &str, user_id: &str) -> App
     .bind(child_id)
     .fetch_optional(db)
     .await?;
-    let (family_id, tz, start, end) = row.ok_or(AppError::NotFound("child"))?;
+    let (family_id, tz, start, end, role) = row.ok_or(AppError::NotFound("child"))?;
     let day = crate::trends::DayWindow::new(start, end).unwrap_or_default();
-    Ok(ChildCtx { child_id: child_id.to_string(), family_id, tz: parse_tz(&tz)?, day })
+    Ok(ChildCtx { child_id: child_id.to_string(), family_id, tz: parse_tz(&tz)?, day, book_only: role == BOOK_VIEWER })
 }

@@ -9,7 +9,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::{
-    auth::{child_access, family_tz, require_member, AuthUser},
+    auth::{child_access, child_book_access, family_tz, member_role, require_member, AuthUser, BOOK_VIEWER},
     error::{bad, ApiJson, AppResult},
     schedule::{check_medicines, check_reminders, parse_medicines, parse_reminders, Medicine, Reminder},
     state::AppState,
@@ -29,6 +29,14 @@ fn child_value(row: ChildRow, tz: Tz) -> Value {
         "reminders": parse_reminders(&reminders),
         "book": parse_book(&book),
     })
+}
+
+/// A child as a book viewer sees it: without the medicine schedules and reminders.
+pub fn book_view(child: &mut Value) {
+    if let Some(obj) = child.as_object_mut() {
+        obj.remove("medicines");
+        obj.remove("reminders");
+    }
 }
 
 const CHILD_COLS: &str = "id, family_id, name, birth_date, sex, created_at, updated_at, \
@@ -108,9 +116,13 @@ pub async fn insert_child(state: &AppState, family_id: &str, name: &str, birth_d
 }
 
 pub async fn list(State(state): State<AppState>, user: AuthUser, Path(family_id): Path<String>) -> AppResult<Json<Value>> {
-    require_member(&state.db, &family_id, &user.id).await?;
+    let role = member_role(&state.db, &family_id, &user.id).await?;
     let tz = family_tz(&state.db, &family_id).await?;
-    Ok(Json(json!({ "children": children_json(&state, &family_id, tz).await? })))
+    let mut children = children_json(&state, &family_id, tz).await?;
+    if role == BOOK_VIEWER {
+        children.iter_mut().for_each(book_view);
+    }
+    Ok(Json(json!({ "children": children })))
 }
 
 #[derive(Deserialize)]
@@ -140,8 +152,12 @@ pub async fn create(State(state): State<AppState>, user: AuthUser, Path(family_i
 }
 
 pub async fn get(State(state): State<AppState>, user: AuthUser, Path(child_id): Path<String>) -> AppResult<Json<Value>> {
-    let ctx = child_access(&state.db, &child_id, &user.id).await?;
-    Ok(Json(child_json(&state, &child_id, ctx.tz).await?))
+    let ctx = child_book_access(&state.db, &child_id, &user.id).await?;
+    let mut child = child_json(&state, &child_id, ctx.tz).await?;
+    if ctx.book_only {
+        book_view(&mut child);
+    }
+    Ok(Json(child))
 }
 
 /// `birth_date` / `sex` can be cleared by sending null.
@@ -263,7 +279,7 @@ pub async fn put_photo(State(state): State<AppState>, user: AuthUser, Path(child
 
 pub async fn get_photo(State(state): State<AppState>, user: AuthUser, Path(child_id): Path<String>) -> AppResult<axum::response::Response> {
     use axum::{http::header, response::IntoResponse};
-    child_access(&state.db, &child_id, &user.id).await?;
+    child_book_access(&state.db, &child_id, &user.id).await?;
     let row: Option<(String, Vec<u8>)> = sqlx::query_as("SELECT content_type, data FROM child_photos WHERE child_id = ?")
         .bind(&child_id)
         .fetch_optional(&state.db)

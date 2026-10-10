@@ -510,6 +510,29 @@ paths:
         in: path
         required: true
         schema: { type: string }
+    patch:
+      tags: [families]
+      operationId: updateMember
+      summary: An owner changes someone's role (the last owner can't step down)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role: { $ref: "#/components/schemas/Role" }
+      responses:
+        "200":
+          description: The family, updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Family" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
     delete:
       tags: [families]
       operationId: removeMember
@@ -1360,7 +1383,12 @@ components:
       enum: [metric, imperial]
     Role:
       type: string
-      enum: [owner, caregiver]
+      description: |
+        `owner` manages the family; `caregiver` logs everything; `book_viewer` (e.g. grandparents)
+        only reads the baby book: its children (without medicines and reminders), their photos,
+        milestone and growth entries and their photos, the family sync (those entries only, no
+        timers) and the live stream (those changes only). Everything else answers 403.
+      enum: [owner, caregiver, book_viewer]
     Sex:
       type: string
       enum: [female, male, other]

@@ -113,17 +113,20 @@ class TeethChart extends StatelessWidget {
               builder: (context, box) {
                 final size = Size(box.maxWidth, box.maxHeight);
                 final layout = _layout(size);
+                final readOnly = context.select<AppState, bool>((s) => s.bookOnly);
                 return GestureDetector(
                   behavior: HitTestBehavior.opaque,
-                  onTapUp: (d) {
-                    final hit = layout.where((l) => (l.$2 - d.localPosition).distance < l.$3 * 1.7).toList()
-                      ..sort((a, b) => (a.$2 - d.localPosition).distance.compareTo((b.$2 - d.localPosition).distance));
-                    if (hit.isNotEmpty) {
-                      showToothSheet(context, child: child, tooth: hit.first.$1, milestones: milestones);
-                    }
-                  },
+                  onTapUp: readOnly
+                      ? null
+                      : (d) {
+                          final hit = layout.where((l) => (l.$2 - d.localPosition).distance < l.$3 * 1.7).toList()
+                            ..sort((a, b) => (a.$2 - d.localPosition).distance.compareTo((b.$2 - d.localPosition).distance));
+                          if (hit.isNotEmpty) {
+                            showToothSheet(context, child: child, tooth: hit.first.$1, milestones: milestones);
+                          }
+                        },
                   child: Semantics(
-                    label: 'Teeth chart: ${came.length} of 20 teeth in. Tap a tooth to log it.',
+                    label: 'Teeth chart: ${came.length} of 20 teeth in.${readOnly ? '' : ' Tap a tooth to log it.'}',
                     child: CustomPaint(
                       size: size,
                       painter: _TeethPainter(layout, came.keys.toSet(), c, ink: c.ink, muted: c.muted),
@@ -139,6 +142,7 @@ class TeethChart extends StatelessWidget {
             children: [_legend(context, true, 'In'), const SizedBox(width: 18), _legend(context, false, 'Not yet')],
           ),
           const SizedBox(height: 6),
+          if (!context.select<AppState, bool>((s) => s.bookOnly))
           Text(
             came.isEmpty ? 'Tap a tooth when it comes in.' : 'Tap a tooth to log it or change its date.',
             textAlign: TextAlign.center,

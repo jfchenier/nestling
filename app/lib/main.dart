@@ -60,9 +60,31 @@ class Root extends StatelessWidget {
         ),
       );
     }
-    if (s.child == null) return const OnboardingScreen();
+    if (s.child == null) return s.bookOnly ? const _NoBabyYet() : const OnboardingScreen();
+    // Book viewers (e.g. grandparents) see the baby book alone.
+    if (s.bookOnly) return const BabyBookScreen(asTab: true);
     return const Shell();
   }
+}
+
+/// A book viewer's family has no baby yet.
+class _NoBabyYet extends StatelessWidget {
+  const _NoBabyYet();
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(actions: const [BookViewerActions()]),
+    body: Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Text(
+          'The baby book shows here once ${context.read<AppState>().family?.name ?? 'the family'} adds a baby.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: context.pal.muted, fontSize: 16),
+        ),
+      ),
+    ),
+  );
 }
 
 class Shell extends StatefulWidget {

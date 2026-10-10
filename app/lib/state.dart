@@ -195,6 +195,10 @@ class AppState extends ChangeNotifier {
   List<Child> get children => family?.children ?? [];
   Child? get child => children.where((c) => c.id == childId).firstOrNull;
 
+  /// This account only reads the selected family's baby book (e.g. grandparents): the app shows
+  /// the book alone, without anything to add or edit.
+  bool get bookOnly => family?.bookOnly ?? false;
+
   // ---- session ----
 
   static String normalizeServer(String server) {
@@ -395,7 +399,8 @@ class AppState extends ChangeNotifier {
 
   Future<void> refreshChild({bool notify = true}) async {
     final a = api, id = childId;
-    if (a == null || id == null) {
+    if (a == null || id == null || bookOnly) {
+      // The book loads its own entries; book viewers can't read the rest.
       summary = null;
       timers = [];
       recent = [];

@@ -9,7 +9,7 @@ use serde_json::{json, Map, Value};
 use sqlx::{SqliteConnection, SqlitePool};
 
 use crate::{
-    auth::{child_access, AuthUser},
+    auth::{book_only, child_access, child_book_access, AuthUser, BOOK_TYPES},
     error::{bad, ApiJson, ApiQuery, AppError, AppResult},
     model::{Details, EVENT_TYPES},
     state::AppState,
@@ -190,7 +190,7 @@ pub struct ListQuery {
 }
 
 pub async fn list(State(state): State<AppState>, user: AuthUser, Path(child_id): Path<String>, ApiQuery(q): ApiQuery<ListQuery>) -> AppResult<Json<Value>> {
-    let ctx = child_access(&state.db, &child_id, &user.id).await?;
+    let ctx = child_book_access(&state.db, &child_id, &user.id).await?;
     let limit = q.limit.unwrap_or(100).clamp(1, 1000);
     let from = parse_opt_time(&q.from, ctx.tz)?.unwrap_or(i64::MIN);
     let to = parse_opt_time(&q.to, ctx.tz)?.unwrap_or(i64::MAX);
@@ -203,6 +203,16 @@ pub async fn list(State(state): State<AppState>, user: AuthUser, Path(child_id):
             return bad(format!("unknown type '{t}' (expected one of {})", EVENT_TYPES.join(", ")));
         }
     }
+    // Book viewers see the book's entries only.
+    let types = if !ctx.book_only {
+        types
+    } else if types.is_empty() {
+        BOOK_TYPES.iter().map(|t| t.to_string()).collect()
+    } else if types.iter().all(|t| BOOK_TYPES.contains(&t.as_str())) {
+        types
+    } else {
+        return Err(book_only());
+    };
     let type_filter = if types.is_empty() {
         String::new()
     } else {
@@ -253,20 +263,33 @@ pub async fn create(State(state): State<AppState>, user: AuthUser, Path(child_id
     Ok((StatusCode::CREATED, Json(json)))
 }
 
-/// Load an event the caller may access, plus its family's timezone.
+/// Load an event the caller may change, plus its family's timezone.
 async fn accessible_event(state: &AppState, id: &str, user: &AuthUser) -> AppResult<(EventRow, Tz)> {
+    let (row, tz, book_only) = readable_event(state, id, user).await?;
+    if book_only {
+        return Err(crate::auth::book_only());
+    }
+    Ok((row, tz))
+}
+
+/// Load an event the caller may read (book viewers: memories and growth only), plus its
+/// family's timezone and whether the caller is a book viewer.
+async fn readable_event(state: &AppState, id: &str, user: &AuthUser) -> AppResult<(EventRow, Tz, bool)> {
     let row = get_row(&state.db, id).await?;
     if row.deleted_at.is_some() {
         return Err(AppError::NotFound("event"));
     }
-    let ctx = child_access(&state.db, &row.child_id, &user.id)
+    let ctx = child_book_access(&state.db, &row.child_id, &user.id)
         .await
         .map_err(|_| AppError::NotFound("event"))?;
-    Ok((row, ctx.tz))
+    if ctx.book_only && !BOOK_TYPES.contains(&row.kind.as_str()) {
+        return Err(AppError::NotFound("event"));
+    }
+    Ok((row, ctx.tz, ctx.book_only))
 }
 
 pub async fn get(State(state): State<AppState>, user: AuthUser, Path(id): Path<String>) -> AppResult<Json<Value>> {
-    let (row, tz) = accessible_event(&state, &id, &user).await?;
+    let (row, tz, _) = readable_event(&state, &id, &user).await?;
     Ok(Json(row.to_json(tz)?))
 }
 
@@ -366,7 +389,7 @@ pub async fn put_photo(State(state): State<AppState>, user: AuthUser, Path(id): 
 
 pub async fn get_photo(State(state): State<AppState>, user: AuthUser, Path(id): Path<String>) -> AppResult<axum::response::Response> {
     use axum::{http::header, response::IntoResponse};
-    accessible_event(&state, &id, &user).await?;
+    readable_event(&state, &id, &user).await?;
     let row: Option<(String, Vec<u8>)> = sqlx::query_as("SELECT content_type, data FROM event_photos WHERE event_id = ?")
         .bind(&id)
         .fetch_optional(&state.db)
@@ -397,7 +420,7 @@ pub struct SyncQuery {
 /// Incremental sync for offline-capable clients: everything changed since the cursor,
 /// including deletions (`{"id": ..., "deleted": true}`).
 pub async fn sync(State(state): State<AppState>, user: AuthUser, Path(family_id): Path<String>, ApiQuery(q): ApiQuery<SyncQuery>) -> AppResult<Json<Value>> {
-    crate::auth::require_member(&state.db, &family_id, &user.id).await?;
+    let book_only = crate::auth::member_role(&state.db, &family_id, &user.id).await? == crate::auth::BOOK_VIEWER;
     let (tz,): (String,) = sqlx::query_as("SELECT timezone FROM families WHERE id = ?")
         .bind(&family_id)
         .fetch_one(&state.db)
@@ -407,13 +430,22 @@ pub async fn sync(State(state): State<AppState>, user: AuthUser, Path(family_id)
     let cursor = now_ms();
     let since = q.since.unwrap_or(i64::MIN);
     let mut sql = format!("SELECT {EVENT_COLS} FROM events WHERE family_id = ? AND updated_at >= ?");
+    if book_only {
+        let types = BOOK_TYPES.map(|t| format!("'{t}'")).join(", ");
+        sql.push_str(&format!(" AND type IN ({types})"));
+    }
     if q.since.is_none() {
         sql.push_str(" AND deleted_at IS NULL");
     }
     sql.push_str(" ORDER BY updated_at");
     let rows = sqlx::query_as::<_, EventRow>(&sql).bind(&family_id).bind(since).fetch_all(&state.db).await?;
     let events = rows.iter().map(|r| r.to_json(tz)).collect::<AppResult<Vec<_>>>()?;
-    let children = crate::routes::children::children_json(&state, &family_id, tz).await?;
-    let timers = crate::routes::timers::family_timers(&state, &family_id, tz).await?;
+    let mut children = crate::routes::children::children_json(&state, &family_id, tz).await?;
+    let timers = if book_only {
+        children.iter_mut().for_each(crate::routes::children::book_view);
+        vec![]
+    } else {
+        crate::routes::timers::family_timers(&state, &family_id, tz).await?
+    };
     Ok(Json(json!({ "cursor": cursor, "full": q.since.is_none(), "children": children, "events": events, "timers": timers })))
 }

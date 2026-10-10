@@ -110,7 +110,12 @@ activity color. Colors live in
   daily charts.
 - **Family** (the people button on Home) — babies (with a profile picture: tap a baby → Add a photo;
   cropped to a 512 px square before upload), caregivers, invite codes or phone pairing, join
-  another family, delete the family.
+  another family, delete the family. An invite asks for the role (Owner, Caregiver or **Book only**);
+  owners tap a caregiver to change it.
+- **Book only** (e.g. grandparents) — the app opens straight on the baby book, read-only: no ideas,
+  add buttons or edit pencils, empty pages hidden; the top bar has Switch baby (when there are
+  several) and a short Settings (units, appearance, join another family, leave this one, account).
+  The server enforces it (`book_viewer` role, see `docs/API.md`).
 - **Settings** (the gear button on Home) — units (metric/imperial), appearance, daytime hours for the day/night split (Day and night), time zone, Google Drive sync
   and backup (serverless), history import from a previous tracker's CSV export (preview first),
   CSV export of everything, API token for Home Assistant; account: change password, users

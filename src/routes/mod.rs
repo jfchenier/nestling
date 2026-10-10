@@ -48,7 +48,7 @@ pub fn api() -> Router<AppState> {
         .route("/families", get(families::list).post(families::create))
         .route("/families/{id}", get(families::get).patch(families::update).delete(families::delete))
         .route("/families/{id}/invites", post(families::create_invite))
-        .route("/families/{id}/members/{user_id}", delete(families::remove_member))
+        .route("/families/{id}/members/{user_id}", patch(families::update_member).delete(families::remove_member))
         .route("/invites/{code}/accept", post(families::accept_invite))
         .route("/families/{id}/children", get(children::list).post(children::create))
         .route("/families/{id}/sync", get(events::sync).post(sync::push))

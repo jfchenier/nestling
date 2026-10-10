@@ -81,10 +81,12 @@ class FamilyScreen extends StatelessWidget with _FamilyActions {
                         ),
                       ),
                       title: Text(m.userId == me.id ? '${m.name} (you)' : m.name),
-                      subtitle: Text(m.email.isEmpty ? m.role : '${m.email} · ${m.role}'),
+                      subtitle: Text(m.email.isEmpty ? m.roleLabel : '${m.email} · ${m.roleLabel}'),
                       trailing: (f.isOwner && m.userId != me.id && !s.serverless)
-                          ? IconButton(icon: const Icon(Icons.person_remove_outlined), onPressed: () => _remove(context, f, m))
+                          ? IconButton(icon: const Icon(Icons.person_remove_outlined), tooltip: 'Remove', onPressed: () => _remove(context, f, m))
                           : null,
+                      // Owners choose what each caregiver may do (e.g. book only for grandparents).
+                      onTap: (f.isOwner && m.userId != me.id && !s.serverless) ? () => _changeRole(context, f, m) : null,
                     ),
                   ListTile(
                     leading: CircleAvatar(
@@ -143,6 +145,8 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
     final s = context.watch<AppState>();
     final f = s.family!;
     final me = s.me!;
+    // Book viewers only read the book: no family settings, imports, exports or API tokens.
+    final full = !s.bookOnly;
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: Constrained(
@@ -174,35 +178,38 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
                       ),
                     ),
                   ),
-                  ListTile(
-                    leading: const Icon(Icons.wb_twilight_rounded),
-                    title: const Text('Day and night'),
-                    subtitle: Text('Daytime ${f.dayStart}–${f.dayEnd}'),
-                    trailing: const Icon(Icons.chevron_right_rounded),
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DayHoursScreen())),
-                  ),
-                  ListTile(
-                    leading: const Icon(Icons.public),
-                    title: const Text('Time zone'),
-                    subtitle: Text(f.timezone.replaceAll('_', ' ')),
-                    onTap: () => _editFamily(context, f),
-                  ),
+                  if (full)
+                    ListTile(
+                      leading: const Icon(Icons.wb_twilight_rounded),
+                      title: const Text('Day and night'),
+                      subtitle: Text('Daytime ${f.dayStart}–${f.dayEnd}'),
+                      trailing: const Icon(Icons.chevron_right_rounded),
+                      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DayHoursScreen())),
+                    ),
+                  if (full)
+                    ListTile(
+                      leading: const Icon(Icons.public),
+                      title: const Text('Time zone'),
+                      subtitle: Text(f.timezone.replaceAll('_', ' ')),
+                      onTap: () => _editFamily(context, f),
+                    ),
                   if (s.serverless) const DriveSyncTile(),
                   if (s.serverless) DriveBackupTile(drive: s.drive),
-                  ListTile(
-                    leading: const Icon(Icons.cloud_download_outlined),
-                    title: const Text('Import from Nara'),
-                    subtitle: const Text('Bring over your Nara Baby history'),
-                    onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NaraImportScreen())),
-                  ),
-                  if (!s.serverless)
+                  if (full)
+                    ListTile(
+                      leading: const Icon(Icons.cloud_download_outlined),
+                      title: const Text('Import from Nara'),
+                      subtitle: const Text('Bring over your Nara Baby history'),
+                      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NaraImportScreen())),
+                    ),
+                  if (!s.serverless && full)
                     ListTile(
                       leading: const Icon(Icons.file_download_outlined),
                       title: const Text('Export data'),
                       subtitle: const Text('Everything for this family as a CSV file'),
                       onTap: () => _export(context, f),
                     ),
-                  if (!s.serverless)
+                  if (!s.serverless && full)
                     ListTile(
                       leading: const Icon(Icons.key_outlined),
                       title: const Text('API token'),
@@ -212,6 +219,31 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
                 ],
               ),
             ),
+            if (!full) ...[
+              const SectionTitle('Family'),
+              Card(
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.auto_stories_outlined),
+                      title: Text(f.name),
+                      subtitle: const Text('You can see the baby book. Ask an owner of the family for more.'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.group_add_outlined),
+                      title: const Text('Join another family'),
+                      subtitle: const Text('With an invite code from its owner'),
+                      onTap: () => _join(context),
+                    ),
+                    ListTile(
+                      leading: Icon(Icons.exit_to_app_rounded, color: context.pal.danger),
+                      title: Text('Leave ${f.name}', style: TextStyle(color: context.pal.danger)),
+                      onTap: () => _leave(context, f),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SectionTitle('Account'),
             Card(
               child: Column(
@@ -273,7 +305,15 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
 mixin _FamilyActions {
   Future<void> _invite(BuildContext context, Family f) async {
     final s = context.read<AppState>();
-    final res = await guard(context, () => s.api!.post('/families/${f.id}/invites'));
+    final role = await _pickRole(
+      context,
+      title: 'Invite a caregiver',
+      current: 'caregiver',
+      roles: [if (f.isOwner) 'owner', 'caregiver', 'book_viewer'],
+      action: 'Next',
+    );
+    if (role == null || !context.mounted) return;
+    final res = await guard(context, () => s.api!.post('/families/${f.id}/invites', {'role': role}));
     if (res == null || !context.mounted) return;
     final code = res['code'] as String;
     await showDialog(
@@ -283,9 +323,10 @@ mixin _FamilyActions {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text(
+            Text(
               'They create an account on this server, then enter this code under “Join a family”. '
-              'It works once and expires in 7 days.',
+              'It works once and expires in 7 days.'
+              '${role == 'book_viewer' ? ' They will only see the baby book.' : ''}',
             ),
             const SizedBox(height: 20),
             SelectableText(code, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700, letterSpacing: 4)),
@@ -305,6 +346,47 @@ mixin _FamilyActions {
         ],
       ),
     );
+  }
+
+  /// Asks what a caregiver may do; null when cancelled.
+  Future<String?> _pickRole(BuildContext context, {required String title, required String current, required List<String> roles, String action = 'Save'}) {
+    var role = current;
+    return showDialog<String>(
+      context: context,
+      builder: (c) => StatefulBuilder(
+        builder: (c, set) => AlertDialog(
+          title: Text(title),
+          contentPadding: const EdgeInsets.fromLTRB(8, 16, 8, 0),
+          content: RadioGroup<String>(
+            groupValue: role,
+            onChanged: (v) => set(() => role = v ?? role),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [for (final r in roles) RadioListTile<String>(value: r, title: Text(roleName(r)), subtitle: Text(roleHint(r)))],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(c, role), child: Text(action)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _changeRole(BuildContext context, Family f, Member m) async {
+    final role = await _pickRole(context, title: m.name, current: m.role, roles: memberRoles);
+    if (role == null || role == m.role || !context.mounted) return;
+    final s = context.read<AppState>();
+    await guard(context, () => s.act((api) => api.patch('/families/${f.id}/members/${m.userId}', {'role': role}), families: true));
+  }
+
+  Future<void> _leave(BuildContext context, Family f) async {
+    if (!await confirm(context, 'Leave ${f.name}?', 'You won\'t see its baby book any more, unless invited again.', action: 'Leave')) return;
+    if (!context.mounted) return;
+    final s = context.read<AppState>();
+    await guard(context, () => s.act((api) => api.delete('/families/${f.id}/members/${s.me!.id}'), families: true));
+    if (context.mounted) Navigator.of(context).pop();
   }
 
   Future<void> _remove(BuildContext context, Family f, Member m) async {
