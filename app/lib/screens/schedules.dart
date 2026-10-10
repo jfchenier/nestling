@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
@@ -16,10 +17,10 @@ class SchedulesScreen extends StatelessWidget {
 
   /// "Every 4 h", "Once a day", "Every 30 min".
   static String every(num hours) => switch (hours) {
-    24 => 'Once a day',
-    168 => 'Once a week',
-    < 1 => 'Every ${(hours * 60).round()} min',
-    _ => 'Every ${_n(hours)} h',
+    24 => l10n.scheduleOnceADay,
+    168 => l10n.scheduleOnceAWeek,
+    < 1 => l10n.scheduleEveryMinutes((hours * 60).round()),
+    _ => l10n.scheduleEveryHours(_n(hours)),
   };
 
   static String _n(num v) => v == v.roundToDouble() ? '${v.round()}' : '$v';
@@ -34,12 +35,20 @@ class SchedulesScreen extends StatelessWidget {
   /// The Family screen's line: "Vitamin D, Tylenol · feed reminder".
   static String describe(Child c) {
     final meds = c.medicines.map((m) => '${m['name']}').join(', ');
-    final rem = c.reminders.map((r) => '${r['type']}').join(', ');
-    final parts = [if (meds.isNotEmpty) meds, if (rem.isNotEmpty) '$rem reminder${c.reminders.length == 1 ? '' : 's'}'];
-    return parts.isEmpty ? 'Doses on a schedule, "no feed in 3 h"…' : parts.join(' · ');
+    final rem = c.reminders.map((r) => _typeLabel('${r['type']}').toLowerCase()).join(', ');
+    final parts = [if (meds.isNotEmpty) meds, if (rem.isNotEmpty) l10n.scheduleRemindersList(c.reminders.length, rem)];
+    return parts.isEmpty ? l10n.scheduleDescribeEmpty : parts.join(' · ');
   }
 
-  static const _types = {'feed': ('Feed', 'feed'), 'sleep': ('Sleep', 'sleep'), 'diaper': ('Diaper', 'diaper change'), 'pump': ('Pump', 'pumping')};
+  /// Reminder types, in the order of the home cards.
+  static const _types = ['feed', 'sleep', 'diaper', 'pump'];
+
+  static String _typeLabel(String type) => switch (type) {
+    'sleep' => l10n.kindSleep,
+    'diaper' => l10n.kindDiaper,
+    'pump' => l10n.kindPump,
+    _ => l10n.scheduleFeed,
+  };
   static const _afterChoices = [30, 60, 90, 120, 150, 180, 210, 240, 300, 360, 480, 720];
 
   Future<void> _save(BuildContext context, Child c, Map<String, dynamic> body) async {
@@ -75,16 +84,15 @@ class SchedulesScreen extends StatelessWidget {
   Future<void> _editReminder(BuildContext context, Child c, String type) async {
     final list = c.reminders;
     final current = list.where((r) => r['type'] == type).firstOrNull;
-    final (label, what) = _types[type]!;
     final choice = await showDialog<int>(
       context: context,
       builder: (d) => SimpleDialog(
-        title: Text('$label reminder'),
+        title: Text(l10n.scheduleReminderTitle(_typeLabel(type))),
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
             child: Text(
-              type == 'sleep' ? 'Notify when awake for this long:' : 'Notify when there was no $what for:',
+              l10n.scheduleNotifyWhen(type),
               style: TextStyle(color: d.pal.muted),
             ),
           ),
@@ -95,7 +103,7 @@ class SchedulesScreen extends StatelessWidget {
               onTap: () => Navigator.pop(d, m),
             ),
           ListTile(
-            title: const Text('Off'),
+            title: Text(l10n.scheduleOff),
             trailing: current == null ? Icon(Icons.check_rounded, color: d.pal.accent) : null,
             onTap: () => Navigator.pop(d, 0),
           ),
@@ -106,7 +114,7 @@ class SchedulesScreen extends StatelessWidget {
     list.removeWhere((r) => r['type'] == type);
     if (choice > 0) list.add({'type': type, 'after_minutes': choice});
     // Same order as the home cards.
-    list.sort((a, b) => _types.keys.toList().indexOf(a['type']).compareTo(_types.keys.toList().indexOf(b['type'])));
+    list.sort((a, b) => _types.indexOf(a['type']).compareTo(_types.indexOf(b['type'])));
     await _save(context, c, {'reminders': list});
   }
 
@@ -119,22 +127,21 @@ class SchedulesScreen extends StatelessWidget {
     final meds = c.medicines;
     String medLine(Map<String, dynamic> m) => [
       every(m['every_hours'] as num),
-      if (m['max_per_day'] != null) 'up to ${m['max_per_day']} a day',
+      if (m['max_per_day'] != null) l10n.scheduleUpToPerDay(m['max_per_day']),
       if (m['dose'] != null) '${_n(m['dose'] as num)} ${m['dose_unit'] ?? ''}'.trim(),
-      if (s.pushEnabled && m['remind'] == true) 'reminder on',
+      if (s.pushEnabled && m['remind'] == true) l10n.scheduleReminderOn,
     ].join(' · ');
     return Scaffold(
-      appBar: AppBar(title: const Text('Medicines and reminders')),
+      appBar: AppBar(title: Text(l10n.scheduleTitle)),
       body: Constrained(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
           children: [
             Text(
-              'For ${c.name}. A scheduled medicine shows on the home screen with when the next dose may be given, '
-              'and logging one too early warns you.',
+              l10n.scheduleIntro(c.name),
               style: TextStyle(color: pal.muted, fontSize: 14, height: 1.4),
             ),
-            const SectionTitle('Medicine schedule'),
+            SectionTitle(l10n.scheduleMedicineSection),
             Card(
               child: Column(
                 children: [
@@ -151,29 +158,25 @@ class SchedulesScreen extends StatelessWidget {
                       backgroundColor: pal.line,
                       child: Icon(Icons.add, color: pal.ink),
                     ),
-                    title: const Text('Add a medicine'),
+                    title: Text(l10n.scheduleAddMedicine),
                     onTap: () => _addMedicine(context, c),
                   ),
                 ],
               ),
             ),
-            const SectionTitle('Reminders'),
+            SectionTitle(l10n.scheduleReminders),
             Card(
               child: Column(
                 children: [
-                  for (final MapEntry(key: type, value: (label, what)) in _types.entries)
+                  for (final type in _types)
                     () {
                       final r = c.reminders.where((r) => r['type'] == type).firstOrNull;
                       final kind = Kind.of(type == 'feed' ? 'feed' : type);
                       return ListTile(
                         leading: BlobIcon(kind, size: 40),
-                        title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        title: Text(_typeLabel(type), style: const TextStyle(fontWeight: FontWeight.w600)),
                         subtitle: Text(
-                          r == null
-                              ? 'Off'
-                              : type == 'sleep'
-                              ? 'When awake for ${hm(r['after_minutes'] as int)}'
-                              : 'When there was no $what for ${hm(r['after_minutes'] as int)}',
+                          r == null ? l10n.scheduleOff : l10n.scheduleWhenAfter(hm(r['after_minutes'] as int), type),
                         ),
                         trailing: const Icon(Icons.chevron_right_rounded),
                         onTap: () => _editReminder(context, c, type),
@@ -185,12 +188,10 @@ class SchedulesScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               s.pushEnabled
-                  ? 'A reminder that is due shows on the home screen (swipe it away to hide it) and is sent to the phones of everyone in the family. '
-                        'A medicine\'s phone reminder is turned on in its schedule.'
+                  ? l10n.scheduleFooterPush
                   : s.serverless
-                  ? 'A reminder that is due shows on the home screen (swipe it away to hide it). Phone notifications need a Nestling server with them set up.'
-                  : 'A reminder that is due shows on the home screen (swipe it away to hide it). To also get it as a phone notification, set up '
-                        'notifications on the server (see "Notifications on phones" in the README).',
+                  ? l10n.scheduleFooterServerless
+                  : l10n.scheduleFooterServer,
               style: TextStyle(color: pal.muted, fontSize: 13, height: 1.4),
             ),
           ],
@@ -230,13 +231,13 @@ class _MedicineDialogState extends State<_MedicineDialog> {
     final every = _num(_every), max = _num(_max), dose = _num(_dose);
     String? err;
     if (_name.text.trim().isEmpty) {
-      err = 'Give the medicine a name.';
+      err = l10n.scheduleErrName;
     } else if (every == null || every < 0.5 || every > 168) {
-      err = 'How often: between 0.5 and 168 hours.';
+      err = l10n.scheduleErrEvery;
     } else if (_max.text.trim().isNotEmpty && (max is! int || max < 1 || max > 24)) {
-      err = 'At most per 24 hours: a number from 1 to 24.';
+      err = l10n.scheduleErrMax;
     } else if (_dose.text.trim().isNotEmpty && dose == null) {
-      err = 'The dose must be a number.';
+      err = l10n.scheduleErrDose;
     }
     if (err != null) return setState(() => _error = err);
     Navigator.pop(context, <String, dynamic>{
@@ -254,7 +255,7 @@ class _MedicineDialogState extends State<_MedicineDialog> {
     final pal = context.pal;
     const quick = [4, 6, 8, 12, 24];
     return AlertDialog(
-      title: Text(widget.isNew ? 'Add a medicine' : 'Medicine'),
+      title: Text(widget.isNew ? l10n.scheduleAddMedicine : l10n.healthMedicine),
       scrollable: true,
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -262,13 +263,13 @@ class _MedicineDialogState extends State<_MedicineDialog> {
         children: [
           TextField(
             controller: _name,
-            decoration: const InputDecoration(labelText: 'Name'),
+            decoration: InputDecoration(labelText: l10n.scheduleName),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _every,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Every', suffixText: 'hours'),
+            decoration: InputDecoration(labelText: l10n.scheduleEvery, suffixText: l10n.scheduleHours),
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 8),
@@ -277,7 +278,7 @@ class _MedicineDialogState extends State<_MedicineDialog> {
             children: [
               for (final h in quick)
                 ChoiceChip(
-                  label: Text(h == 24 ? 'daily' : '$h h'),
+                  label: Text(h == 24 ? l10n.scheduleDaily : '$h h'),
                   selected: _num(_every) == h,
                   onSelected: (_) => setState(() => _every.text = '$h'),
                 ),
@@ -287,7 +288,7 @@ class _MedicineDialogState extends State<_MedicineDialog> {
           TextField(
             controller: _max,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'At most per 24 hours (optional)', suffixText: 'doses'),
+            decoration: InputDecoration(labelText: l10n.scheduleMaxLabel, suffixText: l10n.scheduleDoses),
           ),
           const SizedBox(height: 12),
           Row(
@@ -297,7 +298,7 @@ class _MedicineDialogState extends State<_MedicineDialog> {
                 child: TextField(
                   controller: _dose,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'Usual dose (optional)'),
+                  decoration: InputDecoration(labelText: l10n.scheduleDoseLabel),
                 ),
               ),
               const SizedBox(width: 12),
@@ -305,7 +306,7 @@ class _MedicineDialogState extends State<_MedicineDialog> {
                 flex: 2,
                 child: TextField(
                   controller: _unit,
-                  decoration: const InputDecoration(labelText: 'Unit'),
+                  decoration: InputDecoration(labelText: l10n.scheduleUnit),
                 ),
               ),
             ],
@@ -314,7 +315,7 @@ class _MedicineDialogState extends State<_MedicineDialog> {
             const SizedBox(height: 8),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Remind when the next dose is due'),
+              title: Text(l10n.scheduleRemindDue),
               value: _remind,
               onChanged: (v) => setState(() => _remind = v),
             ),
@@ -326,10 +327,10 @@ class _MedicineDialogState extends State<_MedicineDialog> {
         if (!widget.isNew)
           TextButton(
             onPressed: () => Navigator.pop(context, <String, dynamic>{}),
-            child: Text('Remove', style: TextStyle(color: pal.danger)),
+            child: Text(l10n.remove, style: TextStyle(color: pal.danger)),
           ),
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-        FilledButton(onPressed: _save, child: const Text('Save')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.cancel)),
+        FilledButton(onPressed: _save, child: Text(l10n.save)),
       ],
     );
   }

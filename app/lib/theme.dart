@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'l10n/l10n.dart';
+
 /// Nestling's own "nursery garden" palette: warm oat neutrals, a eucalyptus accent and
 /// soft earthy pastels per activity (no baby pink / baby blue). Light and dark variants.
 @immutable
@@ -87,10 +89,27 @@ const String? serif = null;
 TextStyle serifStyle(double size, {Color? color, FontWeight weight = FontWeight.w700, double? height}) =>
     TextStyle(fontFamily: serif, fontSize: size, color: color, fontWeight: weight, height: height, letterSpacing: size >= 20 ? -0.4 : 0);
 
+String _breast(AppLocalizations t) => t.kindBreastfeed;
+String _bottle(AppLocalizations t) => t.kindBottle;
+String _solids(AppLocalizations t) => t.kindSolids;
+String _combo(AppLocalizations t) => t.kindCombo;
+String _sleep(AppLocalizations t) => t.kindSleep;
+String _diaper(AppLocalizations t) => t.kindDiaper;
+String _potty(AppLocalizations t) => t.kindPotty;
+String _pump(AppLocalizations t) => t.kindPump;
+String _growth(AppLocalizations t) => t.kindGrowth;
+String _health(AppLocalizations t) => t.kindHealth;
+String _activity(AppLocalizations t) => t.kindActivity;
+String _milestone(AppLocalizations t) => t.kindMilestone;
+String _note(AppLocalizations t) => t.kindNote;
+
 /// Look of each kind of record: label, line icon, its pastel and a deep tone of the same hue.
 class Kind {
-  const Kind(this.label, this.icon, this.color, this.deepTone);
-  final String label;
+  const Kind(this._label, this.icon, this.color, this.deepTone);
+  final String Function(AppLocalizations) _label;
+
+  /// Name in the app's language ("Bottle", "Biberon"…).
+  String get label => _label(l10n);
   final IconData icon;
 
   /// Pastel used for bands, blobs and chart fills (same in both themes).
@@ -109,19 +128,19 @@ class Kind {
   /// Icon color on [fill].
   Color iconOn(AppColors c) => c.isDark ? color : deepTone;
 
-  static const breast = Kind('Breastfeed', Icons.favorite_rounded, Color(0xFFF5C4A1), Color(0xFFB0602D)); // apricot
-  static const bottle = Kind('Bottle', Icons.local_drink_rounded, Color(0xFFF2DCA4), Color(0xFF94701C)); // honey
-  static const solids = Kind('Solids', Icons.restaurant_rounded, Color(0xFFEFAE80), Color(0xFFA9532A)); // carrot
-  static const combo = Kind('Combo', Icons.join_inner_rounded, Color(0xFFF5C4A1), Color(0xFFB0602D));
-  static const sleep = Kind('Sleep', Icons.bedtime_rounded, Color(0xFFD4CBEA), Color(0xFF65529C)); // dusk lilac
-  static const diaper = Kind('Diaper', Icons.baby_changing_station_rounded, Color(0xFFCADFBC), Color(0xFF4A763A)); // sage
-  static const potty = Kind('Potty', Icons.wc_rounded, Color(0xFFCADFBC), Color(0xFF4A763A)); // sage, like diapers
-  static const pump = Kind('Pump', Icons.water_drop_rounded, Color(0xFFEDE29B), Color(0xFF7E7116)); // butter
-  static const growth = Kind('Growth', Icons.straighten_rounded, Color(0xFFE4D4BA), Color(0xFF7A5F3C)); // oat
-  static const health = Kind('Health', Icons.medical_services_rounded, Color(0xFFCBD19A), Color(0xFF616B26)); // moss
-  static const activity = Kind('Activity', Icons.wb_sunny_rounded, Color(0xFFB9E0D1), Color(0xFF2C755E)); // seafoam
-  static const milestone = Kind('Milestone', Icons.star_rounded, Color(0xFFEBC46E), Color(0xFF8A6210)); // marigold
-  static const note = Kind('Note', Icons.edit_note_rounded, Color(0xFFDDD6CC), Color(0xFF6B6359)); // stone
+  static const breast = Kind(_breast, Icons.favorite_rounded, Color(0xFFF5C4A1), Color(0xFFB0602D)); // apricot
+  static const bottle = Kind(_bottle, Icons.local_drink_rounded, Color(0xFFF2DCA4), Color(0xFF94701C)); // honey
+  static const solids = Kind(_solids, Icons.restaurant_rounded, Color(0xFFEFAE80), Color(0xFFA9532A)); // carrot
+  static const combo = Kind(_combo, Icons.join_inner_rounded, Color(0xFFF5C4A1), Color(0xFFB0602D));
+  static const sleep = Kind(_sleep, Icons.bedtime_rounded, Color(0xFFD4CBEA), Color(0xFF65529C)); // dusk lilac
+  static const diaper = Kind(_diaper, Icons.baby_changing_station_rounded, Color(0xFFCADFBC), Color(0xFF4A763A)); // sage
+  static const potty = Kind(_potty, Icons.wc_rounded, Color(0xFFCADFBC), Color(0xFF4A763A)); // sage, like diapers
+  static const pump = Kind(_pump, Icons.water_drop_rounded, Color(0xFFEDE29B), Color(0xFF7E7116)); // butter
+  static const growth = Kind(_growth, Icons.straighten_rounded, Color(0xFFE4D4BA), Color(0xFF7A5F3C)); // oat
+  static const health = Kind(_health, Icons.medical_services_rounded, Color(0xFFCBD19A), Color(0xFF616B26)); // moss
+  static const activity = Kind(_activity, Icons.wb_sunny_rounded, Color(0xFFB9E0D1), Color(0xFF2C755E)); // seafoam
+  static const milestone = Kind(_milestone, Icons.star_rounded, Color(0xFFEBC46E), Color(0xFF8A6210)); // marigold
+  static const note = Kind(_note, Icons.edit_note_rounded, Color(0xFFDDD6CC), Color(0xFF6B6359)); // stone
 
   /// Look of an event (feeds are split by method; diapers by "potty").
   static Kind of(String type, [String? method]) {

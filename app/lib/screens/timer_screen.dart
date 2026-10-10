@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../format.dart';
+import '../l10n/l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
@@ -45,9 +46,9 @@ class _TimerScreenState extends State<TimerScreen> {
     _ => Kind.breast,
   };
   String get title => switch (widget.kind) {
-    'sleep' => 'Sleep',
-    'pump' => 'Pump',
-    _ => 'Breastfeed',
+    'sleep' => l10n.kindSleep,
+    'pump' => l10n.kindPump,
+    _ => l10n.kindBreastfeed,
   };
 
   TimerModel? _timer(AppState s) => s.timers.where((t) => t.kind == widget.kind).firstOrNull;
@@ -71,7 +72,7 @@ class _TimerScreenState extends State<TimerScreen> {
 
   /// Start Time row: before starting, remembers the time; afterwards moves the running timer.
   Future<void> _editStart(TimerModel? t, DateTime picked) async {
-    if (picked.isAfter(DateTime.now())) return showMessage(context, 'The start can\'t be in the future.');
+    if (picked.isAfter(DateTime.now())) return showMessage(context, l10n.timerStartInFuture);
     if (t == null) return setState(() => _startAt = picked);
     await _call((s) => s.act((api) => api.patch('/timers/${t.id}', {'start': formatTime(picked)})));
   }
@@ -120,16 +121,16 @@ class _TimerScreenState extends State<TimerScreen> {
       context: context,
       builder: (c) => AlertDialog(
         title: Text(switch (side) {
-          'left' => 'Left side',
-          'right' => 'Right side',
-          _ => widget.kind == 'sleep' ? 'Time asleep' : 'Total time',
+          'left' => l10n.timerLeftSide,
+          'right' => l10n.timerRightSide,
+          _ => widget.kind == 'sleep' ? l10n.timerTimeAsleep : l10n.timerTotalTimeTitle,
         }, style: serifStyle(22)),
-        content: Row(children: [field(min, 'Minutes', autofocus: true), const SizedBox(width: 12), field(sec, 'Seconds', digits: 2)]),
+        content: Row(children: [field(min, l10n.timerMinutes, autofocus: true), const SizedBox(width: 12), field(sec, l10n.timerSeconds, digits: 2)]),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(c), child: Text(l10n.cancel)),
           FilledButton(
             onPressed: () => Navigator.pop(c, (int.tryParse(min.text) ?? 0) * 60 + (int.tryParse(sec.text) ?? 0)),
-            child: const Text('Save'),
+            child: Text(l10n.save),
           ),
         ],
       ),
@@ -200,7 +201,7 @@ class _TimerScreenState extends State<TimerScreen> {
     if (!mounted) return;
     setState(() => _busy = false);
     if (ok != null) {
-      showMessage(context, '$title saved');
+      showMessage(context, l10n.timerSaved(title));
       Navigator.pop(context);
     }
   }
@@ -220,7 +221,7 @@ class _TimerScreenState extends State<TimerScreen> {
     return showDialog<Map<String, dynamic>>(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text('How much did you pump?', style: serifStyle(22)),
+        title: Text(l10n.timerPumpHowMuch, style: serifStyle(22)),
         content: Row(
           children: [
             if (t.side != 'right')
@@ -229,7 +230,7 @@ class _TimerScreenState extends State<TimerScreen> {
                   controller: left,
                   autofocus: true,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(labelText: 'Left', suffixText: u.volumeUnit),
+                  decoration: InputDecoration(labelText: l10n.left, suffixText: u.volumeUnit),
                 ),
               ),
             if (t.side == 'both') const SizedBox(width: 12),
@@ -238,14 +239,14 @@ class _TimerScreenState extends State<TimerScreen> {
                 child: TextField(
                   controller: right,
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: InputDecoration(labelText: 'Right', suffixText: u.volumeUnit),
+                  decoration: InputDecoration(labelText: l10n.right, suffixText: u.volumeUnit),
                 ),
               ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(c, {'left_ml': ?read(left), 'right_ml': ?read(right)}), child: const Text('Save')),
+          TextButton(onPressed: () => Navigator.pop(c), child: Text(l10n.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(c, {'left_ml': ?read(left), 'right_ml': ?read(right)}), child: Text(l10n.save)),
         ],
       ),
     );
@@ -256,12 +257,12 @@ class _TimerScreenState extends State<TimerScreen> {
     final now = DateTime.now();
     var end = picked;
     if (end.isAfter(now)) end = _endAt == null ? end.subtract(const Duration(days: 1)) : now;
-    if (!end.isAfter(t.startedAt)) return showMessage(context, 'The end must be after the start (${timeOfDay(t.startedAt)}).');
+    if (!end.isAfter(t.startedAt)) return showMessage(context, l10n.timerEndAfterStart(timeOfDay(t.startedAt)));
     setState(() => _endAt = end);
   }
 
   Future<void> _delete(TimerModel t) async {
-    if (!await confirm(context, 'Delete this timer?', 'Nothing will be saved.', action: 'Delete')) return;
+    if (!await confirm(context, l10n.timerDeleteTitle, l10n.timerDeleteBody, action: l10n.delete)) return;
     await _call((s) => s.act((api) => api.delete('/timers/${t.id}')));
     if (mounted) Navigator.pop(context);
   }
@@ -283,11 +284,11 @@ class _TimerScreenState extends State<TimerScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         // Closing never stops the timer: it keeps running (for every caregiver) until saved or deleted.
-        leading: IconButton(icon: const Icon(Icons.close_rounded), tooltip: 'Close', onPressed: () => Navigator.pop(context)),
+        leading: IconButton(icon: const Icon(Icons.close_rounded), tooltip: l10n.close, onPressed: () => Navigator.pop(context)),
         title: Text(title),
         centerTitle: true,
         actions: [
-          if (t == null) ...[TextButton(onPressed: _manual, child: const Text('Log past')), const SizedBox(width: 8)],
+          if (t == null) ...[TextButton(onPressed: _manual, child: Text(l10n.timerLogPast)), const SizedBox(width: 8)],
           if (t != null) ...[
             FilledButton(
               style: FilledButton.styleFrom(
@@ -297,7 +298,7 @@ class _TimerScreenState extends State<TimerScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 20),
               ),
               onPressed: _busy ? null : () => _stop(t, end: _endAt),
-              child: const Text('Save'),
+              child: Text(l10n.save),
             ),
             const SizedBox(width: 12),
           ],
@@ -319,14 +320,14 @@ class _TimerScreenState extends State<TimerScreen> {
                 ),
                 Text(
                   t == null
-                      ? (widget.kind == 'breastfeed' ? 'Tap a side to start' : 'Tap to start')
+                      ? (widget.kind == 'breastfeed' ? l10n.timerTapSide : l10n.timerTapStart)
                       : !t.running
-                      ? 'Paused'
+                      ? l10n.timerPaused
                       : widget.kind == 'breastfeed'
-                      ? 'On the ${t.side}'
+                      ? l10n.timerOnSide(t.side ?? 'left')
                       : widget.kind == 'sleep'
-                      ? 'Sleeping'
-                      : 'Pumping',
+                      ? l10n.timerSleeping
+                      : l10n.timerPumping,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: c.muted, fontSize: 16),
                 ),
@@ -344,13 +345,13 @@ class _TimerScreenState extends State<TimerScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: ChoiceChips<String>(
-                        options: const {
-                          'crib': 'Crib',
-                          'bassinet': 'Bassinet',
-                          'bed': 'Bed',
-                          'arms': 'Arms',
-                          'stroller': 'Stroller',
-                          'car': 'Car',
+                        options: {
+                          'crib': l10n.locationCrib,
+                          'bassinet': l10n.locationBassinet,
+                          'bed': l10n.locationBed,
+                          'arms': l10n.locationArms,
+                          'stroller': l10n.locationStroller,
+                          'car': l10n.locationCar,
                         },
                         value: _location,
                         color: kind.fill(c),
@@ -368,12 +369,12 @@ class _TimerScreenState extends State<TimerScreen> {
                     child: TextField(
                       controller: _note,
                       textCapitalization: TextCapitalization.sentences,
-                      decoration: const InputDecoration(hintText: 'Note (optional)', prefixIcon: Icon(Icons.edit_note_rounded)),
+                      decoration: InputDecoration(hintText: l10n.timerNoteHint, prefixIcon: const Icon(Icons.edit_note_rounded)),
                     ),
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'Close with ✕ and the timer keeps running.',
+                    l10n.timerKeepsRunning,
                     textAlign: TextAlign.center,
                     style: TextStyle(color: c.muted, fontSize: 14),
                   ),
@@ -385,7 +386,7 @@ class _TimerScreenState extends State<TimerScreen> {
                         textStyle: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
                       ),
                       onPressed: _busy ? null : () => _delete(t),
-                      child: const Text('Delete'),
+                      child: Text(l10n.delete),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -406,13 +407,12 @@ class _TimerScreenState extends State<TimerScreen> {
       final e = last is Map<String, dynamic> ? Event(last) : null;
       final end = e?.endSide;
       if (end != null) {
-        hint =
-            'Last feed ended on the $end · ${ago(DateTime.now().difference(e!.start).inSeconds)}\nStart on the ${end == 'left' ? 'right' : 'left'}';
+        hint = l10n.timerLastFeedEnded(ago(DateTime.now().difference(e!.start).inSeconds), end);
       }
     } else if (t == null && widget.kind == 'sleep') {
       final last = s.summary?['last']?['sleep'];
       final e = last is Map<String, dynamic> ? Event(last) : null;
-      if (e?.end != null) hint = 'Awake for ${duration(DateTime.now().difference(e!.end!).inSeconds)}';
+      if (e?.end != null) hint = l10n.timerAwakeFor(duration(DateTime.now().difference(e!.end!).inSeconds));
     }
     return SizedBox(
       height: 48,
@@ -430,17 +430,17 @@ class _TimerScreenState extends State<TimerScreen> {
       child: Column(
         children: [
           FormRow(
-            label: widget.kind == 'sleep' ? 'Fell asleep' : 'Start Time',
-            child: DateTimeValue(value: start, placeholder: 'Now', enabled: !_busy, onChanged: (v) => _editStart(t, v)),
+            label: widget.kind == 'sleep' ? l10n.timerFellAsleep : l10n.timerStartTime,
+            child: DateTimeValue(value: start, placeholder: l10n.now, enabled: !_busy, onChanged: (v) => _editStart(t, v)),
           ),
           if (t != null)
             FormRow(
-              label: widget.kind == 'sleep' ? 'Woke up' : 'End Time',
-              child: DateTimeValue(value: _endAt, placeholder: 'Now', enabled: !_busy, onChanged: (v) => _editEnd(t, v)),
+              label: widget.kind == 'sleep' ? l10n.timerWokeUp : l10n.timerEndTime,
+              child: DateTimeValue(value: _endAt, placeholder: l10n.now, enabled: !_busy, onChanged: (v) => _editEnd(t, v)),
             ),
           // Breastfeed time is the sum of the sides (edited with their pencils), so it's read-only.
           FormRow(
-            label: 'Total Time',
+            label: l10n.timerTotalTime,
             onTap: _busy || widget.kind == 'breastfeed' ? null : () => _editTime(t),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -451,7 +451,7 @@ class _TimerScreenState extends State<TimerScreen> {
                 ),
                 if (widget.kind != 'breastfeed') ...[
                   const SizedBox(width: 8),
-                  Icon(Icons.edit_rounded, size: 20, color: kind.on(c), semanticLabel: 'Edit total time'),
+                  Icon(Icons.edit_rounded, size: 20, color: kind.on(c), semanticLabel: l10n.timerEditTotal),
                 ],
               ],
             ),
@@ -465,7 +465,6 @@ class _TimerScreenState extends State<TimerScreen> {
   Widget _side(TimerModel? t, String side) {
     final c = context.pal;
     final seconds = (side == 'left' ? t?.left : t?.right) ?? 0;
-    final name = side == 'left' ? 'left' : 'right';
     return Column(
       children: [
         Stack(
@@ -480,11 +479,11 @@ class _TimerScreenState extends State<TimerScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '${seconds ~/ 60}m ${(seconds % 60).toString().padLeft(2, '0')}s',
+              l10n.durMinutesSeconds(seconds ~/ 60, (seconds % 60).toString().padLeft(2, '0')),
               style: serifStyle(20, weight: FontWeight.w600).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
             ),
             IconButton(
-              tooltip: 'Edit $name time',
+              tooltip: l10n.timerEditSide(side),
               visualDensity: VisualDensity.compact,
               icon: Icon(Icons.edit_rounded, size: 20, color: kind.on(c)),
               onPressed: _busy ? null : () => _editTime(t, side),
@@ -514,7 +513,7 @@ class _TimerScreenState extends State<TimerScreen> {
           boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 6)],
         ),
         child: Text(
-          'Last\nside',
+          l10n.timerLastSideBadge,
           textAlign: TextAlign.center,
           style: TextStyle(color: c.background, fontSize: 10, height: 1.1, fontWeight: FontWeight.w700),
         ),
@@ -528,14 +527,13 @@ class _TimerScreenState extends State<TimerScreen> {
     final active = t != null && t.running && t.side == side;
     final current = t != null && t.side == side;
     final strong = c.isDark ? kind.fill(c) : kind.deepTone;
-    final name = side == 'left' ? 'left' : 'right';
     final action = t == null
-        ? 'Start $name${_lastSide(context.read<AppState>()) == side ? ' (last side)' : ''}'
+        ? (_lastSide(context.read<AppState>()) == side ? l10n.timerStartSideLast(side) : l10n.timerStartSide(side))
         : active
-        ? 'Pause $name'
+        ? l10n.timerPauseSide(side)
         : t.running
-        ? 'Switch to $name'
-        : 'Resume $name';
+        ? l10n.timerSwitchSide(side)
+        : l10n.timerResumeSide(side);
     return Semantics(
       button: true,
       label: action,
@@ -560,7 +558,7 @@ class _TimerScreenState extends State<TimerScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(side == 'left' ? 'Left' : 'Right', style: serifStyle(28, color: active ? Colors.white : kind.on(c))),
+              Text(side == 'left' ? l10n.left : l10n.right, style: serifStyle(28, color: active ? Colors.white : kind.on(c))),
               const SizedBox(height: 4),
               Icon(active ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 30, color: active ? Colors.white : kind.on(c)),
             ],
@@ -577,7 +575,7 @@ class _TimerScreenState extends State<TimerScreen> {
     final strong = c.isDark ? kind.fill(c) : kind.deepTone;
     return Semantics(
       button: true,
-      label: t == null ? 'Start' : (running ? 'Pause' : 'Resume'),
+      label: t == null ? l10n.timerStart : (running ? l10n.timerPause : l10n.timerResume),
       excludeSemantics: true,
       child: GestureDetector(
         onTap: _busy ? null : () => _toggle(t),
@@ -602,7 +600,7 @@ class _TimerScreenState extends State<TimerScreen> {
               Icon(kind.icon, size: 48, color: running ? Colors.white : kind.on(c)),
               const SizedBox(height: 6),
               Text(
-                t == null ? 'Start' : (running ? 'Pause' : 'Resume'),
+                t == null ? l10n.timerStart : (running ? l10n.timerPause : l10n.timerResume),
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: running ? Colors.white : kind.on(c)),
               ),
             ],
@@ -613,10 +611,10 @@ class _TimerScreenState extends State<TimerScreen> {
   }
 
   Widget _pumpSides(TimerModel? t) => SegmentedButton<String>(
-    segments: const [
-      ButtonSegment(value: 'left', label: Text('Left')),
-      ButtonSegment(value: 'both', label: Text('Both')),
-      ButtonSegment(value: 'right', label: Text('Right')),
+    segments: [
+      ButtonSegment(value: 'left', label: Text(l10n.left)),
+      ButtonSegment(value: 'both', label: Text(l10n.both)),
+      ButtonSegment(value: 'right', label: Text(l10n.right)),
     ],
     selected: {t?.side ?? _pumpSide},
     showSelectedIcon: false,

@@ -4,6 +4,17 @@ The Nestling client: one Flutter codebase for the **web app** (served by the Nes
 **Android app**. It talks to the server's JSON API (`/api/v1`, see [`../docs/API.md`](../docs/API.md); the
 OpenAPI description is [`../docs/openapi.yaml`](../docs/openapi.yaml)).
 
+## Languages
+
+English, French and Spanish. The app follows the phone's (or browser's) language, English when
+it isn't one of those; Settings → Language picks one for this device. Texts are in
+`lib/l10n/app_en.arb` (the template), `app_fr.arb` and `app_es.arb`; `flutter gen-l10n` (also run by
+`flutter pub get`) regenerates `lib/l10n/app_localizations*.dart`, which are committed. Code reads
+them through the global `l10n` (`lib/l10n/l10n.dart`), so plain helpers like `describe()` can use
+it too. Values saved as keys (sleep locations, poop colors, built-in activities, health kinds) are
+shown with `cap()`, which translates them. Built-in baby book ideas and tooth names are saved in
+English and shown translated. Server error messages stay in English.
+
 ## Look
 
 Nestling's own "nursery garden" palette: warm oat neutrals, a eucalyptus-green accent and one soft,

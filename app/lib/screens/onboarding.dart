@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api.dart';
+import '../l10n/l10n.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -18,7 +19,7 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  final _familyName = TextEditingController(text: 'Our family');
+  final _familyName = TextEditingController(text: l10n.onboardingOurFamily);
   final _code = TextEditingController();
   String _tz = guessTimezone();
   bool _busy = false;
@@ -36,7 +37,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final family = s.family;
     return Scaffold(
       appBar: AppBar(
-        actions: [TextButton(onPressed: s.signOut, child: Text(s.serverless ? 'Back' : 'Sign out'))],
+        actions: [TextButton(onPressed: s.signOut, child: Text(s.serverless ? l10n.onboardingBack : l10n.signOut))],
       ),
       body: SafeArea(
         child: Constrained(
@@ -44,19 +45,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: [
-              Text('Hi ${s.me?.name ?? ''}!', style: t.headlineMedium),
+              Text(l10n.onboardingHi(s.me?.name ?? ''), style: t.headlineMedium),
               const SizedBox(height: 8),
               if (family == null) ...[
                 Text(
                   s.serverless
-                      ? 'Start a family to track your baby, or join the one on your partner\'s phone.'
-                      : 'Start a family to track your baby, or join one with an invite code from your partner.',
+                      ? l10n.onboardingIntroServerless
+                      : l10n.onboardingIntro,
                   style: t.bodyLarge?.copyWith(color: context.pal.muted),
                 ),
-                const SectionTitle('Start a family'),
+                SectionTitle(l10n.onboardingStartFamily),
                 TextField(
                   controller: _familyName,
-                  decoration: const InputDecoration(labelText: 'Family name'),
+                  decoration: InputDecoration(labelText: l10n.onboardingFamilyName),
                 ),
                 const SizedBox(height: 12),
                 TimezoneField(value: _tz, onChanged: (v) => setState(() => _tz = v)),
@@ -67,19 +68,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       : () => _run(
                           () => s.act((api) => api.post('/families', {'name': _familyName.text.trim(), 'timezone': _tz}), families: true),
                         ),
-                  child: const Text('Create family'),
+                  child: Text(l10n.onboardingCreateFamily),
                 ),
                 if (s.serverless) ...[
-                  const SectionTitle('Or join your partner\'s'),
+                  SectionTitle(l10n.onboardingOrJoinPartner),
                   Text(
-                    'If another phone already tracks your baby, pair with it: everything comes over and stays in sync.',
+                    l10n.onboardingPairIntro,
                     style: TextStyle(color: context.pal.muted),
                   ),
                   const SizedBox(height: 12),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.qr_code_scanner_rounded),
                     onPressed: _busy ? null : () => _run(() => joinWithCode(context)),
-                    label: const Text('Join with a pairing code'),
+                    label: Text(l10n.onboardingJoinWithCode),
                   ),
                   if (DriveBackup.available) ...[
                     const SizedBox(height: 12),
@@ -88,34 +89,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       onPressed: _busy
                           ? null
                           : () => _run(() async {
-                              if (!await s.drive.restore()) throw ApiException('drive', 'No Nestling backup in this Google account.');
+                              if (!await s.drive.restore()) throw ApiException('drive', l10n.onboardingNoBackup);
                               await s.load();
                             }),
-                      label: const Text('Restore from Google Drive'),
+                      label: Text(l10n.onboardingRestoreDrive),
                     ),
                   ],
                 ] else ...[
-                const SectionTitle('Or join one'),
+                SectionTitle(l10n.onboardingOrJoin),
                 TextField(
                   controller: _code,
                   textCapitalization: TextCapitalization.characters,
-                  decoration: const InputDecoration(labelText: 'Invite code', hintText: 'K7M2QX9A'),
+                  decoration: InputDecoration(labelText: l10n.onboardingInviteCode, hintText: 'K7M2QX9A'),
                 ),
                 const SizedBox(height: 16),
                 OutlinedButton(
                   onPressed: _busy
                       ? null
                       : () => _run(() => s.act((api) => api.post('/invites/${_code.text.trim().toUpperCase()}/accept'), families: true)),
-                  child: const Text('Join family'),
+                  child: Text(l10n.onboardingJoinFamily),
                 ),
                 ],
               ] else ...[
-                Text('Now add your little one to ${family.name}.', style: t.bodyLarge?.copyWith(color: context.pal.muted)),
+                Text(l10n.onboardingAddLittleOne(family.name), style: t.bodyLarge?.copyWith(color: context.pal.muted)),
                 const SizedBox(height: 24),
                 FilledButton.icon(
                   icon: const Icon(Icons.add),
                   onPressed: () => showChildForm(context, familyId: family.id),
-                  label: const Text('Add a baby'),
+                  label: Text(l10n.onboardingAddBaby),
                 ),
               ],
             ],

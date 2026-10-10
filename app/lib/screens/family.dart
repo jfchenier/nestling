@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../format.dart';
+import '../l10n/l10n.dart';
 import '../local/drive_backup.dart';
 import '../local/drive_relay.dart';
 import '../models.dart';
@@ -27,7 +28,7 @@ class FamilyScreen extends StatelessWidget with _FamilyActions {
     final f = s.family!;
     final me = s.me!;
     return Scaffold(
-      appBar: AppBar(title: const Text('Family')),
+      appBar: AppBar(title: Text(l10n.familyTitle)),
       body: Constrained(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
@@ -39,12 +40,12 @@ class FamilyScreen extends StatelessWidget with _FamilyActions {
                   child: Icon(Icons.home_rounded, color: context.pal.accent),
                 ),
                 title: Text(f.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text('${f.members.length} caregiver${f.members.length == 1 ? '' : 's'} · ${f.timezone.replaceAll('_', ' ')}'),
+                subtitle: Text('${l10n.familyCaregiverCount(f.members.length)} · ${f.timezone.replaceAll('_', ' ')}'),
                 trailing: const Icon(Icons.edit_outlined, size: 20),
                 onTap: () => _editFamily(context, f),
               ),
             ),
-            const SectionTitle('Babies'),
+            SectionTitle(l10n.familyBabies),
             Card(
               child: Column(
                 children: [
@@ -61,13 +62,13 @@ class FamilyScreen extends StatelessWidget with _FamilyActions {
                       backgroundColor: context.pal.line,
                       child: Icon(Icons.add, color: context.pal.ink),
                     ),
-                    title: const Text('Add a baby'),
+                    title: Text(l10n.familyAddBaby),
                     onTap: () => showChildForm(context, familyId: f.id),
                   ),
                 ],
               ),
             ),
-            const SectionTitle('Caregivers'),
+            SectionTitle(l10n.familyCaregivers),
             Card(
               child: Column(
                 children: [
@@ -80,10 +81,10 @@ class FamilyScreen extends StatelessWidget with _FamilyActions {
                           style: TextStyle(color: context.pal.accent, fontWeight: FontWeight.w700),
                         ),
                       ),
-                      title: Text(m.userId == me.id ? '${m.name} (you)' : m.name),
+                      title: Text(m.userId == me.id ? l10n.familyYou(m.name) : m.name),
                       subtitle: Text(m.email.isEmpty ? m.roleLabel : '${m.email} · ${m.roleLabel}'),
                       trailing: (f.isOwner && m.userId != me.id && !s.serverless)
-                          ? IconButton(icon: const Icon(Icons.person_remove_outlined), tooltip: 'Remove', onPressed: () => _remove(context, f, m))
+                          ? IconButton(icon: const Icon(Icons.person_remove_outlined), tooltip: l10n.remove, onPressed: () => _remove(context, f, m))
                           : null,
                       // Owners choose what each caregiver may do (e.g. book only for grandparents).
                       onTap: (f.isOwner && m.userId != me.id && !s.serverless) ? () => _changeRole(context, f, m) : null,
@@ -93,8 +94,8 @@ class FamilyScreen extends StatelessWidget with _FamilyActions {
                       backgroundColor: context.pal.line,
                       child: Icon(s.serverless ? Icons.qr_code_rounded : Icons.person_add_alt_1_outlined, color: context.pal.ink),
                     ),
-                    title: Text(s.serverless ? 'Pair a phone' : 'Invite a caregiver'),
-                    subtitle: Text(s.serverless ? 'Your partner\'s phone syncs with this one over Wi-Fi' : 'Partner, grandparent, nanny…'),
+                    title: Text(s.serverless ? l10n.familyPairPhone : l10n.familyInviteCaregiver),
+                    subtitle: Text(s.serverless ? l10n.familyPairPhoneHint : l10n.familyInviteHint),
                     onTap: () => s.serverless ? Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PairScreen())) : _invite(context, f),
                   ),
                 ],
@@ -105,8 +106,8 @@ class FamilyScreen extends StatelessWidget with _FamilyActions {
                 margin: const EdgeInsets.only(top: 12),
                 child: ListTile(
                   leading: const Icon(Icons.group_add_outlined),
-                  title: const Text('Join another family'),
-                  subtitle: const Text('With an invite code from its owner'),
+                  title: Text(l10n.familyJoinAnother),
+                  subtitle: Text(l10n.familyJoinAnotherHint),
                   onTap: () => _join(context),
                 ),
               ),
@@ -117,16 +118,15 @@ class FamilyScreen extends StatelessWidget with _FamilyActions {
                 onPressed: () async {
                   if (!await confirmByTyping(
                     context,
-                    'Delete ${f.name}?',
-                    'This permanently deletes the family, its babies and everything logged, for every caregiver. '
-                        'It can\'t be undone.',
+                    l10n.familyDeleteTitle(f.name),
+                    l10n.familyDeleteBody,
                     expected: f.name,
                   )) {
                     return;
                   }
                   if (context.mounted) await guard(context, () => s.act((api) => api.delete('/families/${f.id}'), families: true));
                 },
-                child: const Text('Delete family'),
+                child: Text(l10n.familyDelete),
               ),
             ],
           ],
@@ -136,7 +136,7 @@ class FamilyScreen extends StatelessWidget with _FamilyActions {
   }
 }
 
-/// Settings and the account (Home's gear button): units, appearance, day and night, time zone, Drive sync and backup, Nara import, export, API token.
+/// Settings and the account (Home's gear button): units, appearance, language, day and night, time zone, Drive sync and backup, Nara import, export, API token.
 class SettingsScreen extends StatelessWidget with _FamilyActions {
   const SettingsScreen({super.key});
 
@@ -148,7 +148,7 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
     // Book viewers only read the book: no family settings, imports, exports or API tokens.
     final full = !s.bookOnly;
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(title: Text(l10n.familySettings)),
       body: Constrained(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
@@ -157,20 +157,32 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
               child: Column(
                 children: [
                   SwitchListTile(
-                    title: const Text('Imperial units'),
+                    title: Text(l10n.familyImperialUnits),
                     subtitle: Text(s.units.imperial ? 'oz, lb, in, °F' : 'mL, kg, cm, °C'),
                     value: s.units.imperial,
                     onChanged: (v) => guard(context, () => s.setUnits(v)),
                   ),
                   ListTile(
-                    title: const Text('Appearance'),
+                    title: Text(l10n.familyAppearance),
                     subtitle: Padding(
                       padding: const EdgeInsets.only(top: 10),
                       child: SegmentedButton<ThemeMode>(
-                        segments: const [
-                          ButtonSegment(value: ThemeMode.system, label: Text('System'), icon: Icon(Icons.brightness_auto_outlined)),
-                          ButtonSegment(value: ThemeMode.light, label: Text('Light'), icon: Icon(Icons.light_mode_outlined)),
-                          ButtonSegment(value: ThemeMode.dark, label: Text('Dark'), icon: Icon(Icons.dark_mode_outlined)),
+                        segments: [
+                          ButtonSegment(
+                            value: ThemeMode.system,
+                            label: Text(l10n.system),
+                            icon: const Icon(Icons.brightness_auto_outlined),
+                          ),
+                          ButtonSegment(
+                            value: ThemeMode.light,
+                            label: Text(l10n.familyThemeLight),
+                            icon: const Icon(Icons.light_mode_outlined),
+                          ),
+                          ButtonSegment(
+                            value: ThemeMode.dark,
+                            label: Text(l10n.familyThemeDark),
+                            icon: const Icon(Icons.dark_mode_outlined),
+                          ),
                         ],
                         selected: {s.themeMode},
                         showSelectedIcon: false,
@@ -178,18 +190,34 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
                       ),
                     ),
                   ),
+                  ListTile(
+                    title: Text(l10n.language),
+                    subtitle: Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: DropdownButton<String?>(
+                        value: s.language,
+                        isExpanded: true,
+                        underline: const SizedBox(),
+                        items: [
+                          DropdownMenuItem(value: null, child: Text(l10n.settingsLanguageDevice)),
+                          for (final e in languages.entries) DropdownMenuItem(value: e.key, child: Text(e.value)),
+                        ],
+                        onChanged: s.setLanguage,
+                      ),
+                    ),
+                  ),
                   if (full)
                     ListTile(
                       leading: const Icon(Icons.wb_twilight_rounded),
-                      title: const Text('Day and night'),
-                      subtitle: Text('Daytime ${f.dayStart}–${f.dayEnd}'),
+                      title: Text(l10n.familyDayNight),
+                      subtitle: Text(l10n.familyDaytime(f.dayEnd, f.dayStart)),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DayHoursScreen())),
                     ),
                   if (full)
                     ListTile(
                       leading: const Icon(Icons.public),
-                      title: const Text('Time zone'),
+                      title: Text(l10n.familyTimeZone),
                       subtitle: Text(f.timezone.replaceAll('_', ' ')),
                       onTap: () => _editFamily(context, f),
                     ),
@@ -198,94 +226,87 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
                   if (full)
                     ListTile(
                       leading: const Icon(Icons.cloud_download_outlined),
-                      title: const Text('Import from Nara'),
-                      subtitle: const Text('Bring over your Nara Baby history'),
+                      title: Text(l10n.familyImportNara),
+                      subtitle: Text(l10n.familyImportNaraHint),
                       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const NaraImportScreen())),
                     ),
                   if (!s.serverless && full)
                     ListTile(
                       leading: const Icon(Icons.file_download_outlined),
-                      title: const Text('Export data'),
-                      subtitle: const Text('Everything for this family as a CSV file'),
+                      title: Text(l10n.familyExport),
+                      subtitle: Text(l10n.familyExportHint),
                       onTap: () => _export(context, f),
                     ),
                   if (!s.serverless && full)
                     ListTile(
                       leading: const Icon(Icons.key_outlined),
-                      title: const Text('API token'),
-                      subtitle: const Text('For Home Assistant or scripts'),
+                      title: Text(l10n.familyApiToken),
+                      subtitle: Text(l10n.familyApiTokenHint),
                       onTap: () => _token(context),
                     ),
                 ],
               ),
             ),
             if (!full) ...[
-              const SectionTitle('Family'),
+              SectionTitle(l10n.familyTitle),
               Card(
                 child: Column(
                   children: [
                     ListTile(
                       leading: const Icon(Icons.auto_stories_outlined),
                       title: Text(f.name),
-                      subtitle: const Text('You can see the baby book. Ask an owner of the family for more.'),
+                      subtitle: Text(l10n.familyBookOnlyHint),
                     ),
                     ListTile(
                       leading: const Icon(Icons.group_add_outlined),
-                      title: const Text('Join another family'),
-                      subtitle: const Text('With an invite code from its owner'),
+                      title: Text(l10n.familyJoinAnother),
+                      subtitle: Text(l10n.familyJoinAnotherHint),
                       onTap: () => _join(context),
                     ),
                     ListTile(
                       leading: Icon(Icons.exit_to_app_rounded, color: context.pal.danger),
-                      title: Text('Leave ${f.name}', style: TextStyle(color: context.pal.danger)),
+                      title: Text(l10n.familyLeave(f.name), style: TextStyle(color: context.pal.danger)),
                       onTap: () => _leave(context, f),
                     ),
                   ],
                 ),
               ),
             ],
-            const SectionTitle('Account'),
+            SectionTitle(l10n.familyAccount),
             Card(
               child: Column(
                 children: [
-                  ListTile(leading: const Icon(Icons.person_outline), title: Text(me.name), subtitle: me.email.isEmpty ? null : Text(me.email)),
+                  ListTile(
+                    leading: const Icon(Icons.person_outline),
+                    title: Text(me.name),
+                    subtitle: me.email.isEmpty ? null : Text(me.email),
+                  ),
                   ListTile(
                     leading: Icon(s.serverless ? Icons.smartphone_rounded : Icons.dns_outlined),
-                    title: Text(s.serverless ? 'Without a server' : 'Server'),
-                    subtitle: Text(s.serverless ? 'Saved on this phone and the phones paired with it' : s.server),
+                    title: Text(s.serverless ? l10n.familyWithoutServer : l10n.familyServer),
+                    subtitle: Text(s.serverless ? l10n.familyWithoutServerHint : s.server),
                   ),
                   if (!s.serverless)
-                    ListTile(leading: const Icon(Icons.password_rounded), title: const Text('Change password'), onTap: () => _changePassword(context)),
+                    ListTile(leading: const Icon(Icons.password_rounded), title: Text(l10n.familyChangePassword), onTap: () => _changePassword(context)),
                   if (me.isAdmin)
                     ListTile(
                       leading: const Icon(Icons.admin_panel_settings_outlined),
-                      title: const Text('Users'),
-                      subtitle: const Text('Create and manage accounts on this server'),
+                      title: Text(l10n.usersTitle),
+                      subtitle: Text(l10n.familyUsersHint),
                       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const UsersScreen())),
                     ),
                   ListTile(
                     leading: Icon(Icons.logout, color: context.pal.danger),
-                    title: Text(s.serverless ? 'Remove from this phone' : 'Sign out', style: TextStyle(color: context.pal.danger)),
+                    title: Text(s.serverless ? l10n.familyRemoveFromPhone : l10n.signOut, style: TextStyle(color: context.pal.danger)),
                     onTap: () async {
                       if (s.serverless) {
-                        if (!await confirm(
-                          context,
-                          'Remove Nestling\'s data from this phone?',
-                          'Everything logged here is erased from this phone. Paired phones and your Google Drive backup keep their copy.',
-                          action: 'Remove',
-                        )) {
+                        if (!await confirm(context, l10n.familyRemoveDataTitle, l10n.familyRemoveDataBody, action: l10n.remove)) {
                           return;
                         }
                         return s.signOut();
                       }
                       final n = s.pendingChanges;
-                      if (n > 0 &&
-                          !await confirm(
-                            context,
-                            'Sign out anyway?',
-                            '$n change${n == 1 ? '' : 's'} made offline ${n == 1 ? 'hasn\'t' : 'haven\'t'} reached the server yet and will be lost.',
-                            action: 'Sign out',
-                          )) {
+                      if (n > 0 && !await confirm(context, l10n.familySignOutAnyway, l10n.familyPendingLost(n), action: l10n.signOut)) {
                         return;
                       }
                       await s.signOut();
@@ -307,10 +328,10 @@ mixin _FamilyActions {
     final s = context.read<AppState>();
     final role = await _pickRole(
       context,
-      title: 'Invite a caregiver',
+      title: l10n.familyInviteCaregiver,
       current: 'caregiver',
       roles: [if (f.isOwner) 'owner', 'caregiver', 'book_viewer'],
-      action: 'Next',
+      action: l10n.familyNext,
     );
     if (role == null || !context.mounted) return;
     final res = await guard(context, () => s.api!.post('/families/${f.id}/invites', {'role': role}));
@@ -319,37 +340,35 @@ mixin _FamilyActions {
     await showDialog(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Invite code'),
+        title: Text(l10n.familyInviteCode),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'They create an account on this server, then enter this code under “Join a family”. '
-              'It works once and expires in 7 days.'
-              '${role == 'book_viewer' ? ' They will only see the baby book.' : ''}',
+              [l10n.familyInviteBody, if (role == 'book_viewer') l10n.familyInviteBookOnly].join(' '),
             ),
             const SizedBox(height: 20),
             SelectableText(code, style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w700, letterSpacing: 4)),
             const SizedBox(height: 8),
-            Text('Server: ${s.server}', style: TextStyle(color: context.pal.muted)),
+            Text(l10n.familyServerValue(s.server), style: TextStyle(color: context.pal.muted)),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () {
               Clipboard.setData(ClipboardData(text: code));
-              showMessage(context, 'Code copied');
+              showMessage(context, l10n.familyCodeCopied);
             },
-            child: const Text('Copy'),
+            child: Text(l10n.familyCopy),
           ),
-          FilledButton(onPressed: () => Navigator.pop(c), child: const Text('Done')),
+          FilledButton(onPressed: () => Navigator.pop(c), child: Text(l10n.done)),
         ],
       ),
     );
   }
 
   /// Asks what a caregiver may do; null when cancelled.
-  Future<String?> _pickRole(BuildContext context, {required String title, required String current, required List<String> roles, String action = 'Save'}) {
+  Future<String?> _pickRole(BuildContext context, {required String title, required String current, required List<String> roles, String? action}) {
     var role = current;
     return showDialog<String>(
       context: context,
@@ -366,8 +385,8 @@ mixin _FamilyActions {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(c, role), child: Text(action)),
+            TextButton(onPressed: () => Navigator.pop(c), child: Text(l10n.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(c, role), child: Text(action ?? l10n.save)),
           ],
         ),
       ),
@@ -382,7 +401,7 @@ mixin _FamilyActions {
   }
 
   Future<void> _leave(BuildContext context, Family f) async {
-    if (!await confirm(context, 'Leave ${f.name}?', 'You won\'t see its baby book any more, unless invited again.', action: 'Leave')) return;
+    if (!await confirm(context, l10n.familyLeaveTitle(f.name), l10n.familyLeaveBody, action: l10n.familyLeaveAction)) return;
     if (!context.mounted) return;
     final s = context.read<AppState>();
     await guard(context, () => s.act((api) => api.delete('/families/${f.id}/members/${s.me!.id}'), families: true));
@@ -390,7 +409,7 @@ mixin _FamilyActions {
   }
 
   Future<void> _remove(BuildContext context, Family f, Member m) async {
-    if (!await confirm(context, 'Remove ${m.name}?', 'They will lose access to ${f.name}.', action: 'Remove')) return;
+    if (!await confirm(context, l10n.familyRemoveMemberTitle(m.name), l10n.familyRemoveMemberBody(f.name), action: l10n.remove)) return;
     if (!context.mounted) return;
     final s = context.read<AppState>();
     await guard(context, () => s.act((api) => api.delete('/families/${f.id}/members/${m.userId}'), families: true));
@@ -401,16 +420,16 @@ mixin _FamilyActions {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('Join a family'),
+        title: Text(l10n.familyJoin),
         content: TextField(
           controller: code,
           autofocus: true,
           textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(labelText: 'Invite code'),
+          decoration: InputDecoration(labelText: l10n.familyInviteCode),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Join')),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l10n.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l10n.familyJoinButton)),
         ],
       ),
     );
@@ -426,21 +445,21 @@ mixin _FamilyActions {
       context: context,
       builder: (c) => StatefulBuilder(
         builder: (c, set) => AlertDialog(
-          title: const Text('Family'),
+          title: Text(l10n.familyTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: name,
-                decoration: const InputDecoration(labelText: 'Name'),
+                decoration: InputDecoration(labelText: l10n.familyName),
               ),
               const SizedBox(height: 12),
               TimezoneField(value: tz, onChanged: (v) => set(() => tz = v)),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Save')),
+            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l10n.cancel)),
+            FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l10n.save)),
           ],
         ),
       ),
@@ -457,24 +476,24 @@ mixin _FamilyActions {
     await showDialog(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('New API token'),
+        title: Text(l10n.familyNewToken),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Copy it now — it won’t be shown again. Use it as “Authorization: Bearer <token>”.'),
+            Text(l10n.familyTokenBody),
             const SizedBox(height: 12),
             SelectableText(res['token'], style: const TextStyle(fontFamily: 'monospace')),
             const SizedBox(height: 12),
-            Text('Summary sensor: ${s.server}/api/v1/children/${s.childId}/summary', style: TextStyle(color: context.pal.muted, fontSize: 12)),
+            Text(l10n.familySummarySensor('${s.server}/api/v1/children/${s.childId}/summary'), style: TextStyle(color: context.pal.muted, fontSize: 12)),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Clipboard.setData(ClipboardData(text: res['token'])),
-            child: const Text('Copy'),
+            child: Text(l10n.familyCopy),
           ),
-          FilledButton(onPressed: () => Navigator.pop(c), child: const Text('Done')),
+          FilledButton(onPressed: () => Navigator.pop(c), child: Text(l10n.done)),
         ],
       ),
     );
@@ -540,9 +559,10 @@ class _NaraImportScreenState extends State<NaraImportScreen> {
     final s = context.watch<AppState>();
     final child = s.child;
     final muted = t.bodyMedium?.copyWith(color: context.pal.muted, height: 1.5);
+    final babyName = child?.name ?? l10n.familyThisBaby;
     final canPreview = _source == _Source.csv ? _fileBytes != null : _email.text.isNotEmpty && _password.text.isNotEmpty;
     return Scaffold(
-      appBar: AppBar(title: const Text('Import from Nara')),
+      appBar: AppBar(title: Text(l10n.familyImportNara)),
       body: Constrained(
         maxWidth: 480,
         child: ListView(
@@ -551,9 +571,9 @@ class _NaraImportScreenState extends State<NaraImportScreen> {
             // Signing in to Nara goes through the server; without one, the export file is the way.
             if (!s.serverless)
               SegmentedButton<_Source>(
-                segments: const [
-                  ButtonSegment(value: _Source.csv, label: Text('Export file'), icon: Icon(Icons.description_outlined)),
-                  ButtonSegment(value: _Source.account, label: Text('Nara account'), icon: Icon(Icons.login_rounded)),
+                segments: [
+                  ButtonSegment(value: _Source.csv, label: Text(l10n.familyImportExportFile), icon: const Icon(Icons.description_outlined)),
+                  ButtonSegment(value: _Source.account, label: Text(l10n.familyImportAccount), icon: const Icon(Icons.login_rounded)),
                 ],
                 selected: {_source},
                 showSelectedIcon: false,
@@ -564,16 +584,12 @@ class _NaraImportScreenState extends State<NaraImportScreen> {
               ),
             if (!s.serverless) const SizedBox(height: 20),
             if (_source == _Source.csv) ...[
-              Text(
-                'Export your data from the Nara app (it gives you a .csv file), then pick that file here. '
-                'Everything goes into ${child?.name ?? 'this baby'}; importing the same file again updates instead of duplicating.',
-                style: muted,
-              ),
+              Text(l10n.familyImportCsvBody(babyName), style: muted),
               const SizedBox(height: 16),
               OutlinedButton.icon(
                 onPressed: _busy ? null : _pickFile,
                 icon: const Icon(Icons.upload_file_rounded),
-                label: Text(_fileName == null ? 'Choose the CSV file' : 'Choose another file'),
+                label: Text(_fileName == null ? l10n.familyChooseCsv : l10n.familyChooseAnotherFile),
               ),
               if (_fileName != null && _fileBytes != null)
                 Padding(
@@ -585,41 +601,37 @@ class _NaraImportScreenState extends State<NaraImportScreen> {
                   ),
                 ),
             ] else ...[
-              Text(
-                'Sign in with your Nara account to copy your history into ${child?.name ?? 'this baby'}. '
-                'Your Nara password is used once and never stored.',
-                style: muted,
-              ),
+              Text(l10n.familyImportAccountBody(babyName), style: muted),
               const SizedBox(height: 16),
               TextField(
                 controller: _email,
                 keyboardType: TextInputType.emailAddress,
                 onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(labelText: 'Nara email'),
+                decoration: InputDecoration(labelText: l10n.familyNaraEmail),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _password,
                 obscureText: true,
                 onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(labelText: 'Nara password'),
+                decoration: InputDecoration(labelText: l10n.familyNaraPassword),
               ),
               const SizedBox(height: 16),
               if (_done == null)
                 OutlinedButton(
                   onPressed: _busy || !canPreview ? null : () => _run(dryRun: true),
-                  child: Text(_preview == null ? 'Preview (nothing is saved)' : 'Preview again'),
+                  child: Text(_preview == null ? l10n.familyPreview : l10n.familyPreviewAgain),
                 ),
             ],
             const SizedBox(height: 16),
             if (_done != null)
-              _Result(title: 'Import complete', data: _done!)
+              _Result(title: l10n.familyImportComplete, data: _done!)
             else if (_preview != null) ...[
-              _Result(title: 'Ready to import', data: _preview!),
+              _Result(title: l10n.familyReadyToImport, data: _preview!),
               const SizedBox(height: 16),
               FilledButton(
                 onPressed: _busy || (_preview!['importable'] ?? 0) == 0 ? null : () => _run(dryRun: false),
-                child: Text('Import ${_preview!['importable']} records into ${child?.name ?? 'this baby'}'),
+                child: Text(l10n.familyImportRecords((_preview!['importable'] as num?)?.toInt() ?? 0, babyName)),
               ),
             ],
             if (_busy)
@@ -639,16 +651,16 @@ class _Result extends StatelessWidget {
   final String title;
   final Map<String, dynamic> data;
 
-  static const _labels = {
-    'feed': 'Feeds',
-    'sleep': 'Sleep',
-    'diaper': 'Diapers',
-    'pump': 'Pump',
-    'growth': 'Growth',
-    'health': 'Health',
-    'activity': 'Routine',
-    'milestone': 'Firsts',
-    'note': 'Notes',
+  static Map<String, String> get _labels => {
+    'feed': l10n.familyTypeFeeds,
+    'sleep': l10n.familyTypeSleep,
+    'diaper': l10n.familyTypeDiapers,
+    'pump': l10n.familyTypePump,
+    'growth': l10n.familyTypeGrowth,
+    'health': l10n.familyTypeHealth,
+    'activity': l10n.familyTypeRoutine,
+    'milestone': l10n.familyTypeFirsts,
+    'note': l10n.familyTypeNotes,
   };
 
   @override
@@ -658,7 +670,9 @@ class _Result extends StatelessWidget {
     final kids = (data['nara_children'] as List?) ?? [];
     final first = data['first_ms'], last = data['last_ms'];
     final dates = DateFormat.yMMMd();
-    final summary = data['dry_run'] == true ? '${data['importable']} records' : '${data['imported']} new · ${data['updated']} updated';
+    final summary = data['dry_run'] == true
+        ? l10n.familyRecords((data['importable'] as num?)?.toInt() ?? 0)
+        : l10n.familyImportedUpdated('${data['imported']}', '${data['updated']}');
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -671,7 +685,7 @@ class _Result extends StatelessWidget {
             for (final k in kids)
               if (k is Map && k['name'] != null)
                 Text(
-                  ['Nara profile: ${k['name']}', if (k['birth_date'] != null) 'born ${dates.format(DateTime.parse(k['birth_date']))}'].join(' · '),
+                  [l10n.familyNaraProfile('${k['name']}'), if (k['birth_date'] != null) l10n.familyBorn(dates.format(DateTime.parse(k['birth_date'])))].join(' · '),
                   style: TextStyle(color: context.pal.muted),
                 ),
             if (first is int && last is int)
@@ -691,7 +705,7 @@ class _Result extends StatelessWidget {
             ],
             if (skipped.isNotEmpty) ...[
               const SizedBox(height: 12),
-              Text('Skipped: ${skipped.entries.map((e) => '${e.key} (${e.value})').join(', ')}', style: TextStyle(color: context.pal.muted)),
+              Text(l10n.familySkipped(skipped.entries.map((e) => '${e.key} (${e.value})').join(', ')), style: TextStyle(color: context.pal.muted)),
             ],
           ],
         ),
@@ -707,7 +721,7 @@ Future<void> _changePassword(BuildContext context) async {
   final ok = await showDialog<bool>(
     context: context,
     builder: (c) => AlertDialog(
-      title: Text('Change password', style: serifStyle(22)),
+      title: Text(l10n.familyChangePassword, style: serifStyle(22)),
       content: Form(
         key: form,
         child: Column(
@@ -717,29 +731,29 @@ Future<void> _changePassword(BuildContext context) async {
               controller: current,
               obscureText: true,
               autofocus: true,
-              decoration: const InputDecoration(labelText: 'Current password'),
-              validator: (v) => (v ?? '').isEmpty ? 'Enter your current password' : null,
+              decoration: InputDecoration(labelText: l10n.familyCurrentPassword),
+              validator: (v) => (v ?? '').isEmpty ? l10n.familyEnterCurrentPassword : null,
             ),
             const SizedBox(height: 10),
             TextFormField(
               controller: next,
               obscureText: true,
-              decoration: const InputDecoration(labelText: 'New password', helperText: 'Other devices will be signed out'),
-              validator: (v) => (v ?? '').length < 8 ? 'At least 8 characters' : null,
+              decoration: InputDecoration(labelText: l10n.familyNewPassword, helperText: l10n.familyOtherDevicesSignedOut),
+              validator: (v) => (v ?? '').length < 8 ? l10n.familyAtLeast8 : null,
             ),
           ],
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
-        FilledButton(onPressed: () => form.currentState!.validate() ? Navigator.pop(c, true) : null, child: const Text('Save')),
+        TextButton(onPressed: () => Navigator.pop(c), child: Text(l10n.cancel)),
+        FilledButton(onPressed: () => form.currentState!.validate() ? Navigator.pop(c, true) : null, child: Text(l10n.save)),
       ],
     ),
   );
   if (ok != true || !context.mounted) return;
   final s = context.read<AppState>();
   final res = await guard(context, () => s.api!.patch('/me', {'password': next.text, 'current_password': current.text}));
-  if (res != null && context.mounted) showMessage(context, 'Password changed');
+  if (res != null && context.mounted) showMessage(context, l10n.familyPasswordChanged);
 }
 
 /// Download the family's data as CSV (same layout as the import reads, so it re-imports).
@@ -750,7 +764,7 @@ Future<void> _export(BuildContext context, Family f) async {
   final slug = f.name.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), '');
   final name = 'nestling-${slug.isEmpty ? 'export' : slug}-${DateFormat('yyyy-MM-dd').format(DateTime.now())}.csv';
   final saved = await guard(context, () => FilePicker.saveFile(fileName: name, bytes: bytes, mimeType: 'text/csv').then((_) => true));
-  if (saved == true && context.mounted) showMessage(context, 'Exported $name');
+  if (saved == true && context.mounted) showMessage(context, l10n.familyExported(name));
 }
 
 /// Serverless mode: back up to (and see the last backup in) the caregiver's Google Drive.
@@ -770,13 +784,13 @@ class _DriveBackupTileState extends State<DriveBackupTile> {
     final d = widget.drive, last = d.lastBackup;
     return ListTile(
       leading: const Icon(Icons.backup_outlined),
-      title: const Text('Back up to Google Drive'),
+      title: Text(l10n.familyBackupDrive),
       subtitle: Text(
         !DriveBackup.available
-            ? 'Available in the Android app'
+            ? l10n.familyAndroidOnly
             : last == null
-            ? 'Keeps a copy in your Google account, once a day'
-            : 'Last backup ${DateFormat('MMM d, HH:mm').format(last)} · ${d.account ?? ''}',
+            ? l10n.familyBackupHint
+            : l10n.familyLastBackup(d.account ?? '', '${DateFormat.MMMd().format(last)}, ${DateFormat.Hm().format(last)}'),
       ),
       trailing: _busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : null,
       enabled: DriveBackup.available && !_busy,
@@ -785,7 +799,7 @@ class _DriveBackupTileState extends State<DriveBackupTile> {
         final ok = await guard(this.context, () => d.backUp().then((_) => true));
         if (!mounted) return;
         setState(() => _busy = false);
-        if (ok == true) showMessage(this.context, 'Backed up to Google Drive');
+        if (ok == true) showMessage(this.context, l10n.familyBackedUp);
       },
     );
   }
@@ -807,16 +821,11 @@ class _DriveSyncTileState extends State<DriveSyncTile> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: Text('Sync through Google Drive', style: serifStyle(22)),
-        content: const Text(
-          'Your phones will leave each other their changes in a shared folder in Google Drive, so they catch up '
-          'even when they aren\'t open at the same time or on the same Wi-Fi.\n\n'
-          'Google will ask to let Nestling use your Drive. Everything in the folder is encrypted: only your '
-          'family\'s phones can read it. Turn it on on each phone.',
-        ),
+        title: Text(l10n.familyDriveSync, style: serifStyle(22)),
+        content: Text(l10n.familyDriveSyncBody),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Continue')),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l10n.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l10n.familyContinue)),
         ],
       ),
     );
@@ -827,7 +836,7 @@ class _DriveSyncTileState extends State<DriveSyncTile> {
     setState(() => _busy = false);
     if (merged != null) {
       await s.load();
-      if (mounted) showMessage(context, 'Drive sync is on');
+      if (mounted) showMessage(context, l10n.familyDriveSyncOn);
     }
   }
 
@@ -838,17 +847,17 @@ class _DriveSyncTileState extends State<DriveSyncTile> {
     final on = r?.on ?? false;
     final last = r?.sync.lastSync, error = r?.sync.error;
     final subtitle = !DriveRelay.available
-        ? 'Available in the Android app'
+        ? l10n.familyAndroidOnly
         : !on
-        ? 'For phones that aren\'t open at the same time or on the same Wi-Fi'
+        ? l10n.familyDriveSyncHint
         : error != null
-        ? 'Couldn\'t sync last time. It will try again.'
+        ? l10n.familyDriveSyncFailed
         : last == null
-        ? 'On · ${r?.account ?? ''}'
-        : 'Synced ${ago(DateTime.now().difference(last).inSeconds)} · ${r?.account ?? ''}';
+        ? l10n.familyDriveOn(r?.account ?? '')
+        : l10n.familySyncedAgoAccount(r?.account ?? '', ago(DateTime.now().difference(last).inSeconds));
     return ListTile(
       leading: const Icon(Icons.cloud_sync_outlined),
-      title: const Text('Sync through Google Drive'),
+      title: Text(l10n.familyDriveSync),
       subtitle: Text(subtitle),
       enabled: DriveRelay.available && !_busy && r != null,
       onTap: on ? () => s.syncRelay() : null,

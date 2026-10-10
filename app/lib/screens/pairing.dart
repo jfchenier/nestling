@@ -7,6 +7,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../api/api.dart';
 import '../format.dart';
+import '../l10n/l10n.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
@@ -45,20 +46,16 @@ class _PairScreenState extends State<PairScreen> {
     final p = s.peers!;
     final t = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Pair a phone')),
+      appBar: AppBar(title: Text(l10n.pairingTitle)),
       body: Constrained(
         maxWidth: 480,
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
             if (!p.available)
-              Text('Pairing phones needs the Android app.', style: t.bodyLarge)
+              Text(l10n.pairingNeedsAndroid, style: t.bodyLarge)
             else ...[
-              Text(
-                'On the other phone, install Nestling, choose "Use without a server", then "Join with a pairing code" and scan this. '
-                'Both phones must be on the same Wi-Fi.',
-                style: t.bodyLarge?.copyWith(color: context.pal.muted),
-              ),
+              Text(l10n.pairingIntro, style: t.bodyLarge?.copyWith(color: context.pal.muted)),
               const SizedBox(height: 24),
               if (_error != null)
                 Text(_error!, style: TextStyle(color: context.pal.danger))
@@ -81,17 +78,17 @@ class _PairScreenState extends State<PairScreen> {
                 const SizedBox(height: 12),
                 TextButton.icon(
                   icon: const Icon(Icons.copy_rounded),
-                  label: const Text('Copy the code instead'),
+                  label: Text(l10n.pairingCopyCode),
                   onPressed: () {
                     Clipboard.setData(ClipboardData(text: _code!));
-                    showMessage(context, 'Pairing code copied. Send it only to your family: it opens your baby\'s data.');
+                    showMessage(context, l10n.pairingCodeCopied);
                   },
                 ),
               ],
             ],
-            const SectionTitle('Paired phones'),
+            SectionTitle(l10n.pairingPairedPhones),
             if (p.peers.isEmpty)
-              Text('None yet.', style: TextStyle(color: context.pal.muted))
+              Text(l10n.pairingNoneYet, style: TextStyle(color: context.pal.muted))
             else
               Card(
                 child: Column(
@@ -99,12 +96,13 @@ class _PairScreenState extends State<PairScreen> {
                     for (final peer in p.peers.values)
                       ListTile(
                         leading: const Icon(Icons.smartphone_rounded),
-                        title: Text((peer['name'] as String?)?.isNotEmpty == true ? peer['name'] : 'Phone'),
+                        title: Text((peer['name'] as String?)?.isNotEmpty == true ? peer['name'] : l10n.pairingPhone),
                         subtitle: Text(
                           peer['last_sync'] is int
-                              ? 'Synced ${ago(DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(peer['last_sync'])).inSeconds)}'
-                                    '${peer['error'] != null ? ' · not reachable right now' : ''}'
-                              : 'Not synced yet',
+                              ? (peer['error'] != null ? l10n.pairingUnreachable : l10n.familySyncedAgo)(
+                                  ago(DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(peer['last_sync'])).inSeconds),
+                                )
+                              : l10n.pairingNotSynced,
                         ),
                       ),
                   ],
@@ -112,11 +110,7 @@ class _PairScreenState extends State<PairScreen> {
               ),
             if (p.peers.isNotEmpty) ...[
               const SizedBox(height: 12),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.sync_rounded),
-                label: const Text('Sync now'),
-                onPressed: () => p.syncAll(),
-              ),
+              OutlinedButton.icon(icon: const Icon(Icons.sync_rounded), label: Text(l10n.pairingSyncNow), onPressed: () => p.syncAll()),
             ],
           ],
         ),
@@ -128,7 +122,7 @@ class _PairScreenState extends State<PairScreen> {
 /// Joins a family from another phone's pairing code: scan it, or paste it.
 Future<void> joinWithCode(BuildContext context) async {
   final s = context.read<AppState>();
-  if (!s.peers!.available) return showMessage(context, 'Pairing phones needs the Android app.');
+  if (!s.peers!.available) return showMessage(context, l10n.pairingNeedsAndroid);
   final scan = !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
   final code = await Navigator.of(context).push<String>(MaterialPageRoute(builder: (_) => _JoinScreen(scan: scan)));
   if (code == null || !context.mounted) return;
@@ -158,16 +152,13 @@ class _JoinScreenState extends State<_JoinScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Join with a pairing code')),
+    appBar: AppBar(title: Text(l10n.pairingJoinTitle)),
     body: Constrained(
       maxWidth: 480,
       child: ListView(
         padding: const EdgeInsets.all(24),
         children: [
-          Text(
-            'On a phone that already uses Nestling: Family → Pair a phone. Scan the code it shows (same Wi-Fi for both phones).',
-            style: TextStyle(color: context.pal.muted, fontSize: 15),
-          ),
+          Text(l10n.pairingJoinIntro, style: TextStyle(color: context.pal.muted, fontSize: 15)),
           const SizedBox(height: 20),
           if (widget.scan)
             ClipRRect(
@@ -187,10 +178,10 @@ class _JoinScreenState extends State<_JoinScreen> {
           TextField(
             controller: _text,
             maxLines: 3,
-            decoration: const InputDecoration(labelText: 'Or paste the code', hintText: 'NESTLING1:…'),
+            decoration: InputDecoration(labelText: l10n.pairingPasteCode, hintText: 'NESTLING1:…'),
           ),
           const SizedBox(height: 12),
-          FilledButton(onPressed: () => _found(_text.text.trim()), child: const Text('Join')),
+          FilledButton(onPressed: () => _found(_text.text.trim()), child: Text(l10n.familyJoinButton)),
         ],
       ),
     ),

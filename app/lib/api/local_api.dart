@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+import '../l10n/l10n.dart';
 import '../local/engine.dart';
 import 'api.dart';
 import '../local/store.dart';
@@ -17,8 +18,6 @@ class LocalApi extends SyncApi {
   /// A change was saved here (paired phones should hear about it), with the request path.
   void Function(String path)? onChanged;
 
-  static const _needsServer = 'This needs a Nestling server. In serverless mode everything stays on your phones.';
-
   @override
   Future<dynamic> send(
     String method,
@@ -29,10 +28,10 @@ class LocalApi extends SyncApi {
     String? contentType,
     Duration timeout = const Duration(seconds: 30),
   }) async {
-    if (!LocalEngine.handles(method, path, serverless: true)) throw ApiException('server_only', _needsServer, 404);
+    if (!LocalEngine.handles(method, path, serverless: true)) throw ApiException('server_only', l10n.localNeedsServer, 404);
     // The browser keeps a few MB at most: photos of memories need the Android app or a server.
     if (kIsWeb && method == 'PUT' && path.startsWith('/events/')) {
-      throw ApiException('server_only', 'Photos on memories need the Android app or a Nestling server.', 400);
+      throw ApiException('server_only', l10n.localPhotosNeedServer, 400);
     }
     final res = engine.handle(method, path, query: {...?query, 'content_type': ?contentType}, body: raw ?? body);
     if (method != 'GET') onChanged?.call(path);
@@ -45,7 +44,7 @@ class LocalApi extends SyncApi {
       return Uint8List.fromList(engine.eventPhotoBytes(m.group(1)!));
     }
     final m = RegExp(r'^/children/([^/]+)/photo$').firstMatch(path);
-    if (m == null) throw ApiException('server_only', _needsServer, 404);
+    if (m == null) throw ApiException('server_only', l10n.localNeedsServer, 404);
     return Uint8List.fromList(engine.photoBytes(m.group(1)!));
   }
 

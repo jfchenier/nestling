@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../format.dart';
+import '../l10n/l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
@@ -19,12 +21,31 @@ class BabyTooth {
 
   static const _kinds = ['central incisor', 'lateral incisor', 'canine', 'first molar', 'second molar'];
 
+  static List<String> get _kindLabels => [
+    l10n.teethCentralIncisor,
+    l10n.teethLateralIncisor,
+    l10n.teethCanine,
+    l10n.teethFirstMolar,
+    l10n.teethSecondMolar,
+  ];
+
   // When it usually comes in (months), per kind, upper and lower.
   static const _upperWhen = ['8–12', '9–13', '16–22', '13–19', '25–33'];
   static const _lowerWhen = ['6–10', '10–16', '17–23', '14–18', '23–31'];
 
-  String get name => '${upper ? 'Upper' : 'Lower'} ${right ? 'right' : 'left'} ${_kinds[kind - 1]}';
-  String get when => '${(upper ? _upperWhen : _lowerWhen)[kind - 1]} months';
+  /// The English name, saved as the milestone's name (data, like the memories' names).
+  String get storedName => '${upper ? 'Upper' : 'Lower'} ${right ? 'right' : 'left'} ${_kinds[kind - 1]}';
+
+  /// The name shown, in the app's language.
+  String get name => capFirst(
+    l10n.teethName(
+      _kindLabels[kind - 1],
+      upper
+          ? (right ? l10n.teethUpperRight : l10n.teethUpperLeft)
+          : (right ? l10n.teethLowerRight : l10n.teethLowerLeft),
+    ),
+  );
+  String get when => l10n.teethWhen((upper ? _upperWhen : _lowerWhen)[kind - 1]);
 }
 
 /// All 20, A to T.
@@ -126,7 +147,7 @@ class TeethChart extends StatelessWidget {
                           }
                         },
                   child: Semantics(
-                    label: 'Teeth chart: ${came.length} of 20 teeth in.${readOnly ? '' : ' Tap a tooth to log it.'}',
+                    label: readOnly ? l10n.teethChartSemanticsReadOnly(came.length) : l10n.teethChartSemantics(came.length),
                     child: CustomPaint(
                       size: size,
                       painter: _TeethPainter(layout, came.keys.toSet(), c, ink: c.ink, muted: c.muted),
@@ -139,12 +160,16 @@ class TeethChart extends StatelessWidget {
           const SizedBox(height: 4),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            children: [_legend(context, true, 'In'), const SizedBox(width: 18), _legend(context, false, 'Not yet')],
+            children: [
+              _legend(context, true, l10n.teethLegendIn),
+              const SizedBox(width: 18),
+              _legend(context, false, l10n.teethLegendNotYet),
+            ],
           ),
           const SizedBox(height: 6),
           if (!context.select<AppState, bool>((s) => s.bookOnly))
           Text(
-            came.isEmpty ? 'Tap a tooth when it comes in.' : 'Tap a tooth to log it or change its date.',
+            came.isEmpty ? l10n.teethTapFirst : l10n.teethTapChange,
             textAlign: TextAlign.center,
             style: TextStyle(color: c.muted, fontSize: 13),
           ),
@@ -180,6 +205,8 @@ class _TeethPainter extends CustomPainter {
   final Set<String> came;
   final AppColors c;
   final Color ink, muted;
+  // Kept so a language change repaints.
+  final upperText = l10n.teethUpper, lowerText = l10n.teethLower;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -236,13 +263,14 @@ class _TeethPainter extends CustomPainter {
       tp.paint(canvas, at - Offset(tp.width / 2, tp.height / 2));
     }
 
-    label('UPPER', Offset(w / 2, h * 0.36));
-    label('LOWER', Offset(w / 2, h * 0.64));
-    label('${came.length} of 20', Offset(w / 2, h * 0.5));
+    label(upperText, Offset(w / 2, h * 0.36));
+    label(lowerText, Offset(w / 2, h * 0.64));
+    label(l10n.teethCount(came.length), Offset(w / 2, h * 0.5));
   }
 
   @override
-  bool shouldRepaint(_TeethPainter old) => old.came.length != came.length || !old.came.containsAll(came) || old.c != c;
+  bool shouldRepaint(_TeethPainter old) =>
+      old.came.length != came.length || !old.came.containsAll(came) || old.c != c || old.upperText != upperText;
 }
 
 /// Log a tooth (when it came in), change its date, or take it back.
@@ -305,7 +333,8 @@ class _ToothSheetState extends State<_ToothSheet> {
     await s.act(
       (api) => api.post('/children/${widget.child.id}/events', {
         'type': 'milestone',
-        'name': anyTooth ? widget.tooth.name : 'First tooth',
+        // Saved in English: the book matches 'First tooth' and shows it translated.
+        'name': anyTooth ? widget.tooth.storedName : 'First tooth',
         'tooth': widget.tooth.code,
         'chapter': 'growing',
         'start': start,
@@ -348,10 +377,7 @@ class _ToothSheetState extends State<_ToothSheet> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(widget.tooth.name, style: serifStyle(21)),
-                      Text(
-                        'Usually comes in at ${widget.tooth.when}',
-                        style: TextStyle(color: c.muted, fontSize: 13.5),
-                      ),
+                      Text(l10n.teethUsually(widget.tooth.when), style: TextStyle(color: c.muted, fontSize: 13.5)),
                     ],
                   ),
                 ),
@@ -359,14 +385,14 @@ class _ToothSheetState extends State<_ToothSheet> {
             ),
             const SizedBox(height: 12),
             FormRow(
-              label: current == null ? 'Came in' : 'Came in on',
+              label: current == null ? l10n.teethCameIn : l10n.teethCameInOn,
               child: DateTimeValue(value: _when, onChanged: (v) => setState(() => _when = v)),
             ),
             if (age != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  '$age old',
+                  l10n.teethAgeOld(age),
                   textAlign: TextAlign.right,
                   style: TextStyle(color: k.on(c), fontWeight: FontWeight.w600),
                 ),
@@ -381,7 +407,7 @@ class _ToothSheetState extends State<_ToothSheet> {
                       foregroundColor: c.danger,
                       side: BorderSide(color: c.danger),
                     ),
-                    child: const Text('Not in yet'),
+                    child: Text(l10n.teethNotInYet),
                   ),
                   const SizedBox(width: 12),
                 ],
@@ -392,7 +418,7 @@ class _ToothSheetState extends State<_ToothSheet> {
                       backgroundColor: c.isDark ? k.fill(c) : k.deepTone,
                       foregroundColor: c.onAccent,
                     ),
-                    child: Text(current == null ? 'It came in' : 'Save date'),
+                    child: Text(current == null ? l10n.teethItCameIn : l10n.teethSaveDate),
                   ),
                 ),
               ],
@@ -401,7 +427,7 @@ class _ToothSheetState extends State<_ToothSheet> {
               Padding(
                 padding: const EdgeInsets.only(top: 10),
                 child: Text(
-                  'The first one goes in the book as "First tooth": add a photo and the story there.',
+                  l10n.teethFirstHint,
                   textAlign: TextAlign.center,
                   style: TextStyle(color: c.muted, fontSize: 13),
                 ),

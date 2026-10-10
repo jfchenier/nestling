@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../format.dart';
+import '../l10n/l10n.dart';
 import '../theme.dart';
 
 /// Pick a day (not in the future), keeping the time of [initial].
@@ -31,10 +32,12 @@ Future<DateTime?> pickTime(BuildContext context, DateTime initial) async {
 /// "Today  14:30" as two pills: tap the day to change the date, the time to change the time.
 /// Without a [value], shows [placeholder] and starts from now.
 class DateTimeValue extends StatelessWidget {
-  const DateTimeValue({super.key, required this.value, required this.onChanged, this.placeholder = 'Add', this.enabled = true});
+  const DateTimeValue({super.key, required this.value, required this.onChanged, this.placeholder, this.enabled = true});
   final DateTime? value;
   final ValueChanged<DateTime> onChanged;
-  final String placeholder;
+
+  /// Defaults to "Add".
+  final String? placeholder;
   final bool enabled;
 
   @override
@@ -70,15 +73,15 @@ class DateTimeValue extends StatelessWidget {
     if (v == null) {
       return TextButton(
         onPressed: enabled ? () => pick(pickTime) : null,
-        child: Text(placeholder, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
+        child: Text(placeholder ?? l10n.add, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600)),
       );
     }
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        pill(dayLabel(v), 'Change day, ${dayLabel(v)}', () => pick(pickDate)),
+        pill(dayLabel(v), l10n.commonChangeDay(dayLabel(v)), () => pick(pickDate)),
         const SizedBox(width: 8),
-        pill(timeOfDay(v), 'Change time, ${timeOfDay(v)}', () => pick(pickTime)),
+        pill(timeOfDay(v), l10n.commonChangeTime(timeOfDay(v)), () => pick(pickTime)),
       ],
     );
   }

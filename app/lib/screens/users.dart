@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../state.dart';
+import '../l10n/l10n.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 
@@ -45,7 +46,7 @@ class _UsersScreenState extends State<UsersScreen> {
     );
     if (res == null || !mounted) return;
     if (res.remove('add_to_family') == true && family != null) res['family_id'] = family.id;
-    await _run(() => s.api!.post('/admin/users', res), '${res['name']} can now sign in');
+    await _run(() => s.api!.post('/admin/users', res), l10n.usersCanSignIn('${res['name']}'));
   }
 
   Future<void> _resetPassword(Map<String, dynamic> u) async {
@@ -53,20 +54,20 @@ class _UsersScreenState extends State<UsersScreen> {
     if (password == null || !mounted) return;
     await _run(
       () => context.read<AppState>().api!.patch('/admin/users/${u['id']}', {'password': password}),
-      'New password set for ${u['name']}',
+      l10n.usersPasswordSet('${u['name']}'),
     );
   }
 
   Future<void> _toggleAdmin(Map<String, dynamic> u) => _run(
     () => context.read<AppState>().api!.patch('/admin/users/${u['id']}', {'is_admin': u['is_admin'] != true}),
-    u['is_admin'] == true ? '${u['name']} is no longer an admin' : '${u['name']} is now an admin',
+    u['is_admin'] == true ? l10n.usersNoLongerAdmin('${u['name']}') : l10n.usersNowAdmin('${u['name']}'),
   );
 
   Future<void> _delete(Map<String, dynamic> u) async {
-    if (!await confirm(context, 'Remove ${u['name']}?', 'They can no longer sign in. Their families and everything logged stay.')) {
+    if (!await confirm(context, l10n.usersRemoveTitle('${u['name']}'), l10n.usersRemoveBody, action: l10n.remove)) {
       return;
     }
-    if (mounted) await _run(() => context.read<AppState>().api!.delete('/admin/users/${u['id']}'), '${u['name']} removed');
+    if (mounted) await _run(() => context.read<AppState>().api!.delete('/admin/users/${u['id']}'), l10n.usersRemoved('${u['name']}'));
   }
 
   @override
@@ -74,11 +75,11 @@ class _UsersScreenState extends State<UsersScreen> {
     final c = context.pal;
     final users = _users;
     return Scaffold(
-      appBar: AppBar(title: const Text('Users')),
+      appBar: AppBar(title: Text(l10n.usersTitle)),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _add,
         icon: const Icon(Icons.person_add_alt_1_rounded),
-        label: const Text('Add user'),
+        label: Text(l10n.usersAdd),
       ),
       body: users == null
           ? const Center(child: CircularProgressIndicator())
@@ -88,11 +89,7 @@ class _UsersScreenState extends State<UsersScreen> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
-                    child: Text(
-                      'Only admins can create accounts on this server. Give people their email and '
-                      'password; they can change the password under Settings → Account.',
-                      style: TextStyle(color: c.muted),
-                    ),
+                    child: Text(l10n.usersIntro, style: TextStyle(color: c.muted)),
                   ),
                   Card(
                     child: Column(
@@ -106,28 +103,31 @@ class _UsersScreenState extends State<UsersScreen> {
                                 color: u['is_admin'] == true ? c.accent : c.muted,
                               ),
                             ),
-                            title: Text('${u['name']}${u['you'] == true ? ' (you)' : ''}'),
+                            title: Text(u['you'] == true ? l10n.familyYou('${u['name']}') : '${u['name']}'),
                             subtitle: Text(
                               [
                                 u['email'],
-                                if (u['is_admin'] == true) 'admin',
+                                if (u['is_admin'] == true) l10n.usersAdminTag,
                                 for (final f in (u['families'] as List? ?? [])) f['name'],
                               ].join(' · '),
                             ),
                             trailing: PopupMenuButton<String>(
-                              tooltip: 'Manage ${u['name']}',
+                              tooltip: l10n.usersManage('${u['name']}'),
                               onSelected: (v) => switch (v) {
                                 'password' => _resetPassword(u),
                                 'admin' => _toggleAdmin(u),
                                 _ => _delete(u),
                               },
                               itemBuilder: (_) => [
-                                const PopupMenuItem(value: 'password', child: Text('Set a new password')),
-                                PopupMenuItem(value: 'admin', child: Text(u['is_admin'] == true ? 'Remove admin' : 'Make admin')),
+                                PopupMenuItem(value: 'password', child: Text(l10n.usersSetPassword)),
+                                PopupMenuItem(
+                                  value: 'admin',
+                                  child: Text(u['is_admin'] == true ? l10n.usersRemoveAdmin : l10n.usersMakeAdmin),
+                                ),
                                 if (u['you'] != true)
                                   PopupMenuItem(
                                     value: 'delete',
-                                    child: Text('Remove account', style: TextStyle(color: c.danger)),
+                                    child: Text(l10n.usersRemoveAccount, style: TextStyle(color: c.danger)),
                                   ),
                               ],
                             ),
@@ -147,15 +147,15 @@ Future<String?> _askPassword(BuildContext context, String name) {
   return showDialog<String>(
     context: context,
     builder: (c) => AlertDialog(
-      title: Text('New password for $name', style: serifStyle(22)),
+      title: Text(l10n.usersNewPasswordFor(name), style: serifStyle(22)),
       content: TextField(
         controller: password,
         autofocus: true,
-        decoration: const InputDecoration(labelText: 'Password', helperText: 'At least 8 characters. They\'ll be signed out.'),
+        decoration: InputDecoration(labelText: l10n.usersPassword, helperText: l10n.usersPasswordHelp),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(c), child: const Text('Cancel')),
-        FilledButton(onPressed: () => password.text.length < 8 ? null : Navigator.pop(c, password.text), child: const Text('Save')),
+        TextButton(onPressed: () => Navigator.pop(c), child: Text(l10n.cancel)),
+        FilledButton(onPressed: () => password.text.length < 8 ? null : Navigator.pop(c, password.text), child: Text(l10n.save)),
       ],
     ),
   );
@@ -177,7 +177,7 @@ class _NewUserDialogState extends State<_NewUserDialog> {
 
   @override
   Widget build(BuildContext context) => AlertDialog(
-    title: Text('Add a user', style: serifStyle(22)),
+    title: Text(l10n.usersAddTitle, style: serifStyle(22)),
     content: Form(
       key: _form,
       child: SingleChildScrollView(
@@ -188,36 +188,36 @@ class _NewUserDialogState extends State<_NewUserDialog> {
               controller: _name,
               autofocus: true,
               textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Name'),
-              validator: (v) => (v ?? '').trim().isEmpty ? 'Enter a name' : null,
+              decoration: InputDecoration(labelText: l10n.familyName),
+              validator: (v) => (v ?? '').trim().isEmpty ? l10n.usersEnterName : null,
             ),
             const SizedBox(height: 10),
             TextFormField(
               controller: _email,
               keyboardType: TextInputType.emailAddress,
               autocorrect: false,
-              decoration: const InputDecoration(labelText: 'Email'),
-              validator: (v) => (v ?? '').contains('@') ? null : 'Enter an email',
+              decoration: InputDecoration(labelText: l10n.usersEmail),
+              validator: (v) => (v ?? '').contains('@') ? null : l10n.usersEnterEmail,
             ),
             const SizedBox(height: 10),
             TextFormField(
               controller: _password,
               autocorrect: false,
-              decoration: const InputDecoration(labelText: 'Password', helperText: 'They can change it later'),
-              validator: (v) => (v ?? '').length < 8 ? 'At least 8 characters' : null,
+              decoration: InputDecoration(labelText: l10n.usersPassword, helperText: l10n.usersCanChangeLater),
+              validator: (v) => (v ?? '').length < 8 ? l10n.familyAtLeast8 : null,
             ),
             if (widget.familyName != null)
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
-                title: Text('Add to ${widget.familyName}'),
-                subtitle: const Text('As a caregiver'),
+                title: Text(l10n.usersAddTo(widget.familyName!)),
+                subtitle: Text(l10n.usersAsCaregiver),
                 value: _family,
                 onChanged: (v) => setState(() => _family = v),
               ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: const Text('Admin'),
-              subtitle: const Text('Can manage users'),
+              title: Text(l10n.usersAdmin),
+              subtitle: Text(l10n.usersAdminHint),
               value: _admin,
               onChanged: (v) => setState(() => _admin = v),
             ),
@@ -226,7 +226,7 @@ class _NewUserDialogState extends State<_NewUserDialog> {
       ),
     ),
     actions: [
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+      TextButton(onPressed: () => Navigator.pop(context), child: Text(l10n.cancel)),
       FilledButton(
         onPressed: () {
           if (!_form.currentState!.validate()) return;
@@ -238,7 +238,7 @@ class _NewUserDialogState extends State<_NewUserDialog> {
             'add_to_family': _family,
           });
         },
-        child: const Text('Add'),
+        child: Text(l10n.add),
       ),
     ],
   );

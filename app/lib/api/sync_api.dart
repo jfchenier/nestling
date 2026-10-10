@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../local/engine.dart';
+import '../l10n/l10n.dart';
 import '../local/store.dart';
 import 'api.dart';
 
@@ -85,7 +86,7 @@ class SyncApi extends Api {
       if (!unreachable(e)) rethrow;
       _markOffline();
       if (local) return _local(method, path, query, sent);
-      throw ApiException('offline', 'You\'re offline. This needs a connection to the server (${Uri.parse(server).host}).');
+      throw ApiException('offline', l10n.syncOffline(Uri.parse(server).host));
     }
   }
 
@@ -149,7 +150,7 @@ class SyncApi extends Api {
           _outbox.removeAt(0);
           _confirm(o);
           refused = true;
-          notices.add(explain(e) ?? 'A change couldn\'t be saved: ${e.message}');
+          notices.add(explain(e) ?? l10n.syncChangeNotSaved(e.message));
           await _restore(o);
         }
       }
@@ -197,9 +198,9 @@ class SyncApi extends Api {
 
   /// A clearer message for a change that lost to another caregiver's (null: none).
   static String? explain(ApiException e) => switch (e.message) {
-    'timer not found' => 'This timer was already stopped on another phone. The screen is up to date now.',
-    'event not found' => 'This entry was deleted on another phone.',
-    final m when m.contains('timer is already running') => 'Someone already started this timer. It\'s shown now.',
+    'timer not found' => l10n.syncTimerStopped,
+    'event not found' => l10n.syncEntryDeleted,
+    final m when m.contains('timer is already running') => l10n.syncTimerRunning,
     _ => null,
   };
 
@@ -296,7 +297,7 @@ class SyncApi extends Api {
         } on ApiException catch (e) {
           if (unreachable(e)) rethrow;
           // Kept for the next try (next change, reconnection or app start); still pull below.
-          notices.add('Changes made offline couldn\'t be sent yet: ${e.message}');
+          notices.add(l10n.syncOfflineNotSent(e.message));
         }
         for (final f in store.families.map((f) => f['id'] as String).toList()) {
           await pull(f);
@@ -376,8 +377,8 @@ class SyncApi extends Api {
           }
           notices.add(
             r['status'] == 'conflict'
-                ? 'Something you changed was also changed on another device; the newer change was kept.'
-                : 'Something you logged couldn\'t be saved: ${r['message']}',
+                ? l10n.syncConflict
+                : l10n.syncLoggedNotSaved('${r['message']}'),
           );
         }
       }

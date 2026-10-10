@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../format.dart';
 import '../growth/percentiles.dart';
+import '../l10n/l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
@@ -89,17 +90,15 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
     final selected = points.where((p) => p.event.id == _selected?.id).firstOrNull;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Growth charts')),
+      appBar: AppBar(title: Text(l10n.growthTitle)),
       body: Constrained(
         maxWidth: 760,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
           children: [
             SegmentedButton<GrowthIndicator>(
-              segments: const [
-                ButtonSegment(value: GrowthIndicator.weight, label: Text('Weight')),
-                ButtonSegment(value: GrowthIndicator.length, label: Text('Length')),
-                ButtonSegment(value: GrowthIndicator.head, label: Text('Head')),
+              segments: [
+                for (final i in GrowthIndicator.values) ButtonSegment(value: i, label: Text(_indicatorName(i))),
               ],
               selected: {_indicator},
               showSelectedIcon: false,
@@ -112,10 +111,10 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
             if (child != null && child.sex != 'male' && child.sex != 'female')
               Row(
                 children: [
-                  Text('Compare with', style: TextStyle(color: c.muted)),
+                  Text(l10n.growthCompareWith, style: TextStyle(color: c.muted)),
                   const SizedBox(width: 12),
                   ChoiceChips<String>(
-                    options: const {'female': 'Girls', 'male': 'Boys'},
+                    options: {'female': l10n.growthGirls, 'male': l10n.growthBoys},
                     value: _compareSex,
                     onChanged: (v) => setState(() => _compareSex = v ?? _compareSex),
                   ),
@@ -123,8 +122,8 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
               ),
             if (birth == null)
               _Notice(
-                text: 'Add ${child?.name ?? 'the baby'}\'s birth date to compare with the WHO growth curves.',
-                action: child == null ? null : ('Add birth date', () => showChildForm(context, familyId: child.familyId, child: child)),
+                text: l10n.growthAddBirthDateNotice(child?.name ?? l10n.defaultBabyName),
+                action: child == null ? null : (l10n.growthAddBirthDate, () => showChildForm(context, familyId: child.familyId, child: child)),
               )
             else if (_events == null)
               const Padding(
@@ -154,15 +153,19 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
                 _Detail(
                   point: selected,
                   value: _valueText(selected.event, u),
-                  label: _indicator.name,
+                  label: _indicatorName(_indicator),
                   percentile: std.percentile(selected.days, selected.metric),
                   sex: sex,
                   birth: birth,
                 ),
               if (points.isEmpty)
                 _Notice(
-                  text: 'No ${_indicator == GrowthIndicator.head ? 'head size' : _indicator.name} measured yet.',
-                  action: ('Add a measurement', () => showEventForm(context, type: 'growth')),
+                  text: switch (_indicator) {
+                    GrowthIndicator.weight => l10n.growthNoneWeight,
+                    GrowthIndicator.length => l10n.growthNoneLength,
+                    GrowthIndicator.head => l10n.growthNoneHead,
+                  },
+                  action: (l10n.growthAddMeasurement, () => showEventForm(context, type: 'growth')),
                 ),
               const SizedBox(height: 8),
               for (final p in points.reversed)
@@ -172,7 +175,7 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
                   title: Text(_valueText(p.event, u)),
                   subtitle: Text('${DateFormat.yMMMd().format(p.event.start)} · ${_ageLabel(birth, p.event.start)}'),
                   trailing: Text(switch (std.percentile(p.days, p.metric)) {
-                    final pc? => '${percentileLabel(pc)} percentile',
+                    final pc? => l10n.growthPercentile(_rank(pc)),
                     null => '',
                   }, style: TextStyle(color: Kind.growth.on(c), fontWeight: FontWeight.w600)),
                   onTap: () => setState(() => _selected = p.event),
@@ -180,9 +183,7 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 12),
                 child: Text(
-                  'Curves: WHO Child Growth Standards (${sex == 'female' ? 'girls' : 'boys'}, birth to 24 months), '
-                  'percentiles 2 to 98. A single measurement says little; follow the trend, and ask your '
-                  'doctor about any worry.',
+                  l10n.growthCurvesNote(sex),
                   style: TextStyle(color: c.muted, fontSize: 12, height: 1.4),
                 ),
               ),
@@ -194,15 +195,30 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
   }
 }
 
+String _indicatorName(GrowthIndicator i) => switch (i) {
+  GrowthIndicator.weight => l10n.growthWeight,
+  GrowthIndicator.length => l10n.growthLength,
+  GrowthIndicator.head => l10n.growthHead,
+};
+
+/// A percentile as a rank in the app's language: "50th" (English), "50e" / "1er" (French), "50" (Spanish).
+String _rank(double p) {
+  final lang = l10n.localeName;
+  if (lang.startsWith('en')) return percentileLabel(p);
+  final n = p < 1 ? '<1' : (p > 99 ? '>99' : '${p.round()}');
+  if (lang.startsWith('fr')) return n == '1' || n == '<1' ? '${n}er' : '${n}e';
+  return n;
+}
+
 /// "2m 5d", "1y 3m", "12d".
 String _ageLabel(DateTime birth, DateTime at) {
   var months = (at.year - birth.year) * 12 + at.month - birth.month;
   if (at.day < birth.day) months--;
   final anchor = DateTime(birth.year, birth.month + months, birth.day);
   final days = at.difference(anchor).inDays;
-  if (months <= 0) return '${at.difference(birth).inDays}d';
-  if (months >= 12) return '${months ~/ 12}y ${months % 12}m';
-  return '${months}m ${days}d';
+  if (months <= 0) return l10n.growthAgeDays(at.difference(birth).inDays);
+  if (months >= 12) return l10n.growthAgeYearsMonths(months % 12, months ~/ 12);
+  return l10n.growthAgeMonthsDays(days, months);
 }
 
 class _Point {
@@ -283,15 +299,15 @@ class _Detail extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(DateFormat.yMMMd().format(point.event.start), style: serifStyle(18)),
-                  line(cap(label), value),
-                  if (percentile != null) line('${sex == 'female' ? 'Girls' : 'Boys'} percentile', percentileLabel(percentile!)),
-                  line('Age', _ageLabel(birth, point.event.start)),
+                  line(label, value),
+                  if (percentile != null) line(sex == 'female' ? l10n.growthGirlsPercentile : l10n.growthBoysPercentile, _rank(percentile!)),
+                  line(l10n.growthAge, _ageLabel(birth, point.event.start)),
                 ],
               ),
             ),
             TextButton(
               onPressed: () => showEventForm(context, type: 'growth', event: point.event),
-              child: const Text('Edit'),
+              child: Text(l10n.edit),
             ),
           ],
         ),
@@ -399,7 +415,7 @@ class _GrowthPainter extends CustomPainter {
       canvas.drawLine(Offset(x, p.bottom), Offset(x, p.bottom + 4), grid);
       _text(canvas, '$i', Offset(x, p.bottom + 12), center: true);
     }
-    _text(canvas, g.weeks ? 'weeks' : 'months', Offset(p.right, p.bottom + 26), right: true);
+    _text(canvas, g.weeks ? l10n.growthWeeks : l10n.growthMonths, Offset(p.right, p.bottom + 26), right: true);
 
     // Percentile curves, labelled at their right end.
     canvas.save();

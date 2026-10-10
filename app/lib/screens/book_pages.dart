@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../format.dart';
+import '../l10n/l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
@@ -20,7 +22,16 @@ import '../widgets/common.dart';
   final ref = DateTime.utc(2000, 1, 6, 18, 14);
   final days = when.toUtc().difference(ref).inMinutes / 1440;
   final age = (days % month + month) % month;
-  const names = ['New moon', 'Waxing crescent', 'First quarter', 'Waxing gibbous', 'Full moon', 'Waning gibbous', 'Last quarter', 'Waning crescent'];
+  final names = [
+    l10n.pagesMoonNew,
+    l10n.pagesMoonWaxingCrescent,
+    l10n.pagesMoonFirstQuarter,
+    l10n.pagesMoonWaxingGibbous,
+    l10n.pagesMoonFull,
+    l10n.pagesMoonWaningGibbous,
+    l10n.pagesMoonLastQuarter,
+    l10n.pagesMoonWaningCrescent,
+  ];
   final name = names[((age / month) * 8 + 0.5).floor() % 8];
   return (name: name, lit: (1 - math.cos(2 * math.pi * age / month)) / 2, age: age);
 }
@@ -31,7 +42,13 @@ DateTime? bornAt(Child child) {
   final d = child.birthDate;
   if (d == null) return null;
   final t = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(child.book['birth_time'] ?? '');
-  return DateTime(d.year, d.month, d.day, t == null ? 12 : int.parse(t.group(1)!), t == null ? 0 : int.parse(t.group(2)!));
+  return DateTime(
+    d.year,
+    d.month,
+    d.day,
+    t == null ? 12 : int.parse(t.group(1)!),
+    t == null ? 0 : int.parse(t.group(2)!),
+  );
 }
 
 /// The measurement closest to each month of age (within half a month), one row per month with
@@ -225,27 +242,27 @@ class BornPage extends StatelessWidget {
     final filled = readOnly || book.keys.any((k) => const ['birth_time', 'birth_place', 'hair', 'eyes', 'birth_note'].contains(k));
     return TapedPaper(
       tilt: -0.008,
-      semanticLabel: readOnly ? 'The day you were born' : 'The day you were born. Tap to edit.',
+      semanticLabel: readOnly ? l10n.pagesBornTitle : l10n.pagesTapToEdit(l10n.pagesBornTitle),
       onTap: readOnly ? null : () => editBornPage(context, child),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _PageHead('The day you were born', Icons.child_friendly_rounded, subtitle: born == null ? null : DateFormat.EEEE().format(born)),
-          if (born != null) _Line('Born', DateFormat.yMMMMd().format(born)),
-          if (book['birth_time'] case final t?) _Line('At', t),
-          if (book['birth_place'] case final p?) _Line('Where', p),
-          if (first?.$2 case final w?) _Line('Weighed', units.weight(w)),
-          if (first?.$3 case final l?) _Line('Measured', units.length(l)),
-          if (book['hair'] case final h?) _Line('Hair', h),
-          if (book['eyes'] case final e?) _Line('Eyes', e),
-          if (moon != null) _Line('The moon', moon.name, icon: moon.lit > 0.5 ? Icons.circle : Icons.dark_mode_rounded),
-          if (book['birth_note'] case final n?) _Block('We remember', n),
-          if (born == null && !readOnly) const _Prompt('Add the birth date in Family → the baby to start this page.'),
-          if (!filled) const _Prompt('Tap to add the time, the place, hair and eyes.'),
+          _PageHead(l10n.pagesBornTitle, Icons.child_friendly_rounded, subtitle: born == null ? null : capFirst(DateFormat.EEEE().format(born))),
+          if (born != null) _Line(l10n.pagesBorn, DateFormat.yMMMMd().format(born)),
+          if (book['birth_time'] case final t?) _Line(l10n.pagesAt, t),
+          if (book['birth_place'] case final p?) _Line(l10n.pagesWhere, p),
+          if (first?.$2 case final w?) _Line(l10n.pagesWeighed, units.weight(w)),
+          if (first?.$3 case final l?) _Line(l10n.pagesMeasured, units.length(l)),
+          if (book['hair'] case final h?) _Line(l10n.pagesHair, h),
+          if (book['eyes'] case final e?) _Line(l10n.pagesEyes, e),
+          if (moon != null) _Line(l10n.pagesMoon, moon.name, icon: moon.lit > 0.5 ? Icons.circle : Icons.dark_mode_rounded),
+          if (book['birth_note'] case final n?) _Block(l10n.pagesWeRemember, n),
+          if (born == null && !readOnly) _Prompt(l10n.pagesBornNoDate),
+          if (!filled) _Prompt(l10n.pagesBornPrompt),
           if (first == null && born != null && !readOnly)
             Padding(
               padding: const EdgeInsets.only(top: 6),
-              child: Text('Birth weight and length come from a Growth entry on the birth day.', style: TextStyle(color: context.pal.muted, fontSize: 13)),
+              child: Text(l10n.pagesBirthGrowthHint, style: TextStyle(color: context.pal.muted, fontSize: 13)),
             ),
         ],
       ),
@@ -265,46 +282,46 @@ class NamePage extends StatelessWidget {
     final filled = readOnly || book.keys.any((k) => k.startsWith('name_') || k == 'full_name');
     return TapedPaper(
       tilt: 0.007,
-      semanticLabel: readOnly ? 'Your name' : 'Your name. Tap to edit.',
+      semanticLabel: readOnly ? l10n.pagesNameTitle : l10n.pagesTapToEdit(l10n.pagesNameTitle),
       onTap: readOnly ? null : () => editNamePage(context, child),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const _PageHead('Your name', Icons.badge_rounded),
+          _PageHead(l10n.pagesNameTitle, Icons.badge_rounded),
           Text(book['full_name'] ?? child.name, style: serifStyle(26, color: Kind.milestone.on(context.pal))),
-          if (book['name_meaning'] case final m?) _Block('What it means', m),
-          if (book['name_why'] case final w?) _Block('Why we chose it', w),
-          if (book['name_others'] case final o?) _Block('Other names we thought of', o),
-          if (book['name_nicknames'] case final n?) _Block('Nicknames', n),
-          if (!filled) const _Prompt('Tap to write why you chose it.'),
+          if (book['name_meaning'] case final m?) _Block(l10n.pagesNameMeaning, m),
+          if (book['name_why'] case final w?) _Block(l10n.pagesNameWhy, w),
+          if (book['name_others'] case final o?) _Block(l10n.pagesNameOthers, o),
+          if (book['name_nicknames'] case final n?) _Block(l10n.pagesNicknames, n),
+          if (!filled) _Prompt(l10n.pagesNamePrompt),
         ],
       ),
     );
   }
 }
 
-/// The world page's texts: key, label, hint.
-const worldTopics = [
-  ('world_headlines', 'In the news', 'What everyone was talking about'),
-  ('world_leaders', 'Leaders', 'Prime minister, president, mayor…'),
-  ('world_songs', 'Songs on the radio', 'The hits that year'),
-  ('world_movies', 'At the movies', 'What was playing'),
-  ('world_shows', 'On TV', 'Shows everyone watched'),
-  ('world_people', 'Famous faces', 'Actors, athletes, singers'),
-  ('world_tech', 'Gadgets', 'The phone in our pocket, the new thing'),
+/// The world page's texts: key (saved in the book), label, hint.
+List<(String, String, String)> get worldTopics => [
+  ('world_headlines', l10n.pagesWorldNews, l10n.pagesWorldNewsHint),
+  ('world_leaders', l10n.pagesWorldLeaders, l10n.pagesWorldLeadersHint),
+  ('world_songs', l10n.pagesWorldSongs, l10n.pagesWorldSongsHint),
+  ('world_movies', l10n.pagesWorldMovies, l10n.pagesWorldMoviesHint),
+  ('world_shows', l10n.pagesWorldShows, l10n.pagesWorldShowsHint),
+  ('world_people', l10n.pagesWorldPeople, l10n.pagesWorldPeopleHint),
+  ('world_tech', l10n.pagesWorldTech, l10n.pagesWorldTechHint),
 ];
 
-/// What things cost: key, label.
-const worldPrices = [
-  ('price_coffee', 'A coffee'),
-  ('price_milk', 'Milk'),
-  ('price_bread', 'Bread'),
-  ('price_gas', 'Gas'),
-  ('price_diapers', 'Diapers'),
-  ('price_movie', 'A movie ticket'),
-  ('price_rent', 'Rent'),
-  ('price_house', 'A house'),
-  ('price_car', 'A new car'),
+/// What things cost: key (saved in the book), label.
+List<(String, String)> get worldPrices => [
+  ('price_coffee', l10n.pagesPriceCoffee),
+  ('price_milk', l10n.pagesPriceMilk),
+  ('price_bread', l10n.pagesPriceBread),
+  ('price_gas', l10n.pagesPriceGas),
+  ('price_diapers', l10n.pagesPriceDiapers),
+  ('price_movie', l10n.pagesPriceMovie),
+  ('price_rent', l10n.pagesPriceRent),
+  ('price_house', l10n.pagesPriceHouse),
+  ('price_car', l10n.pagesPriceCar),
 ];
 
 /// "The world you were born into": news, culture and prices, typed by the family (the app
@@ -332,16 +349,20 @@ class WorldPage extends StatelessWidget {
     final readOnly = context.select<AppState, bool>((s) => s.bookOnly);
     return TapedPaper(
       tilt: -0.006,
-      semanticLabel: readOnly ? 'The world you were born into' : 'The world you were born into. Tap to edit.',
+      semanticLabel: readOnly ? l10n.pagesWorldTitle : l10n.pagesTapToEdit(l10n.pagesWorldTitle),
       onTap: readOnly ? null : () => editWorldPage(context, child),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _PageHead('The world you were born into', Icons.public_rounded, subtitle: born == null ? null : DateFormat.yMMMM().format(born)),
+          _PageHead(
+            l10n.pagesWorldTitle,
+            Icons.public_rounded,
+            subtitle: born == null ? null : capFirst(DateFormat.yMMMM().format(born)),
+          ),
           for (final (label, v) in topics) _Block(label, v),
           if (prices.isNotEmpty) ...[
             const SizedBox(height: 14),
-            Text('What things cost', style: TextStyle(color: c.muted, fontSize: 14)),
+            Text(l10n.pagesWhatThingsCost, style: TextStyle(color: c.muted, fontSize: 14)),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -350,7 +371,10 @@ class WorldPage extends StatelessWidget {
                 for (final (label, v) in prices)
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(color: Kind.milestone.fill(c).withValues(alpha: 0.35), borderRadius: BorderRadius.circular(12)),
+                    decoration: BoxDecoration(
+                      color: Kind.milestone.fill(c).withValues(alpha: 0.35),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
@@ -363,8 +387,8 @@ class WorldPage extends StatelessWidget {
               ],
             ),
           ],
-          if (book['world_note'] case final n?) _Block('And also', n),
-          if (topics.isEmpty && prices.isEmpty && book['world_note'] == null) const _Prompt('Tap to note the songs, the news and what a coffee cost.'),
+          if (book['world_note'] case final n?) _Block(l10n.pagesAndAlso, n),
+          if (topics.isEmpty && prices.isEmpty && book['world_note'] == null) _Prompt(l10n.pagesWorldPrompt),
         ],
       ),
     );
@@ -383,8 +407,11 @@ class GrowthPage extends StatelessWidget {
     final units = context.watch<AppState>().units;
     final rows = growthByMonth(child, growth);
     final head = rows.any((r) => r.$4 != null);
-    TextStyle cell([bool bold = false]) =>
-        TextStyle(fontSize: 14.5, fontWeight: bold ? FontWeight.w700 : FontWeight.w500, color: bold ? Kind.milestone.on(c) : c.ink);
+    TextStyle cell([bool bold = false]) => TextStyle(
+      fontSize: 14.5,
+      fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
+      color: bold ? Kind.milestone.on(c) : c.ink,
+    );
     return TapedPaper(
       tilt: 0.006,
       child: Column(
@@ -396,18 +423,23 @@ class GrowthPage extends StatelessWidget {
               children: [
                 const BlobIcon(Kind.growth, size: 40, icon: Icons.straighten_rounded),
                 const SizedBox(width: 12),
-                Expanded(child: Text('Month by month', style: serifStyle(21))),
+                Expanded(child: Text(l10n.pagesMonthByMonth, style: serifStyle(21))),
               ],
             ),
           ),
           if (rows.isEmpty)
             Text(
-              child.birthDate == null ? 'Add the birth date to see growth month by month.' : 'Log weight and length in Growth, and each month shows here.',
+              child.birthDate == null ? l10n.pagesGrowthNoBirth : l10n.pagesGrowthEmpty,
               style: TextStyle(color: c.muted),
             )
           else
             Table(
-              columnWidths: {0: const FlexColumnWidth(1.1), 1: const FlexColumnWidth(1.2), 2: const FlexColumnWidth(1), if (head) 3: const FlexColumnWidth(1)},
+              columnWidths: {
+                0: const FlexColumnWidth(1.1),
+                1: const FlexColumnWidth(1.2),
+                2: const FlexColumnWidth(1),
+                if (head) 3: const FlexColumnWidth(1),
+              },
               defaultVerticalAlignment: TableCellVerticalAlignment.middle,
               children: [
                 TableRow(
@@ -415,7 +447,7 @@ class GrowthPage extends StatelessWidget {
                     border: Border(bottom: BorderSide(color: c.line)),
                   ),
                   children: [
-                    for (final h in ['Age', 'Weight', 'Length', if (head) 'Head'])
+                    for (final h in [l10n.pagesAge, l10n.pagesWeight, l10n.pagesLength, if (head) l10n.pagesHead])
                       Padding(
                         padding: const EdgeInsets.only(bottom: 6),
                         child: Text(h, style: TextStyle(color: c.muted, fontSize: 13)),
@@ -427,7 +459,7 @@ class GrowthPage extends StatelessWidget {
                     children: [
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 7),
-                        child: Text(m == 0 ? 'Birth' : '$m mo', style: cell(true)),
+                        child: Text(m == 0 ? l10n.pagesBirth : l10n.pagesMonthsShort(m), style: cell(true)),
                       ),
                       Text(w == null ? '–' : units.weight(w), style: cell()),
                       Text(l == null ? '–' : units.length(l), style: cell()),
@@ -450,54 +482,66 @@ typedef _Field = ({String key, String label, String hint, bool long});
 Future<void> editBornPage(BuildContext context, Child child) => _editPage(
   context,
   child,
-  title: 'The day you were born',
+  title: l10n.pagesBornTitle,
   icon: Icons.child_friendly_rounded,
   time: true,
-  fields: const [
-    (key: 'birth_place', label: 'Where', hint: 'The hospital, home, the city', long: false),
-    (key: 'hair', label: 'Hair', hint: 'Dark and lots of it', long: false),
-    (key: 'eyes', label: 'Eyes', hint: 'Deep blue', long: false),
-    (key: 'birth_note', label: 'We remember', hint: 'The first cry, who was there, the weather…', long: true),
+  fields: [
+    (key: 'birth_place', label: l10n.pagesWhere, hint: l10n.pagesHintPlace, long: false),
+    (key: 'hair', label: l10n.pagesHair, hint: l10n.pagesHintHair, long: false),
+    (key: 'eyes', label: l10n.pagesEyes, hint: l10n.pagesHintEyes, long: false),
+    (key: 'birth_note', label: l10n.pagesWeRemember, hint: l10n.pagesHintRemember, long: true),
   ],
 );
 
 Future<void> editNamePage(BuildContext context, Child child) => _editPage(
   context,
   child,
-  title: 'Your name',
+  title: l10n.pagesNameTitle,
   icon: Icons.badge_rounded,
   fields: [
-    (key: 'full_name', label: 'Full name', hint: child.name, long: false),
-    (key: 'name_meaning', label: 'What it means', hint: 'Its meaning or origin', long: true),
-    (key: 'name_why', label: 'Why we chose it', hint: 'Who or what it comes from', long: true),
-    (key: 'name_others', label: 'Other names we thought of', hint: 'The runners-up', long: true),
-    (key: 'name_nicknames', label: 'Nicknames', hint: 'What we call you at home', long: false),
+    (key: 'full_name', label: l10n.pagesFullName, hint: child.name, long: false),
+    (key: 'name_meaning', label: l10n.pagesNameMeaning, hint: l10n.pagesHintMeaning, long: true),
+    (key: 'name_why', label: l10n.pagesNameWhy, hint: l10n.pagesHintWhy, long: true),
+    (key: 'name_others', label: l10n.pagesNameOthers, hint: l10n.pagesHintOthers, long: true),
+    (key: 'name_nicknames', label: l10n.pagesNicknames, hint: l10n.pagesHintNicknames, long: false),
   ],
 );
 
 Future<void> editWorldPage(BuildContext context, Child child) => _editPage(
   context,
   child,
-  title: 'The world you were born into',
+  title: l10n.pagesWorldTitle,
   icon: Icons.public_rounded,
   fields: [
     for (final (k, label, hint) in worldTopics) (key: k, label: label, hint: hint, long: true),
-    for (final (k, label) in worldPrices) (key: k, label: label, hint: 'Price', long: false),
-    (key: 'world_note', label: 'And also', hint: 'Anything else about that year', long: true),
+    for (final (k, label) in worldPrices) (key: k, label: label, hint: l10n.pagesPriceHint, long: false),
+    (key: 'world_note', label: l10n.pagesAndAlso, hint: l10n.pagesHintWorldNote, long: true),
   ],
 );
 
-Future<void> _editPage(BuildContext context, Child child, {required String title, required IconData icon, required List<_Field> fields, bool time = false}) =>
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      backgroundColor: context.pal.background,
-      builder: (_) => _PageForm(child: child, title: title, icon: icon, fields: fields, time: time),
-    );
+Future<void> _editPage(
+  BuildContext context,
+  Child child, {
+  required String title,
+  required IconData icon,
+  required List<_Field> fields,
+  bool time = false,
+}) => showModalBottomSheet(
+  context: context,
+  isScrollControlled: true,
+  useSafeArea: true,
+  backgroundColor: context.pal.background,
+  builder: (_) => _PageForm(child: child, title: title, icon: icon, fields: fields, time: time),
+);
 
 class _PageForm extends StatefulWidget {
-  const _PageForm({required this.child, required this.title, required this.icon, required this.fields, required this.time});
+  const _PageForm({
+    required this.child,
+    required this.title,
+    required this.icon,
+    required this.fields,
+    required this.time,
+  });
   final Child child;
   final String title;
   final IconData icon;
@@ -509,7 +553,9 @@ class _PageForm extends StatefulWidget {
 }
 
 class _PageFormState extends State<_PageForm> {
-  late final _text = {for (final f in widget.fields) f.key: TextEditingController(text: widget.child.book[f.key] ?? '')};
+  late final _text = {
+    for (final f in widget.fields) f.key: TextEditingController(text: widget.child.book[f.key] ?? ''),
+  };
   late String? _time = widget.child.book['birth_time'];
   bool _busy = false;
 
@@ -517,9 +563,13 @@ class _PageFormState extends State<_PageForm> {
     final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(_time ?? '');
     final t = await showTimePicker(
       context: context,
-      initialTime: m == null ? const TimeOfDay(hour: 12, minute: 0) : TimeOfDay(hour: int.parse(m.group(1)!), minute: int.parse(m.group(2)!)),
+      initialTime: m == null
+          ? const TimeOfDay(hour: 12, minute: 0)
+          : TimeOfDay(hour: int.parse(m.group(1)!), minute: int.parse(m.group(2)!)),
     );
-    if (t != null) setState(() => _time = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}');
+    if (t != null) {
+      setState(() => _time = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}');
+    }
   }
 
   Future<void> _save() async {
@@ -532,7 +582,10 @@ class _PageFormState extends State<_PageForm> {
     }
     if (widget.time) book['birth_time'] = _time;
     book.removeWhere((_, v) => v == null || (v is String && v.isEmpty));
-    final ok = await guard(context, () => s.act((api) => api.patch('/children/${widget.child.id}', {'book': book}), families: true).then((_) => true));
+    final ok = await guard(
+      context,
+      () => s.act((api) => api.patch('/children/${widget.child.id}', {'book': book}), families: true).then((_) => true),
+    );
     if (!mounted) return;
     if (ok == true) {
       Navigator.pop(context);
@@ -570,10 +623,10 @@ class _PageFormState extends State<_PageForm> {
                 children: [
                   if (widget.time)
                     FormRow(
-                      label: 'Time of birth',
+                      label: l10n.pagesTimeOfBirth,
                       onTap: _pickTime,
                       child: Text(
-                        _time ?? 'Set',
+                        _time ?? l10n.pagesSetTime,
                         style: TextStyle(fontWeight: FontWeight.w600, color: _time == null ? c.accent : c.ink),
                       ),
                     ),
@@ -597,8 +650,11 @@ class _PageFormState extends State<_PageForm> {
                 padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
                 child: FilledButton(
                   onPressed: _busy ? null : _save,
-                  style: FilledButton.styleFrom(backgroundColor: c.isDark ? k.fill(c) : k.deepTone, foregroundColor: c.onAccent),
-                  child: Text(_busy ? 'Saving…' : 'Save to the book'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: c.isDark ? k.fill(c) : k.deepTone,
+                    foregroundColor: c.onAccent,
+                  ),
+                  child: Text(_busy ? l10n.pagesSaving : l10n.pagesSaveToBook),
                 ),
               ),
             ),

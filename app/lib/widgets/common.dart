@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../api/api.dart';
+import '../l10n/l10n.dart';
 import '../theme.dart';
 
 /// An organic pastel blob, seeded so each activity always gets the same shape.
@@ -83,7 +84,7 @@ class PlusButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Tooltip(
-    message: tooltip ?? 'Add',
+    message: tooltip ?? l10n.add,
     child: Material(
       color: context.pal.accent,
       shape: const CircleBorder(),
@@ -104,12 +105,14 @@ class PlusButton extends StatelessWidget {
 
 /// Colored band at the top of an entry sheet: ✕ · serif title · Save.
 class SheetHeader extends StatelessWidget {
-  const SheetHeader({super.key, required this.title, required this.color, this.onClose, this.onSave, this.saveLabel = 'Save'});
+  const SheetHeader({super.key, required this.title, required this.color, this.onClose, this.onSave, this.saveLabel});
   final String title;
   final Color color;
   final VoidCallback? onClose;
   final VoidCallback? onSave;
-  final String saveLabel;
+
+  /// Defaults to "Save".
+  final String? saveLabel;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -120,7 +123,7 @@ class SheetHeader extends StatelessWidget {
         IconButton(
           icon: const Icon(Icons.close_rounded, size: 28),
           color: context.pal.bandInk,
-          tooltip: 'Close',
+          tooltip: l10n.close,
           onPressed: onClose ?? () => Navigator.maybePop(context),
         ),
         Expanded(
@@ -139,7 +142,7 @@ class SheetHeader extends StatelessWidget {
               disabledForegroundColor: context.pal.bandInk.withValues(alpha: 0.35),
               textStyle: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
             ),
-            child: Text(saveLabel),
+            child: Text(saveLabel ?? l10n.save),
           ),
         ),
       ],
@@ -220,10 +223,10 @@ class InlineNumber extends StatelessWidget {
 
 /// Big round toggle (wet / dirty / dry).
 /// The three potty outcomes (value saved in `potty`, label, icon), in screen order.
-const pottyResults = [
-  ('sat_dry', 'Sat but dry', Icons.water_drop_outlined),
-  ('success', 'Potty', Icons.wc_rounded),
-  ('accident', 'Accident', Icons.water_drop_rounded),
+List<(String, String, IconData)> get pottyResults => [
+  ('sat_dry', l10n.pottySatDry, Icons.water_drop_outlined),
+  ('success', l10n.pottySuccess, Icons.wc_rounded),
+  ('accident', l10n.pottyAccident, Icons.water_drop_rounded),
 ];
 
 class CircleToggle extends StatelessWidget {
@@ -232,6 +235,7 @@ class CircleToggle extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
   final double size;
+
   /// Drawn above a smaller [label] when set.
   final IconData? icon;
 
@@ -405,7 +409,13 @@ Future<T?> guard<T>(BuildContext context, Future<T> Function() action) async {
   } on ApiException catch (e) {
     if (context.mounted) showMessage(context, e.message);
   } catch (e) {
-    if (context.mounted) showMessage(context, 'Something went wrong: $e');
+    // The app's own errors (e.g. Drive sync) carry a translated message: show it without Dart's "Bad state:" prefix.
+    final text = switch (e) {
+      StateError(:final message) => message,
+      UnsupportedError(:final message?) => message,
+      _ => '$e',
+    };
+    if (context.mounted) showMessage(context, l10n.commonSomethingWrong(text));
   }
   return null;
 }
@@ -425,18 +435,18 @@ class Constrained extends StatelessWidget {
   );
 }
 
-Future<bool> confirm(BuildContext context, String title, String message, {String action = 'Delete'}) async {
+Future<bool> confirm(BuildContext context, String title, String message, {String? action}) async {
   final ok = await showDialog<bool>(
     context: context,
     builder: (c) => AlertDialog(
       title: Text(title),
       content: Text(message),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l10n.cancel)),
         TextButton(
           onPressed: () => Navigator.pop(c, true),
           style: TextButton.styleFrom(foregroundColor: context.pal.danger),
-          child: Text(action),
+          child: Text(action ?? l10n.delete),
         ),
       ],
     ),
@@ -471,14 +481,8 @@ class ChoiceChips<T> extends StatelessWidget {
 
 /// Like [confirm], for things that can't be undone: the button only works once [expected]
 /// (e.g. the family's name) is typed exactly.
-Future<bool> confirmByTyping(
-  BuildContext context,
-  String title,
-  String message, {
-  required String expected,
-  String action = 'Delete',
-}) async {
-  final ok = await showDialog<bool>(context: context, builder: (_) => _TypeToConfirm(title, message, expected, action));
+Future<bool> confirmByTyping(BuildContext context, String title, String message, {required String expected, String? action}) async {
+  final ok = await showDialog<bool>(context: context, builder: (_) => _TypeToConfirm(title, message, expected, action ?? l10n.delete));
   return ok == true;
 }
 
@@ -507,12 +511,15 @@ class _TypeToConfirmState extends State<_TypeToConfirm> {
         Text.rich(
           TextSpan(
             children: [
-              const TextSpan(text: 'Type '),
-              TextSpan(
-                text: widget.expected,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const TextSpan(text: ' to confirm.'),
+              // "Type {name} to confirm." with the name in bold, wherever the language puts it.
+              for (final (i, part) in l10n.commonTypeToConfirm('\u0000').split('\u0000').indexed) ...[
+                if (i > 0)
+                  TextSpan(
+                    text: widget.expected,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                TextSpan(text: part),
+              ],
             ],
           ),
         ),
@@ -528,7 +535,7 @@ class _TypeToConfirmState extends State<_TypeToConfirm> {
       ],
     ),
     actions: [
-      TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+      TextButton(onPressed: () => Navigator.pop(context, false), child: Text(l10n.cancel)),
       FilledButton(
         onPressed: _matches ? () => Navigator.pop(context, true) : null,
         style: FilledButton.styleFrom(backgroundColor: context.pal.danger, foregroundColor: Colors.white),

@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import 'format.dart';
+import 'l10n/l10n.dart';
 import 'models.dart';
 
 /// Android: an ongoing notification for each running timer (breastfeed, sleep, pump) with a
@@ -48,15 +49,14 @@ class TimerNotifications {
         final id = _id(t.kind);
         keep.add(id);
         final what = switch (t.kind) {
-          'breastfeed' =>
-            t.running ? 'Breastfeeding · ${t.side == 'right' ? 'right' : 'left'} side' : 'Breastfeed paused',
-          'sleep' => t.running ? 'Sleeping' : 'Sleep paused',
-          _ => t.running ? 'Pumping' : 'Pump paused',
+          'breastfeed' => t.running ? l10n.notifBreastfeeding(t.side == 'right' ? 'right' : 'left') : l10n.notifBreastfeedPaused,
+          'sleep' => t.running ? l10n.notifSleeping : l10n.notifSleepPaused,
+          _ => t.running ? l10n.notifPumping : l10n.notifPumpPaused,
         };
-        final title = childName == null || t.kind == 'pump' ? what : '$childName · $what';
+        final title = childName == null || t.kind == 'pump' ? what : l10n.notifTitle(childName, what);
         final body = t.running
-            ? 'Since ${timeOfDay(t.startedAt)} · tap to open'
-            : '${duration(t.elapsed, showSeconds: true)} so far · tap to resume';
+            ? l10n.notifRunningBody(timeOfDay(t.startedAt))
+            : l10n.notifPausedBody(duration(t.elapsed, showSeconds: true));
         await _channel.invokeMethod('show', {
           'id': id,
           'title': title,
@@ -65,7 +65,7 @@ class TimerNotifications {
           // The clock counts up from "now minus the time already on the timer".
           'startedAt': DateTime.now().millisecondsSinceEpoch - t.elapsed * 1000,
           // Status-bar chip text; null lets a running timer's chip show its clock.
-          'chip': t.running ? null : 'Paused',
+          'chip': t.running ? null : l10n.notifChipPaused,
         });
       }
       for (final id in _shown.difference(keep)) {

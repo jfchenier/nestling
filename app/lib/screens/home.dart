@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../format.dart';
+import '../l10n/l10n.dart';
 import '../local/schedule.dart' show medicineKey;
 import '../models.dart';
 import '../state.dart';
@@ -51,7 +52,7 @@ class HomeScreen extends StatelessWidget {
                   child: TextButton.icon(
                     onPressed: () => showEventForm(context, type: 'note'),
                     icon: const Icon(Icons.edit_note_rounded),
-                    label: const Text('Add a note'),
+                    label: Text(l10n.homeAddNote),
                   ),
                 ),
               ],
@@ -78,18 +79,18 @@ class HomeScreen extends StatelessWidget {
     final feed = last('feed'), nursing = timer('breastfeed');
     final feedCard = () {
       if (nursing != null) {
-        return _CardData.live(nursing, nursing.running ? 'breastfeed · ${nursing.side == 'right' ? 'right' : 'left'}' : 'paused');
+        return _CardData.live(nursing, nursing.running ? l10n.homeLiveBreastfeed(nursing.side == 'right' ? 'right' : 'left') : l10n.homePaused);
       }
       if (feed == null) return const _CardData();
       final end = feed.endSide;
       return switch (feed['method'] as String?) {
-        'bottle' => _CardData(top: since(feed.start), value: u.volume(toDouble(feed['amount_ml'])).ifEmpty('Bottle'), caption: 'bottle'),
-        'solids' => _CardData(top: since(feed.start), value: 'Solids', caption: (feed['foods'] as String?) ?? ''),
+        'bottle' => _CardData(top: since(feed.start), value: u.volume(toDouble(feed['amount_ml'])).ifEmpty(l10n.kindBottle), caption: l10n.homeCaptionBottle),
+        'solids' => _CardData(top: since(feed.start), value: l10n.kindSolids, caption: (feed['foods'] as String?) ?? ''),
         _ => _CardData(
           top: since(feed.start),
           // The side the last feed ended on.
-          value: end == null ? 'Breastfeed' : (end == 'left' ? 'Left' : 'Right'),
-          caption: end == null ? '' : 'last side',
+          value: end == null ? l10n.kindBreastfeed : (end == 'left' ? l10n.left : l10n.right),
+          caption: end == null ? '' : l10n.homeLastSide,
         ),
       };
     }();
@@ -97,13 +98,13 @@ class HomeScreen extends StatelessWidget {
     // Sleep
     final sleep = last('sleep'), sleeping = timer('sleep');
     final sleepCard = sleeping != null
-        ? _CardData.live(sleeping, sleeping.running ? 'asleep' : 'paused')
+        ? _CardData.live(sleeping, sleeping.running ? l10n.homeAsleep : l10n.homePaused)
         : sleep == null
         ? const _CardData()
         : _CardData(
-            top: 'woke ${since(sleep.end ?? sleep.start)}',
+            top: l10n.homeWoke(since(sleep.end ?? sleep.start)),
             value: duration(now.difference(sleep.end ?? sleep.start).inSeconds),
-            caption: 'awake · last ${duration(sleep.durationSeconds)}',
+            caption: l10n.homeAwakeLast(duration(sleep.durationSeconds)),
           );
 
     // Diaper
@@ -111,10 +112,12 @@ class HomeScreen extends StatelessWidget {
     final diaperCard = diaper == null
         ? const _CardData()
         : diaper['potty'] != null
-        ? _CardData(top: since(diaper.start), value: pottyLabel(diaper['potty'])!, caption: diaper['potty'] == 'sat_dry' ? 'potty' : wetDirty(diaper).toLowerCase())
+        ? _CardData(top: since(diaper.start), value: pottyLabel(diaper['potty'])!, caption: diaper['potty'] == 'sat_dry' ? l10n.homeCaptionPotty : wetDirty(diaper).toLowerCase())
         : _CardData(
             top: since(diaper.start),
-            value: diaper['dirty'] == true ? (diaper['wet'] == true ? 'Wet + dirty' : 'Dirty') : (diaper['wet'] == true ? 'Wet' : 'Dry'),
+            value: diaper['dirty'] == true
+                ? (diaper['wet'] == true ? l10n.wetAndDirty : l10n.dirty)
+                : (diaper['wet'] == true ? l10n.wet : l10n.dry),
             caption: [cap(diaper['color'] as String?), cap(diaper['consistency'] as String?)].where((x) => x.isNotEmpty).join(' · '),
           );
 
@@ -122,10 +125,10 @@ class HomeScreen extends StatelessWidget {
     final pump = last('pump'), pumping = timer('pump');
     final pumpTotal = (toDouble(pump?['left_ml']) ?? 0) + (toDouble(pump?['right_ml']) ?? 0);
     final pumpCard = pumping != null
-        ? _CardData.live(pumping, pumping.running ? 'pumping' : 'paused')
+        ? _CardData.live(pumping, pumping.running ? l10n.homePumping.toLowerCase() : l10n.homePaused)
         : pump == null
         ? const _CardData()
-        : _CardData(top: since(pump.start), value: pumpTotal > 0 ? u.volume(pumpTotal) : duration(pump.durationSeconds), caption: 'pumped');
+        : _CardData(top: since(pump.start), value: pumpTotal > 0 ? u.volume(pumpTotal) : duration(pump.durationSeconds), caption: l10n.homePumped);
 
     // Growth: latest value of each measure
     final growth = s.others.where((e) => e.type == 'growth').toList();
@@ -140,7 +143,7 @@ class HomeScreen extends StatelessWidget {
                 : (l != null ? u.length(toDouble(l['length_cm'])) : u.length(toDouble(h?['head_cm']))),
             caption: [
               if (w != null && l != null) u.length(toDouble(l['length_cm'])),
-              if (h != null && (w != null || l != null)) 'head ${u.length(toDouble(h['head_cm']))}',
+              if (h != null && (w != null || l != null)) l10n.homeHead(u.length(toDouble(h['head_cm']))),
             ].join(' · '),
           );
 
@@ -180,34 +183,34 @@ class HomeScreen extends StatelessWidget {
         _ => Icons.history_rounded,
       },
       historyLabel: switch (filter) {
-        'growth' => 'Growth charts',
-        'milestone' => 'Baby book',
-        _ => '$title history',
+        'growth' => l10n.homeGrowthCharts,
+        'milestone' => l10n.homeBabyBook,
+        _ => l10n.homeCardHistory(title),
       },
       historyShort: switch (filter) {
-        'growth' => 'Charts',
-        'milestone' => 'Book',
-        _ => 'History',
+        'growth' => l10n.homeChartsShort,
+        'milestone' => l10n.homeNavBook,
+        _ => l10n.homeHistoryShort,
       },
     );
     return [
-      card(Kind.breast, 'Feed', feedCard, () => showFeedPicker(context), 'feed', nursing),
-      card(Kind.sleep, 'Sleep', sleepCard, () => open('sleep'), 'sleep', sleeping),
-      card(Kind.diaper, 'Diaper', diaperCard, () => showEventForm(context, type: 'diaper'), 'diaper'),
-      card(Kind.pump, 'Pump', pumpCard, () => open('pump'), 'pump', pumping),
-      card(Kind.growth, 'Growth', growthCard, () => showEventForm(context, type: 'growth'), 'growth'),
-      card(Kind.health, 'Health', healthCard, () => showEventForm(context, type: 'health'), 'health'),
+      card(Kind.breast, l10n.homeCardFeed, feedCard, () => showFeedPicker(context), 'feed', nursing),
+      card(Kind.sleep, l10n.kindSleep, sleepCard, () => open('sleep'), 'sleep', sleeping),
+      card(Kind.diaper, l10n.kindDiaper, diaperCard, () => showEventForm(context, type: 'diaper'), 'diaper'),
+      card(Kind.pump, l10n.kindPump, pumpCard, () => open('pump'), 'pump', pumping),
+      card(Kind.growth, l10n.kindGrowth, growthCard, () => showEventForm(context, type: 'growth'), 'growth'),
+      card(Kind.health, l10n.kindHealth, healthCard, () => showEventForm(context, type: 'health'), 'health'),
       card(
         Kind.activity,
-        'Routine',
-        simple(latest('activity'), (e) => cap(e['kind'] as String? ?? 'Activity')),
+        l10n.homeCardRoutine,
+        simple(latest('activity'), (e) => e['kind'] is String ? cap(e['kind'] as String) : l10n.kindActivity),
         () => showEventForm(context, type: 'activity'),
         'activity,milestone,note',
       ),
       card(
         Kind.milestone,
-        'Firsts',
-        simple(latest('milestone'), (e) => (e['name'] as String?) ?? 'Milestone'),
+        l10n.homeCardFirsts,
+        simple(latest('milestone'), (e) => (e['name'] as String?) ?? l10n.kindMilestone),
         // "New memory" over the baby book, which shows once it's saved or closed.
         () => openBook(addMemory: true),
         'milestone',
@@ -295,7 +298,7 @@ class _ActivityCard extends StatelessWidget {
     final t = data.timer;
     return Semantics(
       button: true,
-      label: 'Log $title',
+      label: l10n.homeLogCard(title),
       child: Container(
         decoration: BoxDecoration(
           color: c.surface,
@@ -318,10 +321,16 @@ class _ActivityCard extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
                   child: Row(
                     children: [
+                      // One line: a longer word (French, Spanish) shrinks a little instead of breaking.
                       Expanded(
-                        child: Text(
-                          title,
-                          style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: c.bandInk),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            title,
+                            maxLines: 1,
+                            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: c.bandInk),
+                          ),
                         ),
                       ),
                       // A pill with a word, so it's clearly a button of its own (the rest of the
@@ -367,7 +376,7 @@ class _ActivityCard extends StatelessWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              data.value == null && t == null ? 'Tap to log' : (data.top ?? ''),
+                              data.value == null && t == null ? l10n.homeTapToLog : (data.top ?? ''),
                               style: TextStyle(
                                 fontSize: 13,
                                 color: t != null ? kind.on(c) : c.muted,
@@ -429,9 +438,9 @@ class _TimerBanner extends StatelessWidget {
       _ => Kind.breast,
     };
     final label = switch (timer.kind) {
-      'sleep' => 'Sleeping',
-      'pump' => 'Pumping',
-      _ => 'Breastfeed',
+      'sleep' => l10n.homeSleeping,
+      'pump' => l10n.homePumping,
+      _ => l10n.kindBreastfeed,
     };
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -461,13 +470,13 @@ class _TimerBanner extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          timer.running ? label : '$label · paused',
+                          timer.running ? label : l10n.homeLabelPaused(label),
                           style: TextStyle(fontWeight: FontWeight.w700, color: c.bandInk),
                         ),
                         Text(
                           [
-                            if (timer.kind == 'breastfeed' && timer.side != null) '${timer.side == 'left' ? 'Left' : 'Right'} side',
-                            'since ${timeOfDay(timer.startedAt)}',
+                            if (timer.kind == 'breastfeed' && timer.side != null) l10n.homeSide(timer.side == 'left' ? 'left' : 'right'),
+                            l10n.homeSince(timeOfDay(timer.startedAt)),
                           ].join(' · '),
                           style: TextStyle(color: c.bandInk.withValues(alpha: 0.75), fontSize: 13),
                         ),
@@ -499,10 +508,12 @@ _Sync _syncStatus(AppState s) {
     return (
       live: false,
       icon: Icons.smartphone_rounded,
-      label: n == 0 ? 'on this phone' : 'synced ${last == null ? 'not yet' : ago(DateTime.now().difference(last).inSeconds)}',
-      tooltip: n == 0
-          ? 'Serverless: saved on this phone. Pair another phone in Family to share.'
-          : 'Serverless: syncs with $n paired phone${n == 1 ? '' : 's'} on the same Wi-Fi',
+      label: n == 0
+          ? l10n.homeSyncLocal
+          : last == null
+          ? l10n.homeNotSyncedYet
+          : l10n.homeSynced(ago(DateTime.now().difference(last).inSeconds)),
+      tooltip: n == 0 ? l10n.homeServerlessAlone : l10n.homeServerlessPeers(n),
     );
   }
   final pending = s.pendingChanges;
@@ -510,16 +521,16 @@ _Sync _syncStatus(AppState s) {
     return (
       live: false,
       icon: Icons.cloud_off_rounded,
-      label: pending > 0 ? 'offline · $pending to sync' : 'offline',
-      tooltip: 'Offline — keep logging; ${pending > 0 ? '$pending change${pending == 1 ? '' : 's'} will sync' : 'changes sync'} when the server is back',
+      label: pending > 0 ? l10n.homeOfflinePending(pending) : l10n.homeOffline,
+      tooltip: l10n.homeOfflineTooltip(pending),
     );
   }
-  if (pending > 0) return (live: false, icon: Icons.cloud_sync_rounded, label: 'syncing', tooltip: 'Syncing changes made offline…');
+  if (pending > 0) return (live: false, icon: Icons.cloud_sync_rounded, label: l10n.homeSyncing, tooltip: l10n.homeSyncingTooltip);
   return (
     live: s.live,
     icon: null,
     label: null,
-    tooltip: s.live ? 'Live — changes from other caregivers appear instantly' : 'Reconnecting…',
+    tooltip: s.live ? l10n.homeLiveTooltip : l10n.homeReconnecting,
   );
 }
 
@@ -546,7 +557,7 @@ class _Header extends StatelessWidget {
               Row(
                 children: [
                   Flexible(child: Text(child.name, style: serifStyle(34), overflow: TextOverflow.ellipsis)),
-                  Icon(Icons.expand_more_rounded, color: context.pal.muted, semanticLabel: 'Switch baby'),
+                  Icon(Icons.expand_more_rounded, color: context.pal.muted, semanticLabel: l10n.homeSwitchBaby),
                 ],
               ),
               const SizedBox(height: 2),
@@ -554,7 +565,7 @@ class _Header extends StatelessWidget {
                 children: [
                   Flexible(
                     child: Text(
-                      DateFormat('EEE, MMM d').format(DateTime.now()),
+                      capFirst(DateFormat.MMMEd().format(DateTime.now())),
                       style: TextStyle(color: context.pal.muted, fontSize: 14),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -586,19 +597,19 @@ class _Header extends StatelessWidget {
       ),
       _SquareButton(
         icon: Icons.notifications_rounded,
-        tooltip: 'Medicines and reminders',
+        tooltip: l10n.familyMedicines,
         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SchedulesScreen())),
       ),
       const SizedBox(width: 8),
       _SquareButton(
         icon: Icons.people_rounded,
-        tooltip: 'Family',
+        tooltip: l10n.familyTitle,
         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FamilyScreen())),
       ),
       const SizedBox(width: 8),
       _SquareButton(
         icon: Icons.settings_rounded,
-        tooltip: 'Settings',
+        tooltip: l10n.familySettings,
         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
       ),
     ],
@@ -634,7 +645,7 @@ void showChildSwitcher(BuildContext context) {
                 backgroundColor: context.pal.surface,
                 child: Icon(Icons.add, color: context.pal.ink),
               ),
-              title: const Text('Add a baby'),
+              title: Text(l10n.homeAddBaby),
               onTap: () {
                 Navigator.pop(c);
                 showChildForm(context, familyId: s.familyId!);
@@ -745,13 +756,15 @@ class _ReminderStripState extends State<_ReminderStrip> {
 
   static String _medicineStatus(Map m, DateTime now) {
     final next = DateTime.tryParse('${m['next_at']}')?.toLocal();
-    if (next == null) return 'No dose given yet';
-    if (!next.isAfter(now)) return 'Next dose can be given now';
+    if (next == null) return l10n.homeNoDoseYet;
+    if (!next.isAfter(now)) return l10n.homeDoseNow;
     final at = DateFormat.Hm().format(next);
     final day = DateTime(next.year, next.month, next.day).difference(DateTime(now.year, now.month, now.day)).inDays;
-    final when = day == 0 ? at : (day == 1 ? 'tomorrow $at' : '${DateFormat.MMMd().format(next)} $at');
+    final when = day == 0
+        ? l10n.homeNextDoseToday(at)
+        : (day == 1 ? l10n.homeNextDoseTomorrow(at) : l10n.homeNextDoseOn(DateFormat.MMMd().format(next), at));
     final max = toInt(m['max_per_day']);
-    return max == null ? 'Next dose at $when' : 'Next dose at $when · ${m['doses_24h']} of $max in 24 h';
+    return max == null ? when : '$when · ${l10n.homeDosesIn24h('${m['doses_24h']}', max)}';
   }
 
   /// The child's reminders that are due now: type, time since, and a key naming the entry it
@@ -799,7 +812,7 @@ class _ReminderStripState extends State<_ReminderStrip> {
           children: [
             Icon(Icons.visibility_off_rounded, size: 20, color: pal.accent),
             const SizedBox(width: 6),
-            Text('Hide', style: TextStyle(color: pal.accent, fontWeight: FontWeight.w700)),
+            Text(l10n.homeHide, style: TextStyle(color: pal.accent, fontWeight: FontWeight.w700)),
           ],
         ),
       );
@@ -842,19 +855,19 @@ class _ReminderStripState extends State<_ReminderStrip> {
               _ => Kind.pump,
             },
             title: switch (type) {
-              'feed' => 'Feed reminder',
-              'sleep' => 'Sleep reminder',
-              'diaper' => 'Diaper reminder',
-              _ => 'Pump reminder',
+              'feed' => l10n.homeFeedReminder,
+              'sleep' => l10n.homeSleepReminder,
+              'diaper' => l10n.homeDiaperReminder,
+              _ => l10n.homePumpReminder,
             },
             status: switch (type) {
-              'feed' => 'No feed for ${duration(since.inSeconds)}',
-              'sleep' => 'Awake for ${duration(since.inSeconds)}',
-              'diaper' => 'No diaper change for ${duration(since.inSeconds)}',
-              _ => 'No pumping for ${duration(since.inSeconds)}',
+              'feed' => l10n.homeNoFeedFor(duration(since.inSeconds)),
+              'sleep' => l10n.homeAwakeFor(duration(since.inSeconds)),
+              'diaper' => l10n.homeNoDiaperFor(duration(since.inSeconds)),
+              _ => l10n.homeNoPumpFor(duration(since.inSeconds)),
             },
             urgent: true,
-            action: type == 'sleep' ? 'Start' : 'Log',
+            action: type == 'sleep' ? l10n.homeStart : l10n.homeLog,
             onTap: () => switch (type) {
               'feed' => showFeedPicker(context),
               'diaper' => showEventForm(context, type: 'diaper'),
@@ -883,7 +896,7 @@ class _ReminderStripState extends State<_ReminderStrip> {
                 title: '${m['name']}',
                 status: _medicineStatus(m, now),
                 urgent: canGive,
-                action: canGive ? 'Give' : null,
+                action: canGive ? l10n.homeGive : null,
                 onTap: give,
               ),
             );
@@ -935,14 +948,14 @@ class _TodayStrip extends StatelessWidget {
     int n(Map m, String k) => toInt(m[k]) ?? 0;
     final solids = n(feed, 'solids_count');
     final feedDetail = [
-      '${n(feed, 'breast_count')} breast',
+      l10n.homeBreastCount(n(feed, 'breast_count')),
       units.volume(toDouble(feed['bottle_ml']) ?? 0),
-      if (solids > 0) '$solids solids',
+      if (solids > 0) l10n.homeSolidsCount(solids),
     ].join(' · ');
     // Night sleep (18–06, as in Trends) and daytime naps; whichever there is.
     final night = n(sleep, 'night_seconds'), naps = n(sleep, 'nap_count');
-    final sleepParts = [if (night > 0) '${duration(night)} night', if (naps > 0) naps == 1 ? '1 nap' : '$naps naps'];
-    final sleepDetail = sleepParts.isEmpty ? '0 naps' : sleepParts.join(' · ');
+    final sleepParts = [if (night > 0) l10n.homeNightSleep(duration(night)), if (naps > 0) l10n.homeNaps(naps)];
+    final sleepDetail = sleepParts.isEmpty ? l10n.homeNaps(0) : sleepParts.join(' · ');
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -950,16 +963,16 @@ class _TodayStrip extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          stat('${feed['count'] ?? 0}', rolling ? 'feeds in 24 h' : 'feeds today', detail(feedDetail, Kind.breast)),
-          stat(duration(toInt(sleep['total_seconds']) ?? 0), rolling ? 'sleep in 24 h' : 'sleep today', detail(sleepDetail, Kind.sleep)),
+          stat('${feed['count'] ?? 0}', rolling ? l10n.homeFeedsIn24h : l10n.homeFeedsToday, detail(feedDetail, Kind.breast)),
+          stat(duration(toInt(sleep['total_seconds']) ?? 0), rolling ? l10n.homeSleepIn24h : l10n.homeSleepToday, detail(sleepDetail, Kind.sleep)),
           // A diaper can be both wet and dirty.
           stat(
             '${diaper['count'] ?? 0}',
-            rolling ? 'diapers in 24 h' : 'diapers today',
+            rolling ? l10n.homeDiapersIn24h : l10n.homeDiapersToday,
             detail(
               [
-                '${n(diaper, 'wet')} wet · ${n(diaper, 'dirty')} dirty',
-                if (n(diaper, 'potty_count') > 0) '${n(diaper, 'potty_count')} potty',
+                l10n.homeWetDirtyCounts(n(diaper, 'dirty'), n(diaper, 'wet')),
+                if (n(diaper, 'potty_count') > 0) l10n.homePottyCount(n(diaper, 'potty_count')),
               ].join(' · '),
               Kind.diaper,
             ),
@@ -973,10 +986,10 @@ class _TodayStrip extends StatelessWidget {
 /// Feed card: pick the kind of feed.
 void showFeedPicker(BuildContext context) {
   final options = <(Kind, String, VoidCallback)>[
-    (Kind.breast, 'Breastfeed', () => TimerScreen.open(context, 'breastfeed')),
-    (Kind.bottle, 'Bottle', () => showEventForm(context, type: 'feed', method: 'bottle')),
-    (Kind.solids, 'Solids', () => showEventForm(context, type: 'feed', method: 'solids')),
-    (Kind.combo, 'Combo', () => showEventForm(context, type: 'feed', method: 'combo')),
+    (Kind.breast, l10n.kindBreastfeed, () => TimerScreen.open(context, 'breastfeed')),
+    (Kind.bottle, l10n.kindBottle, () => showEventForm(context, type: 'feed', method: 'bottle')),
+    (Kind.solids, l10n.kindSolids, () => showEventForm(context, type: 'feed', method: 'solids')),
+    (Kind.combo, l10n.kindCombo, () => showEventForm(context, type: 'feed', method: 'combo')),
   ];
   showModalBottomSheet(
     context: context,
@@ -989,7 +1002,7 @@ void showFeedPicker(BuildContext context) {
           children: [
             Padding(
               padding: const EdgeInsets.only(left: 8, bottom: 16),
-              child: Text('Log a feed', style: serifStyle(22)),
+              child: Text(l10n.homeLogFeed, style: serifStyle(22)),
             ),
             Row(
               children: [

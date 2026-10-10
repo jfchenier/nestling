@@ -1,6 +1,8 @@
 /// Plain models over the API's JSON. Times are parsed to local [DateTime]s.
 library;
 
+import 'l10n/l10n.dart';
+
 DateTime? parseTime(dynamic v) => v is String ? DateTime.tryParse(v)?.toLocal() : null;
 
 double? toDouble(dynamic v) => v is num ? v.toDouble() : null;
@@ -42,15 +44,15 @@ class Member {
 const memberRoles = ['owner', 'caregiver', 'book_viewer'];
 
 String roleName(String role) => switch (role) {
-  'owner' => 'Owner',
-  'book_viewer' => 'Book only',
-  _ => 'Caregiver',
+  'owner' => l10n.roleOwner,
+  'book_viewer' => l10n.roleBookViewer,
+  _ => l10n.roleCaregiver,
 };
 
 String roleHint(String role) => switch (role) {
-  'owner' => 'Logs everything and manages the family',
-  'book_viewer' => 'Sees the baby book, can\'t change anything',
-  _ => 'Logs feeds, sleep, diapers and everything else',
+  'owner' => l10n.roleOwnerHint,
+  'book_viewer' => l10n.roleBookViewerHint,
+  _ => l10n.roleCaregiverHint,
 };
 
 class Child {
@@ -58,7 +60,7 @@ class Child {
   final Map<String, dynamic> json;
   String get id => json['id'];
   String get familyId => json['family_id'];
-  String get name => json['name'] ?? 'Baby';
+  String get name => json['name'] ?? l10n.defaultBabyName;
 
   /// Changes when the profile picture does; null without one.
   int? get photoVersion => toInt(json['photo_version']);
@@ -86,19 +88,19 @@ class Child {
     if (b == null) return null;
     final now = when;
     final days = DateTime(now.year, now.month, now.day).difference(b).inDays;
-    if (days < 0) return 'Due in ${-days} day${-days == 1 ? '' : 's'}';
-    if (days < 14) return '$days day${days == 1 ? '' : 's'}';
+    final t = l10n;
+    if (days < 0) return t.ageDueIn(-days);
+    if (days < 14) return t.ageDays(days);
     var months = (now.year - b.year) * 12 + now.month - b.month;
     if (now.day < b.day) months--;
-    if (months < 1) return '${days ~/ 7} weeks';
+    if (months < 1) return t.ageWeeks(days ~/ 7);
     if (months < 24) {
       final anchor = DateTime(b.year, b.month + months, b.day);
       final weeks = DateTime(now.year, now.month, now.day).difference(anchor).inDays ~/ 7;
-      final m = '$months month${months == 1 ? '' : 's'}';
-      return weeks > 0 ? '$m $weeks week${weeks == 1 ? '' : 's'}' : m;
+      return weeks > 0 ? t.agePair(t.ageMonths(months), t.ageWeeks(weeks)) : t.ageMonths(months);
     }
     final y = months ~/ 12, m = months % 12;
-    return '$y year${y == 1 ? '' : 's'}${m > 0 ? ' $m month${m == 1 ? '' : 's'}' : ''}';
+    return m > 0 ? t.agePair(t.ageYears(y), t.ageMonths(m)) : t.ageYears(y);
   }
 }
 

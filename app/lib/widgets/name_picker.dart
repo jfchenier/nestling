@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../l10n/l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
@@ -39,7 +40,7 @@ Future<List<PickItem>?> showNamePicker(
   required String addHint,
   required Future<List<PickItem>> Function(AppState s) recent,
   required List<PickItem> common,
-  String recentTitle = 'Recent',
+  String? recentTitle,
   bool multiple = false,
   List<String> selected = const [],
 }) => showModalBottomSheet<List<PickItem>>(
@@ -47,7 +48,7 @@ Future<List<PickItem>?> showNamePicker(
   isScrollControlled: true,
   useSafeArea: true,
   backgroundColor: context.pal.background,
-  builder: (_) => _NamePicker(title, addHint, recent, common, recentTitle, multiple, selected),
+  builder: (_) => _NamePicker(title, addHint, recent, common, recentTitle ?? l10n.pickerRecent, multiple, selected),
 );
 
 class _NamePicker extends StatefulWidget {
@@ -123,7 +124,7 @@ class _NamePickerState extends State<_NamePicker> {
         trailing: Icon(
           on ? Icons.check_circle_rounded : Icons.add_circle_outline_rounded,
           color: c.accent,
-          semanticLabel: on ? 'Selected' : null,
+          semanticLabel: on ? l10n.pickerSelected : null,
         ),
         onTap: () => _tap(m),
       );
@@ -143,9 +144,9 @@ class _NamePickerState extends State<_NamePicker> {
                 children: [
                   Expanded(child: Text(widget.title, style: serifStyle(24))),
                   if (widget.multiple)
-                    TextButton(onPressed: () => Navigator.pop(context, _picked), child: const Text('Done'))
+                    TextButton(onPressed: () => Navigator.pop(context, _picked), child: Text(l10n.done))
                   else
-                    IconButton(tooltip: 'Close', icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
+                    IconButton(tooltip: l10n.close, icon: const Icon(Icons.close_rounded), onPressed: () => Navigator.pop(context)),
                 ],
               ),
             ),
@@ -157,10 +158,7 @@ class _NamePickerState extends State<_NamePicker> {
                   runSpacing: 8,
                   children: [
                     for (final p in _picked)
-                      InputChip(
-                        label: Text(p.text),
-                        onDeleted: () => setState(() => _picked.removeWhere((x) => x.key == p.key)),
-                      ),
+                      InputChip(label: Text(p.text), onDeleted: () => setState(() => _picked.removeWhere((x) => x.key == p.key))),
                   ],
                 ),
               ),
@@ -174,7 +172,7 @@ class _NamePickerState extends State<_NamePicker> {
                 decoration: InputDecoration(
                   hintText: widget.addHint,
                   prefixIcon: const Icon(Icons.add_rounded),
-                  suffixIcon: IconButton(tooltip: 'Use this name', icon: const Icon(Icons.check_rounded), onPressed: _add),
+                  suffixIcon: IconButton(tooltip: l10n.pickerUseName, icon: const Icon(Icons.check_rounded), onPressed: _add),
                 ),
               ),
             ),
@@ -184,7 +182,7 @@ class _NamePickerState extends State<_NamePicker> {
                 children: [
                   if (_recent == null) const LinearProgressIndicator(minHeight: 2),
                   if (recent.isNotEmpty) ...[header(widget.recentTitle), for (final m in recent) row(m)],
-                  if (common.isNotEmpty) ...[header('Common'), for (final m in common) row(m)],
+                  if (common.isNotEmpty) ...[header(l10n.pickerCommon), for (final m in common) row(m)],
                   const SizedBox(height: 16),
                 ],
               ),
@@ -195,4 +193,3 @@ class _NamePickerState extends State<_NamePicker> {
     );
   }
 }
-

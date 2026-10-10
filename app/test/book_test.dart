@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nestling/api/api.dart';
+import 'package:nestling/l10n/l10n.dart';
 import 'package:nestling/local/domain.dart';
 import 'package:nestling/models.dart';
 import 'package:nestling/screens/baby_book.dart';
@@ -46,7 +47,7 @@ void main() {
   test('memories find their chapter', () {
     expect(BookChapter.values.every((c) => validChapter(c.id)), isTrue);
     expect(chapterOf(Event({'name': 'Moved', 'chapter': 'from_a_newer_app'})), BookChapter.firsts);
-    expect(milestoneIdeas.map((i) => i.name.toLowerCase()).toSet().length, milestoneIdeas.length, reason: 'idea names are unique');
+    expect(milestoneIdeas.map((i) => i.id.toLowerCase()).toSet().length, milestoneIdeas.length, reason: 'idea names are unique');
     expect(chapterOf(Event({'name': 'First Christmas'})), BookChapter.celebrations);
     expect(chapterOf(Event({'name': 'came home'})), BookChapter.hello);
     expect(chapterOf(Event({'name': 'First tooth'})), BookChapter.growing);
@@ -67,6 +68,23 @@ void main() {
     for (final c in BookChapter.values) {
       expect(milestoneIdeas.where((i) => i.chapter == c).length, greaterThanOrEqualTo(4), reason: c.title);
     }
+  });
+
+  test('ideas are matched in any language and saved under their English name', () {
+    // Every language's name finds its own idea (no name is shared by two ideas).
+    for (final locale in AppLocalizations.supportedLocales) {
+      useLanguage(locale.languageCode);
+      for (final i in milestoneIdeas) {
+        expect(ideaFor(i.label)?.id, i.id, reason: '${locale.languageCode}: ${i.label}');
+      }
+    }
+    useLanguage('en');
+    expect(ideaFor('Première dent')?.id, 'First tooth');
+    expect(isFirstTooth('primer diente'), isTrue);
+    expect(storedMemoryName(' Premier Noël '), 'First Christmas');
+    expect(storedMemoryName('Une banane pour comparer'), bananaName);
+    expect(storedMemoryName('Our own thing'), 'Our own thing');
+    expect(isBanana(Event({'name': 'Un plátano de referencia'})), isTrue);
   });
 
   test('memories before birth say how far along', () {
