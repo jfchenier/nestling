@@ -258,7 +258,7 @@ List<(String, Map<String, dynamic>, int, int?)> _convert(_Row row) {
         'dirty': dirty,
         'dry': kind.contains('dry'),
         'rash': detail.contains('rash'),
-        'blowout': dirty && potty == null && detail.contains('blowout'),
+        'blowout': dirty && detail.contains('blowout'),
         if (dirty) 'color': ?_color(row.get('[Diaper] Dirty Color')),
         if (dirty) 'consistency': ?_consistency(row.get('[Diaper] Dirty Texture')),
         'potty': ?potty,

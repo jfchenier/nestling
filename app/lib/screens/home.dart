@@ -105,7 +105,7 @@ class HomeScreen extends StatelessWidget {
     final diaperCard = diaper == null
         ? const _CardData()
         : diaper['potty'] != null
-        ? _CardData(top: since(diaper.start), value: pottyLabel(diaper['potty'])!, caption: diaper['potty'] == 'sat_dry' ? 'potty' : peePoo(diaper).toLowerCase())
+        ? _CardData(top: since(diaper.start), value: pottyLabel(diaper['potty'])!, caption: diaper['potty'] == 'sat_dry' ? 'potty' : wetDirty(diaper).toLowerCase())
         : _CardData(
             top: since(diaper.start),
             value: diaper['dirty'] == true ? (diaper['wet'] == true ? 'Wet + dirty' : 'Dirty') : (diaper['wet'] == true ? 'Wet' : 'Dry'),

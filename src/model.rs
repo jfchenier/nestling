@@ -119,7 +119,8 @@ pub struct Diaper {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub consistency: Option<PoopConsistency>,
     /// Set for a potty entry (the same card and form as diapers); `wet`/`dirty` are then
-    /// pee/poo and `dry` goes with `sat_dry`.
+    /// pee/poo and `dry` goes with `sat_dry`. The other diaper details (color, texture, blowout,
+    /// rash) apply too.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub potty: Option<Potty>,
 }
@@ -258,7 +259,6 @@ impl Details {
                     Some(Potty::Success | Potty::Accident) if !(d.wet || d.dirty) => {
                         return bad("a potty success or accident must be wet (pee) or dirty (poo)")
                     }
-                    Some(_) if d.blowout => return bad("blowout only applies to diapers"),
                     _ => {}
                 }
             }
@@ -328,6 +328,6 @@ mod tests {
         assert!(v(json!({"type": "diaper", "potty": "sat_dry", "wet": true})).is_err());
         assert!(v(json!({"type": "diaper", "potty": "success", "dirty": true, "color": "brown"})).is_ok());
         assert!(v(json!({"type": "diaper", "potty": "accident", "dry": true})).is_err());
-        assert!(v(json!({"type": "diaper", "potty": "accident", "wet": true, "blowout": true})).is_err());
+        assert!(v(json!({"type": "diaper", "potty": "accident", "dirty": true, "blowout": true, "consistency": "runny"})).is_ok());
     }
 }

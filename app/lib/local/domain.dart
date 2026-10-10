@@ -127,8 +127,6 @@ void validateEvent(Map<String, dynamic> d, int start, int? end, String? note) {
           throw badRequest('sat_dry cannot be wet or dirty');
         case 'success' || 'accident' when !pee:
           throw badRequest('a potty success or accident must be wet (pee) or dirty (poo)');
-        case String _ when d['blowout'] == true:
-          throw badRequest('blowout only applies to diapers');
       }
     case 'pump':
       _nonNegative('left_ml', d['left_ml'], 1000);

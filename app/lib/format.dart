@@ -97,8 +97,8 @@ String? pottyLabel(dynamic potty) => switch (potty) {
   _ => null,
 };
 
-/// "Pee", "Poo" or "Pee + poo" for a potty entry.
-String peePoo(Event e) => [if (e['wet'] == true) 'Pee', if (e['dirty'] == true) (e['wet'] == true ? 'poo' : 'Poo')].join(' + ');
+/// "Wet", "Dirty" or "Wet + dirty" (as for diapers).
+String wetDirty(Event e) => [if (e['wet'] == true) 'Wet', if (e['dirty'] == true) (e['wet'] == true ? 'dirty' : 'Dirty')].join(' + ');
 
 /// Title and one-line detail for an event, e.g. ("Bottle", "120 mL formula").
 (String, String) describe(Event e, Units u) {
@@ -128,9 +128,11 @@ String peePoo(Event e) => [if (e['wet'] == true) 'Pee', if (e['dirty'] == true) 
     case 'diaper' when e['potty'] != null:
       final parts = <String>[
         e['potty'] == 'success' ? 'In the potty' : pottyLabel(e['potty'])!,
-        if (e['potty'] != 'sat_dry') peePoo(e),
+        if (e['potty'] != 'sat_dry') wetDirty(e),
         if (e['color'] != null) cap(e['color']),
         if (e['consistency'] != null) cap(e['consistency']),
+        if (e['rash'] == true) 'rash',
+        if (e['blowout'] == true) 'blowout',
       ];
       return ('Potty', parts.where((s) => s.isNotEmpty).join(' · '));
     case 'diaper':

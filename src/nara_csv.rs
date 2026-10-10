@@ -285,7 +285,7 @@ fn convert_row(row: &Row) -> Result<Vec<(String, Details, i64, Option<i64>)>, St
                 dirty,
                 dry: kind.contains("dry"),
                 rash: detail.contains("rash"),
-                blowout: dirty && potty.is_none() && detail.contains("blowout"),
+                blowout: dirty && detail.contains("blowout"),
                 color: if dirty { color(row.get("[Diaper] Dirty Color")) } else { None },
                 consistency: if dirty { consistency(row.get("[Diaper] Dirty Texture")) } else { None },
                 potty,

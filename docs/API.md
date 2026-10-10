@@ -91,7 +91,7 @@ Response shape:
 |---|---|
 | `feed` | `method`: `breast` \| `bottle` \| `combo` \| `solids`; `left_seconds`, `right_seconds`, `start_side` (`left`/`right`); `amount_ml`, `milk` (`breast_milk` \| `formula` \| `mixed`), `formula_name`; `foods` |
 | `sleep` | `location`. Requires `end` (use a timer for sleep in progress) |
-| `diaper` | `wet`, `dirty`, `dry`, `rash`, `blowout` (booleans); `color`: `yellow` \| `green` \| `brown` \| `black` \| `red` \| `gray`; `consistency`: `runny` \| `mushy` \| `mucousy` \| `pebbles` \| `solid` (dirty only); `potty`: `sat_dry` \| `success` \| `accident` for a potty trip instead of a diaper (`wet`/`dirty` = pee/poo, required for `success`/`accident`; `sat_dry` goes with `dry`; no `blowout`) |
+| `diaper` | `wet`, `dirty`, `dry`, `rash`, `blowout` (booleans); `color`: `yellow` \| `green` \| `brown` \| `black` \| `red` \| `gray`; `consistency`: `runny` \| `mushy` \| `mucousy` \| `pebbles` \| `solid` (dirty only); `potty`: `sat_dry` \| `success` \| `accident` for a potty trip instead of a diaper (`wet`/`dirty` required for `success`/`accident`, with the same details as a diaper; `sat_dry` goes with `dry`) |
 | `pump` | `left_ml`, `right_ml`, `left_seconds`, `right_seconds` |
 | `growth` | `weight_g`, `length_cm`, `head_cm` (at least one) |
 | `health` | `kind`: `medicine` (`name`, `dose`, `dose_unit`) \| `temperature` (`temperature_c`) \| `vaccine` (`name`) \| `appointment` (`name` = doctor) \| `symptom` (`name`) |

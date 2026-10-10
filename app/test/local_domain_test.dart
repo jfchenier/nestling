@@ -54,7 +54,7 @@ void main() {
     check({'potty': 'success', 'dirty': true, 'color': 'brown'});
     expect(() => check({'potty': 'sat_dry', 'wet': true}), throwsA(anything));
     expect(() => check({'potty': 'accident', 'dry': true}), throwsA(anything));
-    expect(() => check({'potty': 'accident', 'wet': true, 'blowout': true}), throwsA(anything));
+    check({'potty': 'accident', 'dirty': true, 'blowout': true, 'consistency': 'runny'});
     expect(() => normalizeDetails({'type': 'diaper', 'potty': 'maybe'}), throwsA(anything));
   });
 

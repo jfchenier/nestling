@@ -53,7 +53,7 @@ class _EventFormState extends State<EventForm> {
   late bool _wet = e?['wet'] ?? true, _dirty = e?['dirty'] ?? false, _dry = e?['dry'] ?? false;
   late bool _rash = e?['rash'] ?? false, _blowout = e?['blowout'] ?? false;
   late String? _color = e?['color'], _consistency = e?['consistency'];
-  // potty (diaper page, Potty tab): sat_dry / success / accident; _wet/_dirty are pee/poo.
+  // potty (diaper page, Potty tab): sat_dry / success / accident, then the same wet/dirty details.
   // A new entry opens on the tab of the last diaper/potty entry.
   late bool _pottyMode = e != null ? e!['potty'] != null : context.read<AppState>().summary?['last']?['diaper']?['potty'] != null;
   late String _potty = e?['potty'] ?? 'success';
@@ -144,7 +144,7 @@ class _EventFormState extends State<EventForm> {
         body['location'] = _location;
       case 'diaper' when _pottyMode:
         final dry = _potty == 'sat_dry';
-        body.addAll({'potty': _potty, 'wet': !dry && _wet, 'dirty': !dry && _dirty, 'dry': dry, 'rash': false, 'blowout': false});
+        body.addAll({'potty': _potty, 'wet': !dry && _wet, 'dirty': !dry && _dirty, 'dry': dry, 'rash': _rash, 'blowout': !dry && _blowout});
         body['color'] = !dry && _dirty ? _color : null;
         body['consistency'] = !dry && _dirty ? _consistency : null;
       case 'diaper':
@@ -187,7 +187,7 @@ class _EventFormState extends State<EventForm> {
       return showMessage(context, 'When did the sleep end? Use the sleep timer for a nap in progress.');
     }
     if (widget.type == 'diaper' && _pottyMode && _potty != 'sat_dry' && !_wet && !_dirty) {
-      return showMessage(context, 'Was it pee, poo or both?');
+      return showMessage(context, 'Was it wet, dirty or both?');
     }
     if (widget.type == 'diaper' && !_pottyMode && !_wet && !_dirty && !_dry) {
       return showMessage(context, 'Was the diaper wet, dirty or dry?');
@@ -436,7 +436,7 @@ class _EventFormState extends State<EventForm> {
               ),
               onSelectionChanged: (v) => setState(() {
                 _pottyMode = v.first;
-                // A potty trip starts as "pee in the potty"; back on Diaper, a sat-but-dry trip
+                // A potty trip starts as "wet in the potty"; back on Diaper, a sat-but-dry trip
                 // isn't a dry diaper.
                 if (_pottyMode && !_wet && !_dirty) _wet = true;
               }),
@@ -555,7 +555,8 @@ class _EventFormState extends State<EventForm> {
     _switchRow('Diaper Rash', _rash, (v) => setState(() => _rash = v)),
   ];
 
-  /// Potty tab: what happened (one of three), then pee/poo unless the baby stayed dry.
+  /// Potty tab: what happened (one of three), then wet/dirty with the diaper's details unless
+  /// the baby stayed dry.
   List<Widget> _pottyFields() => [
     Container(
       decoration: BoxDecoration(
@@ -578,14 +579,16 @@ class _EventFormState extends State<EventForm> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CircleToggle(label: 'pee', size: 60, selected: _wet, onTap: () => setState(() => _wet = !_wet)),
+            CircleToggle(label: 'wet', size: 60, selected: _wet, onTap: () => setState(() => _wet = !_wet)),
             const SizedBox(width: 12),
-            CircleToggle(label: 'poo', size: 60, selected: _dirty, onTap: () => setState(() => _dirty = !_dirty)),
+            CircleToggle(label: 'dirty', size: 60, selected: _dirty, onTap: () => setState(() => _dirty = !_dirty)),
           ],
         ),
       ),
       if (_dirty) FormRow(label: 'Texture & Color', below: _textureAndColor()),
+      _switchRow('Blowout', _blowout, (v) => setState(() => _blowout = v)),
     ],
+    _switchRow('Diaper Rash', _rash, (v) => setState(() => _rash = v)),
   ];
 
   Widget _textureAndColor() {
