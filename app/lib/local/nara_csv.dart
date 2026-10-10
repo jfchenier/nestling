@@ -322,7 +322,9 @@ List<(String, Map<String, dynamic>, int, int?)> _convert(_Row row) {
       return one({'type': 'activity', 'kind': _activityKind(row.get('[Routine] Routine') ?? '')});
     case 'milestone' || 'baby first' || 'baby firsts':
       final name = row.get('[Milestone] Milestone') ?? row.get('[Baby First] Name') ?? row.get('Note') ?? (throw _Skip('milestone without a name'));
-      return one({'type': 'milestone', 'name': name});
+      // Nestling's own `[Milestone] Tooth` column (`src/nara_csv.rs`).
+      final tooth = row.get('[Milestone] Tooth')?.trim().toUpperCase();
+      return one({'type': 'milestone', 'name': name, if (tooth != null && RegExp(r'^[A-T]$').hasMatch(tooth)) 'tooth': tooth});
     default:
       throw _Skip('unsupported type: ${type.toLowerCase()}');
   }

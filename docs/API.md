@@ -126,7 +126,7 @@ Response shape:
 | `growth` | `weight_g`, `length_cm`, `head_cm` (at least one) |
 | `health` | `kind`: `medicine` (`name`, `dose`, `dose_unit`) \| `temperature` (`temperature_c`) \| `vaccine` (`name`) \| `appointment` (`name` = doctor) \| `symptom` (`name`) |
 | `activity` | `kind`: free text, e.g. `bath`, `tummy_time`, `outdoor`, `play`, `read`, `nail_trim`, `vitamin` |
-| `milestone` | `name` |
+| `milestone` | `name`; `tooth`: `A`–`T` for a baby tooth that came in (the usual primary-teeth letters: `A`–`J` upper, right to left; `K`–`T` lower, left to right) |
 | `note` | just `note` |
 
 Examples:

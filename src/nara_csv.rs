@@ -382,7 +382,9 @@ fn convert_row(row: &Row) -> Result<Vec<(String, Details, i64, Option<i64>)>, St
         ),
         "milestone" | "baby first" | "baby firsts" => {
             let name = row.get("[Milestone] Milestone").or(row.get("[Baby First] Name")).or(row.get("Note")).ok_or("milestone without a name")?;
-            one(Details::Milestone(Milestone { name: name.to_string() }), None)
+            // Nestling's own `[Milestone] Tooth` column (see `csv_export.rs`).
+            let tooth = row.get("[Milestone] Tooth").map(|t| t.trim().to_uppercase()).filter(|t| t.len() == 1 && ("A"..="T").contains(&t.as_str()));
+            one(Details::Milestone(Milestone { name: name.to_string(), tooth }), None)
         }
         other => Err(format!("unsupported type: {other}")),
     }

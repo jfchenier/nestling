@@ -141,6 +141,8 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       scrapbook with one photo each (`/events/{id}/photo`, table `event_photos`; events carry
       `photo_version`), built-in ideas of firsts plus custom ones. Serverless: `LocalStore.eventPhotos`
       (saved apart, clocks `ep:<id>`), Drive sync sends each photo once as `photo-<id>-<version>.bin`.
+      Teeth chart (`app/lib/screens/teeth_chart.dart`): milestones with `tooth` = A–T (A–J upper, the
+      baby's right to left; K–T lower, left to right); only "First tooth" shows as a memory card.
 - [ ] Optional: Home Assistant integration (`/children/{id}/summary` already works as a REST sensor).
 - Note: SSE behind a reverse proxy needs response buffering disabled (the stream sends `X-Accel-Buffering: no`,
   which covers nginx). The app reconnects after 40 s without the 15 s `ping`, on resume, and reloads on reconnect.

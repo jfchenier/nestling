@@ -13,6 +13,7 @@ import '../widgets/common.dart';
 import '../widgets/date_time.dart';
 import '../widgets/photo.dart';
 import 'home.dart' show ChildAvatar;
+import 'teeth_chart.dart';
 
 /// A first worth remembering, offered in the baby book and the memory form.
 class MilestoneIdea {
@@ -101,7 +102,8 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
     final child = s.child;
     watchMemories(s);
     if (child == null) return const Scaffold();
-    final list = memories;
+    // Teeth are on the chart; only the first one is a memory of its own.
+    final list = memories?.where((e) => e['tooth'] == null || _key((e['name'] as String?) ?? '') == 'first tooth').toList();
     final logged = loggedKeys;
     final ideas = milestoneIdeas.where((i) => !logged.contains(_key(i.name))).toList();
 
@@ -129,6 +131,10 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
         ),
       ),
     ];
+    rows.addAll([
+      SectionTitle('Teeth', trailing: Text('as you look at ${child.name}', style: TextStyle(color: context.pal.muted, fontSize: 13))),
+      TeethChart(child: child, milestones: memories ?? const []),
+    ]);
     if (list == null) {
       rows.add(
         const Padding(
@@ -482,6 +488,8 @@ class _MemoryCard extends StatelessWidget {
                         Text(name, style: serifStyle(21)),
                         const SizedBox(height: 2),
                         Text(_dateLine(child, event.start), style: TextStyle(color: c.muted, fontSize: 13.5)),
+                        if (toothFor(event['tooth'] as String?) case final tooth?)
+                          Text(tooth.name, style: TextStyle(color: k.on(c), fontSize: 13.5, fontWeight: FontWeight.w600)),
                       ],
                     ),
                   ),
@@ -561,6 +569,7 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
   late final _name = TextEditingController(text: e?['name'] ?? widget.name ?? '');
   late final _note = TextEditingController(text: e?.note ?? '');
   late DateTime _start = e?.start ?? DateTime.now();
+  late String? _tooth = e?['tooth'];
   Uint8List? _newPhoto;
   bool _removePhoto = false, _busy = false, _preparing = false;
 
@@ -595,7 +604,8 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
     final s = context.read<AppState>();
     final messenger = ScaffoldMessenger.of(context);
     final note = _note.text.trim();
-    final body = {'type': 'milestone', 'name': name, 'start': formatTime(_start), 'note': note.isEmpty ? null : note};
+    final tooth = _key(name) == 'first tooth' || e?['tooth'] != null ? _tooth : null;
+    final body = {'type': 'milestone', 'name': name, 'start': formatTime(_start), 'note': note.isEmpty ? null : note, 'tooth': tooth};
     if (e == null) body.removeWhere((k, v) => v == null);
     final saved = await guard(context, () => s.act((api) => e == null ? api.post('/children/${s.childId}/events', body) : api.patch('/events/${e!.id}', body)));
     if (saved is! Map) {
@@ -712,6 +722,19 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
                         ],
                       ),
                     ),
+                    if (_key(_name.text) == 'first tooth' || e?['tooth'] != null)
+                      FormRow(
+                        label: 'Which tooth?',
+                        child: DropdownButton<String?>(
+                          value: _tooth,
+                          isDense: true,
+                          isExpanded: true,
+                          underline: const SizedBox(),
+                          hint: const Text('Choose'),
+                          items: [for (final t in babyTeeth) DropdownMenuItem(value: t.code, child: Text(t.name))],
+                          onChanged: (v) => setState(() => _tooth = v),
+                        ),
+                      ),
                     FormRow(
                       label: 'When',
                       child: DateTimeValue(value: _start, onChanged: (v) => setState(() => _start = v)),

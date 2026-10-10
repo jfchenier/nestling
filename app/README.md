@@ -80,6 +80,10 @@ activity color. Colors live in
   (`pickMemoryPhoto` in `lib/widgets/photo.dart`). Without a server, photos are kept on the phone
   apart from the other data, travel with Wi-Fi sync, and go through Google Drive sync once each as
   files of their own; the web app without a server doesn't take photos (browser storage is too small).
+  A **teeth chart** sits above the memories (`lib/screens/teeth_chart.dart`): the 20 baby teeth as
+  seen facing the child, tap one when it comes in. Each tooth is a milestone with a `tooth` letter
+  (A–T, the usual dental lettering); the first one is the "First tooth" memory (or gets attached to
+  an existing one), later ones only show on the chart.
 - **Timeline** — everything, grouped by day, filter by type, infinite scroll; Summary sheet with counts per type (today / last 24 h).
 - **Running-timer notifications** (Android) — while a timer runs, an ongoing notification shows it
   with a live clock that Android keeps counting with the app closed; paused timers say so; it goes

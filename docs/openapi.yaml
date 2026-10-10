@@ -1614,6 +1614,12 @@ components:
       properties:
         type: { type: string, enum: [milestone] }
         name: { type: string }
+        tooth:
+          type: string
+          pattern: '^[A-T]$'
+          description: >-
+            A baby tooth that came in (the baby book's teeth chart), by its usual letter: A–J upper
+            (right second molar to left second molar), K–T lower (left second molar to right second molar).
     NoteDetails:
       type: object
       required: [type]

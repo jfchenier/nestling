@@ -50,7 +50,7 @@ const _fields = <String, Map<String, String>>{
   'growth': {'weight_g': 'num', 'length_cm': 'num', 'head_cm': 'num'},
   'health': {'kind': 'health', 'name': 'str', 'dose': 'num', 'dose_unit': 'str', 'temperature_c': 'num'},
   'activity': {'kind': 'str'},
-  'milestone': {'name': 'str'},
+  'milestone': {'name': 'str', 'tooth': 'tooth'},
   'note': {},
 };
 
@@ -85,6 +85,7 @@ Map<String, dynamic> normalizeDetails(Map<String, dynamic> input) {
       'consistency' => enumOf(_poopConsistencies),
       'health' => enumOf(_healthKinds),
       'potty' => enumOf(_potty),
+      'tooth' => v is String && RegExp(r'^[A-T]$').hasMatch(v) ? v : throw badRequest("tooth must be a letter from A to T, not '$v'"),
       _ => v,
     };
   }

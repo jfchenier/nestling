@@ -583,6 +583,11 @@ async fn event_photo() {
     let (_, patched) = c.call(Method::PATCH, &format!("/events/{eid}"), Some(&t), Some(json!({ "name": "First real smile" }))).await;
     assert_eq!(patched["photo_version"], put["photo_version"]);
 
+    // Teeth chart: a milestone may name the tooth (A-T).
+    let (s, tooth) = c.call(Method::PATCH, &format!("/events/{eid}"), Some(&t), Some(json!({ "tooth": "P" }))).await;
+    assert_eq!((s, tooth["tooth"].as_str()), (StatusCode::OK, Some("P")));
+    let (s, _) = c.call(Method::PATCH, &format!("/events/{eid}"), Some(&t), Some(json!({ "tooth": "Z" }))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
     let (s, _, _) = c.call_raw(Method::PUT, &format!("/events/{eid}/photo"), &t, b"<svg/>".to_vec()).await;
     assert_eq!(s, StatusCode::BAD_REQUEST);
     let other = c.register("b@example.com", "B").await;
@@ -628,6 +633,7 @@ async fn csv_export_round_trip() {
         json!({ "type": "health", "kind": "vaccine", "name": "Rotavirus", "start": "2026-10-01T18:00" }),
         json!({ "type": "activity", "kind": "tummy_time", "start": "2026-10-01T19:00", "end": "2026-10-01T19:10" }),
         json!({ "type": "milestone", "name": "First smile", "start": "2026-10-01T20:00" }),
+        json!({ "type": "milestone", "name": "First tooth", "tooth": "O", "start": "2026-10-02T09:00" }),
         json!({ "type": "note", "note": "Visited grandma", "start": "2026-10-01T21:00" }),
     ];
     for e in &entries {

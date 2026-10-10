@@ -70,6 +70,7 @@ pub const COLUMNS: &[&str] = &[
     "[Medical] Symptom",
     "[Medical] Appointment",
     "[Milestone] Milestone",
+    "[Milestone] Tooth",
     "End Date/time",
     "End Date/time (Epoch)",
     "_familyKey",
@@ -288,6 +289,9 @@ pub fn write(family_id: &str, tz: Tz, children: &[ExportChild], events: &[Export
             Details::Milestone(m) => {
                 r.set("Type", "Milestone");
                 r.set("[Milestone] Milestone", m.name.clone());
+                if let Some(t) = &m.tooth {
+                    r.set("[Milestone] Tooth", t.clone());
+                }
             }
             Details::Note(_) => r.set("Type", "Note"),
         }
