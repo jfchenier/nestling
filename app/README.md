@@ -22,7 +22,7 @@ activity color. Colors live in
 ## Screens
 
 - **Home** — the baby's name and photo at the top (tap them to switch baby or add one) and the
-  Medicines and reminders, Family and Settings buttons top right; then running-timer banners, today's totals, then two cards per row in a fixed order
+  bell (Medicines and reminders), Family and Settings buttons top right; then running-timer banners, today's totals, then two cards per row in a fixed order
   (Feed · Sleep / Diaper · Pump / Growth · Health / Routine · Firsts). Each card shows the latest
   entry and a big value ("last side", "dirty", "1h 06m"…), or the live clock of a running timer.
   **Tap a card to log** (Feed asks Breastfeed / Bottle / Solids / Combo; Firsts adds a memory, over the baby book); the button in its header (History; Charts for Growth, Book for Firsts)

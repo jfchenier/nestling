@@ -135,7 +135,7 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       `app/lib/local/schedule.dart`): lists saved on the child; the summary says when the next dose
       is allowed; reminders ("no feed in 3 h", "dose due") show on the app's home strip when due
       (any mode) and are pushed only when Firebase is set up (`state.push`), checked every minute,
-      once per entry (`reminders_sent`). App: Home's medicine button (Medicines and reminders); home strip
+      once per entry (`reminders_sent`). App: Home's bell button (Medicines and reminders); home strip
       (`_ReminderStrip`, same due rule as `reminders.rs`); early-dose warning in the medicine form.
 - [x] **Baby book** (the Firsts card's Book button; tapping the card adds a memory; `app/lib/screens/baby_book.dart`): milestones as a
       scrapbook with one photo each (`/events/{id}/photo`, table `event_photos`; events carry

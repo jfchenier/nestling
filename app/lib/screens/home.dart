@@ -585,7 +585,7 @@ class _Header extends StatelessWidget {
         ),
       ),
       _SquareButton(
-        icon: Icons.medication_rounded,
+        icon: Icons.notifications_rounded,
         tooltip: 'Medicines and reminders',
         onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SchedulesScreen())),
       ),
