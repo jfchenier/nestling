@@ -110,11 +110,11 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
       account import still creates "Baby" / "Baby N".
 - [x] **Nara CSV import** (`/import/nara-csv`, app: Family → Import from Nara → Export file); verified
       on JF's real export (2,090 rows → 2,086 events, 4 empty medical rows skipped).
-- [ ] **Security basics:** rate-limit login/register. (Password reset without email: done — admins
-      set a new password, or the `set-password` CLI.)
+- [x] **Security basics:** login/register rate limits (`src/limiter.rs`, in memory). Password reset
+      without email: admins set a new password, or the `set-password` CLI.
 - [ ] **Data export:** download everything as CSV/JSON (today: copy the SQLite file).
-- [ ] Some times come back as epoch ms instead of RFC 3339 (invite `expires_at`, family
-      `created_at`, `/me/tokens` dates). Pause→resume leaves a zero-length timer segment.
+- [x] Every time in a response is RFC 3339 (family ones in family tz, account/token ones in UTC).
+      Resume/switch drop a closed segment under 1 s (unless it holds the start).
 - [ ] **OpenAPI spec** so the web and native clients can generate their API code.
 - [x] **Notifications on phones** (optional, Firebase): `src/push.rs` sends a data message per
       timer change to every registered phone of the family; `android/…/Push.kt` shows it as the

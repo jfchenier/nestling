@@ -20,6 +20,8 @@ pub enum AppError {
     #[error("{0}")]
     Conflict(String),
     #[error("{0}")]
+    TooManyRequests(String),
+    #[error("{0}")]
     Upstream(String),
     #[error(transparent)]
     Db(#[from] sqlx::Error),
@@ -47,6 +49,7 @@ impl IntoResponse for AppError {
             AppError::Forbidden(_) => (StatusCode::FORBIDDEN, "forbidden"),
             AppError::NotFound(_) => (StatusCode::NOT_FOUND, "not_found"),
             AppError::Conflict(_) => (StatusCode::CONFLICT, "conflict"),
+            AppError::TooManyRequests(_) => (StatusCode::TOO_MANY_REQUESTS, "too_many_requests"),
             AppError::Upstream(_) => (StatusCode::BAD_GATEWAY, "upstream_error"),
             AppError::Db(_) | AppError::Other(_) => {
                 (StatusCode::INTERNAL_SERVER_ERROR, "internal")

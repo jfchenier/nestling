@@ -679,7 +679,7 @@ class LocalEngine {
     final t = _timer(id);
     if (t.segments.lastOrNull?.end == null && t.segments.isNotEmpty) throw conflict('timer is already running');
     final side = checkSide(t.kind, req['side'] ?? t.segments.lastOrNull?.side);
-    t.segments.add(Segment(side, nowMs()));
+    pushSegment(t.segments, Segment(side, nowMs()));
     return _save(t);
   }
 
@@ -694,7 +694,7 @@ class LocalEngine {
       if (last.side == target) return t.toApi();
       last.end = math.max(now, last.start);
     }
-    t.segments.add(Segment(target, now));
+    pushSegment(t.segments, Segment(target, now));
     return _save(t);
   }
 

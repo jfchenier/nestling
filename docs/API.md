@@ -12,7 +12,7 @@ Base URL: `http://<server>:8080/api/v1`. JSON in, JSON out.
 - **Times in responses:** RFC 3339 in the family's timezone.
 - **Units:** metric only — `_ml`, `_g`, `_cm`, `_c` (°C), `_seconds`. Each user has a `units` preference (`metric`/`imperial`) that clients use for display.
 - **IDs:** opaque strings (time-sortable UUIDv7).
-- **Errors:** `{"error": {"code": "bad_request", "message": "a diaper must be wet, dirty or dry"}}` with codes `bad_request` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `conflict` (409), `upstream_error` (502), `internal` (500). Things you don't have access to return 404.
+- **Errors:** `{"error": {"code": "bad_request", "message": "a diaper must be wet, dirty or dry"}}` with codes `bad_request` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `conflict` (409), `too_many_requests` (429), `upstream_error` (502), `internal` (500). Things you don't have access to return 404.
 
 ## Accounts
 
@@ -20,7 +20,7 @@ Base URL: `http://<server>:8080/api/v1`. JSON in, JSON out.
 |---|---|---|
 | `GET /auth/setup` | | public: `{needs_setup, open_registration}`; `needs_setup` while the server has no account |
 | `POST /auth/register` | `{email, password (8+), name, units?}` | → `201 {token, user}`. Only the first account (it becomes the admin), unless `NESTLING_OPEN_REGISTRATION` is on; otherwise `403` |
-| `POST /auth/login` | `{email, password}` | → `{token, user}` |
+| `POST /auth/login` | `{email, password}` | → `{token, user}`. After 5 failed attempts on an account, or 20 from one address (sign-ups count too), within 15 minutes: `429` until the oldest one is 15 minutes old. Behind a reverse proxy the address comes from `X-Real-IP` / `X-Forwarded-For` |
 | `POST /auth/logout` | | revokes the current token |
 | `GET /admin/users` | | admins: every account with `is_admin` and families |
 | `POST /admin/users` | `{email, name, password, is_admin?, family_id?}` | admins: create an account (optionally added to a family as caregiver) |

@@ -7,12 +7,12 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::{
-    auth::{require_member, require_owner, AuthUser},
+    auth::{family_tz, require_member, require_owner, AuthUser},
     error::{bad, ApiJson, AppError, AppResult},
     routes::children::children_json,
     state::AppState,
     trends::{self, DayWindow},
-    util::{invite_code, new_id, now_ms, parse_tz},
+    util::{fmt_time, invite_code, new_id, now_ms, parse_tz},
 };
 
 const INVITE_TTL_MS: i64 = 7 * 24 * 3600 * 1000;
@@ -36,7 +36,7 @@ pub async fn family_json(state: &AppState, family_id: &str, user_id: &str) -> Ap
         "id": id,
         "name": name,
         "timezone": timezone,
-        "created_at": created_at,
+        "created_at": fmt_time(created_at, tz),
         "day_start": trends::hhmm(day_start),
         "day_end": trends::hhmm(day_end),
         "role": role,
@@ -174,7 +174,8 @@ pub async fn create_invite(State(state): State<AppState>, user: AuthUser, Path(i
         .bind(expires_at)
         .execute(&state.db)
         .await?;
-    Ok((StatusCode::CREATED, Json(json!({ "code": code, "family_id": id, "role": role, "expires_at": expires_at }))))
+    Ok((StatusCode::CREATED, Json(json!({ "code": code, "family_id": id, "role": role,
+        "expires_at": fmt_time(expires_at, family_tz(&state.db, &id).await?) }))))
 }
 
 pub async fn accept_invite(State(state): State<AppState>, user: AuthUser, Path(code): Path<String>) -> AppResult<Json<Value>> {

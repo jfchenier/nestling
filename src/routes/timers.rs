@@ -262,6 +262,17 @@ fn parse_side_body(body: &[u8]) -> AppResult<SideReq> {
     serde_json::from_slice(body).map_err(|e| AppError::BadRequest(format!("invalid JSON: {e}")))
 }
 
+/// Start a new segment. A closed segment shorter than a second (paused or switched right after it
+/// began; it would show as 0 s) is dropped first, unless it holds the timer's start.
+fn push_segment(segs: &mut Vec<Segment>, seg: Segment) {
+    if let [earlier @ .., last] = segs.as_slice() {
+        if last.end.is_some_and(|e| e - last.start < 1000) && earlier.iter().any(|s| s.start <= last.start) {
+            segs.pop();
+        }
+    }
+    segs.push(seg);
+}
+
 /// Resume a paused timer, optionally on a different side.
 pub async fn resume(State(state): State<AppState>, user: AuthUser, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Value>> {
     let req = parse_side_body(&body)?;
@@ -272,7 +283,7 @@ pub async fn resume(State(state): State<AppState>, user: AuthUser, Path(id): Pat
         return Err(AppError::Conflict("timer is already running".into()));
     }
     let side = check_side(kind, req.side.or_else(|| segs.last().and_then(|s| s.side)))?;
-    segs.push(Segment { side, start: now_ms(), end: None });
+    push_segment(&mut segs, Segment { side, start: now_ms(), end: None });
     save(&state, &row, &segs, tz).await
 }
 
@@ -303,7 +314,7 @@ pub async fn switch(State(state): State<AppState>, user: AuthUser, Path(id): Pat
         }
         _ => {}
     }
-    segs.push(Segment { side: target, start: now, end: None });
+    push_segment(&mut segs, Segment { side: target, start: now, end: None });
     save(&state, &row, &segs, tz).await
 }
 
@@ -684,6 +695,18 @@ mod tests {
 
     fn seg(side: Side, start: i64, end: Option<i64>) -> Segment {
         Segment { side: Some(side), start, end }
+    }
+
+    #[test]
+    fn drops_empty_segments() {
+        let mut segs = vec![seg(Side::Left, 0, Some(10)), seg(Side::Right, 10, Some(900))];
+        push_segment(&mut segs, seg(Side::Left, 2000, None));
+        assert_eq!(segs.len(), 2);
+        assert_eq!((segs[0].end, segs[1].start), (Some(10), 2000));
+        // An empty first segment keeps the start time.
+        let mut segs = vec![seg(Side::Left, 0, Some(0))];
+        push_segment(&mut segs, seg(Side::Left, 20, None));
+        assert_eq!(segs.len(), 2);
     }
 
     #[test]
