@@ -1,10 +1,9 @@
 # Portainer stack (Stacks -> Add stack -> Web editor) for nestling.example.com.
 # Works as a Swarm stack or a plain Compose stack.
 # Nginx Proxy Manager forwards https://nestling.example.com to http://<server>:8383.
-# Set NESTLING_IMAGE under the stack's "Environment variables", e.g. ghcr.io/<owner>/nestling:latest.
 services:
   nestling:
-    image: ${NESTLING_IMAGE}
+    image: ghcr.io/jfchenier/nestling:latest
     ports:
       - "8383:8080"
     volumes:

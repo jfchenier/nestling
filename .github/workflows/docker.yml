@@ -1,5 +1,5 @@
 # Builds the server image (Rust server + Flutter web app) and publishes it to GitHub's
-# container registry: ghcr.io/<owner>/nestling
+# container registry: ghcr.io/jfchenier/nestling
 #   :latest and :main   every push to main
 #   :0.2.0, :0.2        tags v0.2.0
 #   :sha-<commit>       every build

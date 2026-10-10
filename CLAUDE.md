@@ -3,14 +3,15 @@
 Self-hosted, open-source replacement for the **Nara Baby** tracker app (which went from free to paid).
 Built from a reverse-engineered Nara API (a Python wrapper around Nara's Firebase backend).
 
-**Privacy:** never put the owner's name, GitHub handle, email, the live server's domain or any other
-personal or private URL in code, docs, commits or screenshots. Use `nestling.example.com` and
-generic wording ("the owner").
+**Privacy:** never put the owner's name, email, the live server's domain or any other personal or
+private URL in code, docs, commits or screenshots. Use `nestling.example.com` and generic wording
+("the owner"). The one exception: this repository's GitHub URL and account name (e.g. the
+`ghcr.io/jfchenier/nestling` registry image).
 
 ## Status (2026-10-10)
 
 - Server: `cargo test` green (33 tests), one cosmetic clippy warning (`nara_csv.rs`, complex type).
-  Runs in Docker on the owner's home server (Portainer stack from the GHCR image).
+  Runs in Docker on the owner's home server (Portainer stack from `ghcr.io/jfchenier/nestling:latest`).
   The Nara CSV import is verified on a real export; the Nara *account* import is not yet tried.
 - App (`app/`, Flutter): web build tested end-to-end in headless Chromium against the real server.
   CI builds the APK for tagged GitHub Releases (v0.1.0 to v0.2.1 so far); notifications,
