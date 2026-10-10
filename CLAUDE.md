@@ -4,14 +4,14 @@ Self-hosted, open-source replacement for the **Nara Baby** tracker app (which we
 Owner: JF (github.com/jfchenier). Built from his reverse-engineered Nara API:
 https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's Firebase backend).
 
-## Status (2026-10-08)
+## Status (2026-10-10)
 
-- Server: builds with no warnings, `cargo test` green (11 tests), smoke-tested live (curl tour,
-  access control, SSE, sync, DST). Not yet run in Docker on the home server; Nara import not yet
-  tried against the real account.
-- App (`app/`, Flutter): web build tested end-to-end in headless Chromium against the real server
-  (sign-in, onboarding, invite/join, timers, forms, timeline, trends, live updates, imperial units).
-  Android project is set up but **no APK has been built yet** (the cloud session had no Android SDK).
+- Server: `cargo test` green (33 tests), one cosmetic clippy warning (`nara_csv.rs`, complex type).
+  Runs in Docker on JF's home server (Portainer stack from `ghcr.io/jfchenier/nestling:latest`).
+  The Nara CSV import is verified on JF's real export; the Nara *account* import is not yet tried.
+- App (`app/`, Flutter): web build tested end-to-end in headless Chromium against the real server.
+  CI builds the APK for tagged GitHub Releases (v0.1.0 to v0.2.1 so far); notifications,
+  serverless sync and Drive are not yet tried on real phones.
 
 ## Working agreement
 
@@ -55,7 +55,7 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - `src/routes/` — accounts, families (members, invites), children, events (CRUD, list, sync),
   timers (breastfeed/pump/sleep with segments; `PATCH` corrects start/durations; stop → event;
   `POST /events/{id}/continue` turns a saved entry back into a running timer — the Continue button on an entry's edit sheet), insights (summary, trends, SSE
-  stream), import (Nara).
+  stream), import (Nara), export (CSV), admin (accounts), sync (offline push).
 - `src/trends.rs` — pure daily stats (day/night split by the family's `day_start`/`day_end`, 06–18 local by
   default; app: Family → Day and night), sleep split at midnight; `previous` = the period before.
 - `src/nara.rs` — Nara Firebase login/fetch + `convert()` of tracks. Quantities are
@@ -65,6 +65,10 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
   `source_id`). Check against a real export with
   `NARA_CSV=export.csv cargo test real_export -- --ignored --nocapture` (never commit real exports).
 - `migrations/0001_init.sql`, `tests/api.rs` (end-to-end with in-memory SQLite), `docs/API.md`.
+- `docs/openapi.yaml` — OpenAPI 3.0 description of the API, built into the binary and served at
+  `/api/v1/openapi.yaml`. **Any route or response change updates it and `docs/API.md` too**;
+  `tests/openapi.rs` fails when a route/method in `src/routes/mod.rs` is missing from the spec (it
+  doesn't check bodies, so keep schemas in step by hand).
 - `app/` — Flutter client; see `app/README.md` for its layout. `AppState` (`app/lib/state.dart`)
   holds the session and home data and refreshes on SSE `change` events.
 - Potty trips are `diaper` events with `potty` (`sat_dry`/`success`/`accident`; `wet`/`dirty` = pee/poo),
@@ -92,9 +96,10 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 ## Roadmap (what's left)
 
 ### 1. Make the server work (next)
-- [x] `cargo build` + `cargo test` green; `cargo clippy` has one cosmetic warning (trends.rs:214).
-- [ ] Run in Docker on the home server (Dockerfile now also builds the Flutter web app — untested).
-- [ ] Nara import **dry run** on the real account to verify the assumptions above.
+- [x] `cargo build` + `cargo test` green; `cargo clippy` has one cosmetic warning (nara_csv.rs).
+- [x] Run in Docker on the home server (Portainer stack, image built by `docker.yml`).
+- [x] Nara CSV import verified on JF's real export.
+- [ ] Nara **account** import dry run on the real account to verify the assumptions above.
 
 ### 2. Known server gaps
 - [x] **Timer stop race:** `timers::stop` deletes the timer and saves the event in one transaction.
@@ -112,10 +117,12 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
       on JF's real export (2,090 rows → 2,086 events, 4 empty medical rows skipped).
 - [x] **Security basics:** login/register rate limits (`src/limiter.rs`, in memory). Password reset
       without email: admins set a new password, or the `set-password` CLI.
-- [ ] **Data export:** download everything as CSV/JSON (today: copy the SQLite file).
+- [x] **Data export:** `GET /families/{id}/export.csv` (app: Family → Settings → Export data), in
+      the layout the CSV import reads, so it imports back without loss.
 - [x] Every time in a response is RFC 3339 (family ones in family tz, account/token ones in UTC).
       Resume/switch drop a closed segment under 1 s (unless it holds the start).
-- [ ] **OpenAPI spec** so the web and native clients can generate their API code.
+- [x] **OpenAPI spec** (`docs/openapi.yaml`, served at `/api/v1/openapi.yaml`). The app's
+      hand-written Dart client (`app/lib/api/`) isn't generated from it yet.
 - [x] **Notifications on phones** (optional, Firebase): `src/push.rs` sends a data message per
       timer change to every registered phone of the family; `android/…/Push.kt` shows it as the
       running-timer notification with the app closed. Not tried on real phones yet. Texts are
@@ -133,8 +140,11 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - [x] Sign-in, onboarding, family invites, child switcher, settings, Nara import screen.
 - [x] Live updates via `/families/{id}/stream`; installable PWA (manifest, icons).
 - [x] Layout after JF's Nara screenshots; original palette; light + dark themes.
-- [x] GitHub Actions: CI (`ci.yml`) and tag-triggered APK release (`release.yml`) — not run yet.
-- [ ] Push to the new GitHub repo; add the signing-key secrets; tag `v0.1.0`; install the APK.
+- [x] GitHub Actions: CI (`ci.yml`), Docker image (`docker.yml`) and tag-triggered APK release
+      (`release.yml`), all running.
+- [x] On GitHub; releases v0.1.0 to v0.2.1.
+- [ ] Check the Android signing-key secrets are set (they were lost when the repo was recreated;
+      without them release APKs are debug-signed and can't update an installed copy).
 - [ ] Pick the final application id (now `org.nestling.nestling`) before the first public release.
 
 ### 4. Native mobile app (Android first, same Flutter codebase)
