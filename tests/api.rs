@@ -112,6 +112,8 @@ async fn full_flow() {
     assert_eq!(s, StatusCode::NOT_FOUND);
     let (s, inv) = c.call(Method::POST, &format!("/families/{fid}/invites"), Some(&mom), None).await;
     assert_eq!(s, StatusCode::CREATED, "{inv}");
+    assert!(inv["expires_at"].as_str().is_some_and(|t| t.ends_with("-04:00") || t.ends_with("-05:00")), "{inv}");
+    assert!(fam["created_at"].as_str().is_some_and(|t| t.ends_with("-04:00") || t.ends_with("-05:00")), "{fam}");
     let code = inv["code"].as_str().unwrap();
     let (s, joined) = c.call(Method::POST, &format!("/invites/{code}/accept"), Some(&dad), None).await;
     assert_eq!(s, StatusCode::OK, "{joined}");
@@ -233,8 +235,10 @@ async fn timers() {
     assert_eq!(p["running"], false);
     let (s, _) = c.call(Method::POST, &format!("/timers/{tid}/pause"), Some(&t), None).await;
     assert_eq!(s, StatusCode::CONFLICT);
-    let (s, _) = c.call(Method::POST, &format!("/timers/{tid}/resume"), Some(&t), Some(json!({ "side": "left" }))).await;
+    let (s, r) = c.call(Method::POST, &format!("/timers/{tid}/resume"), Some(&t), Some(json!({ "side": "left" }))).await;
     assert_eq!(s, StatusCode::OK);
+    // The right side, paused as soon as it began, is dropped.
+    assert_eq!(r["segments"].as_array().unwrap().len(), 2, "{r}");
 
     let (s, ev) = c.call(Method::POST, &format!("/timers/{tid}/stop"), Some(&t), Some(json!({ "note": "sleepy" }))).await;
     assert_eq!(s, StatusCode::CREATED, "{ev}");
@@ -342,6 +346,23 @@ async fn timers() {
         .await;
     let (s, _) = c.call(Method::POST, &format!("/events/{}/continue", sl2["id"].as_str().unwrap()), Some(&t), None).await;
     assert_eq!(s, StatusCode::CONFLICT);
+}
+
+#[tokio::test]
+async fn sign_in_is_rate_limited() {
+    let c = Client::new().await;
+    let me = c.register("mom@example.com", "Mom").await;
+    let (_, tokens) = c.call(Method::GET, "/me/tokens", Some(&me), None).await;
+    assert!(tokens["tokens"][0]["created_at"].as_str().is_some_and(|t| t.ends_with('Z')), "{tokens}");
+    let login = |password: &str| json!({ "email": "mom@example.com", "password": password });
+    for _ in 0..5 {
+        let (s, _) = c.call(Method::POST, "/auth/login", None, Some(login("wrong-password"))).await;
+        assert_eq!(s, StatusCode::BAD_REQUEST);
+    }
+    // Locked, even with the right password.
+    let (s, err) = c.call(Method::POST, "/auth/login", None, Some(login("correct horse"))).await;
+    assert_eq!(s, StatusCode::TOO_MANY_REQUESTS, "{err}");
+    assert!(err["error"]["message"].as_str().unwrap().contains("15 minutes"), "{err}");
 }
 
 #[tokio::test]

@@ -32,6 +32,17 @@ void main() {
     expect(() => setStart([seg('left', 0, 60000)], 70000, now), throwsA(anything));
   });
 
+  test('empty segments are dropped when a new one starts (same case as timers.rs)', () {
+    final segs = [Segment('left', 0, 10), Segment('right', 10, 900)];
+    pushSegment(segs, Segment('left', 2000));
+    expect(segs.length, 2);
+    expect((segs[0].end, segs[1].start), (10, 2000));
+    // An empty first segment keeps the start time.
+    final first = [Segment('left', 0, 0)];
+    pushSegment(first, Segment('left', 20));
+    expect(first.length, 2);
+  });
+
   test('stopping a breastfeed timer makes a feed', () {
     final segs = [Segment('left', 0, 600000), Segment('right', 600000)];
     final (start, end, details) = stopTimerSegments('breastfeed', segs, null, {}, 900000);

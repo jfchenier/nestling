@@ -210,6 +210,16 @@ String? checkSide(String kind, String? side) => switch (kind) {
 }
 
 /// Move the timer's start (see `set_start` on the server).
+/// Start a new segment. A closed segment shorter than a second (paused or switched right after it
+/// began; it would show as 0 s) is dropped first, unless it holds the timer's start. Port of timers.rs `push_segment`.
+void pushSegment(List<Segment> segs, Segment seg) {
+  if (segs.length > 1) {
+    final last = segs.last;
+    if (last.end != null && last.end! - last.start < 1000 && segs.take(segs.length - 1).any((s) => s.start <= last.start)) segs.removeLast();
+  }
+  segs.add(seg);
+}
+
 void setStart(List<Segment> segs, int start, int now) {
   segs.sort((a, b) => a.start.compareTo(b.start));
   if (segs.isEmpty) return;

@@ -6,7 +6,6 @@ use axum::{
     http::StatusCode,
     Json,
 };
-use chrono::{TimeZone, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -15,7 +14,7 @@ use crate::{
     error::{bad, ApiJson, AppError, AppResult},
     routes::accounts::{check_new_account, insert_user, user_json},
     state::AppState,
-    util::now_ms,
+    util::{fmt_utc, now_ms},
 };
 
 async fn require_admin(state: &AppState, user: &AuthUser) -> AppResult<()> {
@@ -33,10 +32,6 @@ async fn require_admin(state: &AppState, user: &AuthUser) -> AppResult<()> {
 async fn admin_count(state: &AppState) -> AppResult<i64> {
     let (n,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users WHERE is_admin = 1").fetch_one(&state.db).await?;
     Ok(n)
-}
-
-fn rfc3339(ms: i64) -> String {
-    Utc.timestamp_millis_opt(ms).single().map(|t| t.to_rfc3339()).unwrap_or_default()
 }
 
 /// Every account on the server, with its families.
@@ -60,7 +55,7 @@ pub async fn list_users(State(state): State<AppState>, user: AuthUser) -> AppRes
                 .map(|(_, fid, fname, role)| json!({ "id": fid, "name": fname, "role": role }))
                 .collect();
             json!({ "id": id, "email": email, "name": name, "is_admin": is_admin,
-                    "created_at": rfc3339(created), "families": fams, "you": id == user.id })
+                    "created_at": fmt_utc(created), "families": fams, "you": id == user.id })
         })
         .collect();
     Ok(Json(json!({ "users": users })))

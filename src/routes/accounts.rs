@@ -1,7 +1,9 @@
+use std::net::SocketAddr;
+
 use axum::{
-    extract::{Path, State},
-    http::StatusCode,
-    Json,
+    extract::{ConnectInfo, Path, State},
+    http::{HeaderMap, StatusCode},
+    Extension, Json,
 };
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -9,8 +11,9 @@ use serde_json::{json, Value};
 use crate::{
     auth::{hash_password, issue_token, verify_password, AuthUser},
     error::{bad, ApiJson, AppError, AppResult},
+    limiter::{client_addr, PER_ACCOUNT, PER_ADDRESS},
     state::AppState,
-    util::{new_id, now_ms},
+    util::{fmt_utc, new_id, now_ms},
 };
 
 #[derive(Deserialize)]
@@ -89,7 +92,17 @@ pub async fn setup_status(State(state): State<AppState>) -> AppResult<Json<Value
 
 /// Sign up. The first account on a server is its admin; after that only admins create accounts
 /// (`/admin/users`), unless NESTLING_OPEN_REGISTRATION is on.
-pub async fn register(State(state): State<AppState>, ApiJson(req): ApiJson<RegisterReq>) -> AppResult<(StatusCode, Json<Value>)> {
+pub async fn register(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    conn: Option<Extension<ConnectInfo<SocketAddr>>>,
+    ApiJson(req): ApiJson<RegisterReq>,
+) -> AppResult<(StatusCode, Json<Value>)> {
+    // Every sign-up counts against the address, so open registration can't be used to mass-create accounts.
+    let addr_key = format!("addr:{}", client_addr(&headers, conn.as_deref()));
+    let now = now_ms();
+    state.limiter.check(&addr_key, PER_ADDRESS, now)?;
+    state.limiter.hit(&addr_key, now);
     let email = check_new_account(&req.email, &req.password, &req.name)?;
     let units = req.units.unwrap_or_else(|| "metric".into());
     check_units(&units)?;
@@ -103,15 +116,29 @@ pub async fn register(State(state): State<AppState>, ApiJson(req): ApiJson<Regis
     Ok((StatusCode::CREATED, Json(json!({ "token": token, "user": user_json(&state, &id).await? }))))
 }
 
-pub async fn login(State(state): State<AppState>, ApiJson(req): ApiJson<LoginReq>) -> AppResult<Json<Value>> {
+/// Sign in. Failed attempts are limited per account and per client address (see `limiter`).
+pub async fn login(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    conn: Option<Extension<ConnectInfo<SocketAddr>>>,
+    ApiJson(req): ApiJson<LoginReq>,
+) -> AppResult<Json<Value>> {
+    let email = req.email.trim().to_lowercase();
+    let account_key = format!("login:{email}");
+    let addr_key = format!("addr:{}", client_addr(&headers, conn.as_deref()));
+    let now = now_ms();
+    state.limiter.check(&account_key, PER_ACCOUNT, now)?;
+    state.limiter.check(&addr_key, PER_ADDRESS, now)?;
     let row: Option<(String, String)> = sqlx::query_as("SELECT id, password_hash FROM users WHERE email = ?")
-        .bind(req.email.trim().to_lowercase())
+        .bind(&email)
         .fetch_optional(&state.db)
         .await?;
-    let Some((id, hash)) = row.filter(|(_, h)| verify_password(&req.password, h)) else {
+    let Some((id, _)) = row.filter(|(_, h)| verify_password(&req.password, h)) else {
+        state.limiter.hit(&account_key, now);
+        state.limiter.hit(&addr_key, now);
         return Err(AppError::BadRequest("wrong email or password".into()));
     };
-    let _ = hash;
+    state.limiter.clear(&account_key);
     let (_, token) = issue_token(&state.db, &id, "login", "session").await?;
     Ok(Json(json!({ "token": token, "user": user_json(&state, &id).await? })))
 }
@@ -196,8 +223,8 @@ pub async fn list_tokens(State(state): State<AppState>, user: AuthUser) -> AppRe
     let tokens: Vec<Value> = rows
         .into_iter()
         .map(|(id, name, kind, created, used, hash)| {
-            json!({ "id": id, "name": name, "kind": kind, "created_at": created,
-                    "last_used_at": used, "current": hash == user.token_hash })
+            json!({ "id": id, "name": name, "kind": kind, "created_at": fmt_utc(created),
+                    "last_used_at": used.map(fmt_utc), "current": hash == user.token_hash })
         })
         .collect();
     Ok(Json(json!({ "tokens": tokens })))

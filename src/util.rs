@@ -78,6 +78,11 @@ pub fn parse_opt_time(s: &Option<String>, tz: Tz) -> AppResult<Option<i64>> {
 }
 
 /// Format epoch ms as RFC 3339 in the given timezone, e.g. "2026-10-08T11:30:00-04:00".
+/// RFC 3339 in UTC, for times that belong to no family (accounts, tokens).
+pub fn fmt_utc(ms: i64) -> String {
+    fmt_time(ms, chrono_tz::UTC)
+}
+
 pub fn fmt_time(ms: i64, tz: Tz) -> String {
     match tz.timestamp_millis_opt(ms).single() {
         Some(dt) => dt.to_rfc3339_opts(SecondsFormat::Secs, true),

@@ -4,7 +4,7 @@ use serde::Serialize;
 use sqlx::SqlitePool;
 use tokio::sync::broadcast;
 
-use crate::push::Push;
+use crate::{limiter::Limiter, push::Push};
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -54,12 +54,14 @@ pub struct AppState {
     pub changes: broadcast::Sender<Change>,
     /// Notifications to phones, when set up.
     pub push: Option<Arc<Push>>,
+    /// Failed sign-ins, to slow down password guessing.
+    pub limiter: Arc<Limiter>,
 }
 
 impl AppState {
     pub fn new(db: SqlitePool, config: Config) -> Self {
         let (changes, _) = broadcast::channel(256);
-        AppState { db, config: Arc::new(config), changes, push: None }
+        AppState { db, config: Arc::new(config), changes, push: None, limiter: Arc::default() }
     }
 
     /// Turns on notifications to phones (timer changes are sent from now on).

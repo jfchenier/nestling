@@ -55,7 +55,7 @@ async fn main() -> anyhow::Result<()> {
     }
     let listener = tokio::net::TcpListener::bind(&bind).await?;
     tracing::info!("Nestling listening on http://{bind} (database: {database_url})");
-    axum::serve(listener, app(state, web_dir))
+    axum::serve(listener, app(state, web_dir).into_make_service_with_connect_info::<std::net::SocketAddr>())
         .with_graceful_shutdown(shutdown_signal())
         .await?;
     Ok(())
