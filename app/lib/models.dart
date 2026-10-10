@@ -100,6 +100,9 @@ class Event {
   String? get source => json['source'];
   dynamic operator [](String key) => json[key];
 
+  /// Second argument of `Kind.of`: the feed method, or "potty" for a potty trip.
+  String? get look => json['method'] ?? (json['potty'] != null ? 'potty' : null);
+
   /// Which breast the feed ended on (Nara shows this so you know where to start next).
   String? get endSide {
     final l = toInt(json['left_seconds']) ?? 0, r = toInt(json['right_seconds']) ?? 0;

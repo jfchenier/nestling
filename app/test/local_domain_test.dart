@@ -48,6 +48,16 @@ void main() {
     expect(normalizeDetails({'type': 'diaper', 'wet': true})['dirty'], false);
   });
 
+  test('potty (same rules as model.rs)', () {
+    void check(Map<String, dynamic> d) => validateEvent(normalizeDetails({'type': 'diaper', ...d}), 0, null, null);
+    check({'potty': 'sat_dry', 'dry': true});
+    check({'potty': 'success', 'dirty': true, 'color': 'brown'});
+    expect(() => check({'potty': 'sat_dry', 'wet': true}), throwsA(anything));
+    expect(() => check({'potty': 'accident', 'dry': true}), throwsA(anything));
+    expect(() => check({'potty': 'accident', 'wet': true, 'blowout': true}), throwsA(anything));
+    expect(() => normalizeDetails({'type': 'diaper', 'potty': 'maybe'}), throwsA(anything));
+  });
+
   test('daily stats split sleep across midnight (same cases as trends.rs)', () {
     TrendEvent ev(String start, String? end, Map<String, dynamic> d) => TrendEvent(ms(start), end == null ? null : ms(end), d);
     final events = [
@@ -83,6 +93,10 @@ void main() {
       ev('2026-10-02T22:00', breast(60, 120)),
       ev('2026-10-02T12:00', {'type': 'feed', 'method': 'bottle', 'amount_ml': 90.0, 'milk': 'formula'}),
       ev('2026-10-02T20:00', {'type': 'diaper', 'wet': true, 'dirty': true}),
+      // Potty trips are counted on their own, not as diapers.
+      ev('2026-10-02T09:00', {'type': 'diaper', 'wet': true, 'potty': 'success'}),
+      ev('2026-10-02T11:00', {'type': 'diaper', 'dry': true, 'potty': 'sat_dry'}),
+      ev('2026-10-02T15:00', {'type': 'diaper', 'dirty': true, 'potty': 'accident'}),
     ];
     final now = ms('2026-10-05T00:00');
     final t = computeTrendsWithPrevious(events, DateTime(2026, 10, 2), 1, now);
@@ -92,6 +106,8 @@ void main() {
     expect((a['night_breast_left_seconds_per_day'], a['night_breast_right_seconds_per_day']), (60.0, 120.0));
     expect((a['breast_feeds_per_day'], a['bottle_feeds_per_day'], a['formula_ml_per_day']), (2.0, 1.0, 90.0));
     expect((a['night_diapers_per_day'], a['night_wet_per_day'], a['day_diapers_per_day']), (1.0, 1.0, 0.0));
+    expect((a['diapers_per_day'], a['wet_per_day'], a['dirty_per_day']), (1.0, 1.0, 1.0));
+    expect((a['potty_per_day'], a['potty_success_per_day'], a['potty_accidents_per_day']), (3.0, 1.0, 1.0));
     expect((t['previous']['feeds_per_day'], t['previous']['breast_seconds_per_day']), (1.0, 200.0));
     expect(computeTrendsWithPrevious(events, DateTime(2026, 10, 1), 1, now)['previous'], isNull);
   });

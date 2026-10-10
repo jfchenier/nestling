@@ -163,6 +163,15 @@ String? _consistency(String? v) {
   return null;
 }
 
+/// Nestling's own `[Diaper] Potty` column (`src/nara_csv.rs` `potty`).
+String? _potty(String? v) {
+  final s = v?.toLowerCase() ?? '';
+  if (s.contains('accident')) return 'accident';
+  if (s.contains('dry')) return 'sat_dry';
+  if (s.contains('potty') || s.contains('success')) return 'success';
+  return null;
+}
+
 /// `Tummy time` → `tummy_time`.
 String _activityKind(String v) {
   final s = v.trim().toLowerCase().replaceAll(RegExp(r'[^\p{L}\p{N}]+', unicode: true), '_').split('_').where((p) => p.isNotEmpty).join('_');
@@ -242,15 +251,17 @@ List<(String, Map<String, dynamic>, int, int?)> _convert(_Row row) {
       final kind = (row.get('[Diaper] Type') ?? '').toLowerCase();
       final detail = (row.get('[Diaper] Detail') ?? '').toLowerCase();
       final dirty = kind.contains('dirty') || kind.contains('poo');
+      final potty = _potty(row.get('[Diaper] Potty'));
       final d = <String, dynamic>{
         'type': 'diaper',
         'wet': kind.contains('wet') || kind.contains('pee'),
         'dirty': dirty,
         'dry': kind.contains('dry'),
         'rash': detail.contains('rash'),
-        'blowout': dirty && detail.contains('blowout'),
+        'blowout': dirty && potty == null && detail.contains('blowout'),
         if (dirty) 'color': ?_color(row.get('[Diaper] Dirty Color')),
         if (dirty) 'consistency': ?_consistency(row.get('[Diaper] Dirty Texture')),
+        'potty': ?potty,
       };
       if (d['wet'] != true && !dirty && d['dry'] != true) throw _Skip('empty diaper');
       return one(d);

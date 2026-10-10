@@ -89,6 +89,17 @@ String dayLabel(DateTime t) {
 String _cap(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).replaceAll('_', ' ');
 String cap(String? s) => s == null ? '' : _cap(s);
 
+/// "Potty" / "Accident" / "Sat but dry" for a potty entry, null for a diaper.
+String? pottyLabel(dynamic potty) => switch (potty) {
+  'sat_dry' => 'Sat but dry',
+  'success' => 'Potty',
+  'accident' => 'Accident',
+  _ => null,
+};
+
+/// "Pee", "Poo" or "Pee + poo" for a potty entry.
+String peePoo(Event e) => [if (e['wet'] == true) 'Pee', if (e['dirty'] == true) (e['wet'] == true ? 'poo' : 'Poo')].join(' + ');
+
 /// Title and one-line detail for an event, e.g. ("Bottle", "120 mL formula").
 (String, String) describe(Event e, Units u) {
   String sides() {
@@ -114,6 +125,14 @@ String cap(String? s) => s == null ? '' : _cap(s);
       }
     case 'sleep':
       return ('Sleep', [duration(e.durationSeconds), if (e['location'] != null) cap(e['location'])].where((s) => s.isNotEmpty).join(' · '));
+    case 'diaper' when e['potty'] != null:
+      final parts = <String>[
+        e['potty'] == 'success' ? 'In the potty' : pottyLabel(e['potty'])!,
+        if (e['potty'] != 'sat_dry') peePoo(e),
+        if (e['color'] != null) cap(e['color']),
+        if (e['consistency'] != null) cap(e['consistency']),
+      ];
+      return ('Potty', parts.where((s) => s.isNotEmpty).join(' · '));
     case 'diaper':
       final parts = <String>[
         if (e['wet'] == true && e['dirty'] == true)

@@ -188,9 +188,13 @@ List<_Group> _groups(List<Event> events, Units u) {
   final longest = sleeps.fold(0, (a, e) => (e.durationSeconds ?? 0) > a ? e.durationSeconds! : a);
   add(Kind.sleep, 'Sleep', sleeps, ['${duration(slept)} total', if (sleeps.length > 1) 'longest ${duration(longest)}']);
 
-  final diapers = of((e) => e.type == 'diaper');
+  final diapers = of((e) => e.type == 'diaper' && e['potty'] == null);
   final wet = diapers.where((e) => e['wet'] == true).length, dirty = diapers.where((e) => e['dirty'] == true).length;
   add(Kind.diaper, 'Diaper', diapers, ['$wet wet · $dirty dirty']);
+
+  final potty = of((e) => e.type == 'diaper' && e['potty'] != null);
+  final inPotty = potty.where((e) => e['potty'] == 'success').length, accidents = potty.where((e) => e['potty'] == 'accident').length;
+  add(Kind.potty, 'Potty', potty, ['$inPotty in the potty · $accidents ${accidents == 1 ? 'accident' : 'accidents'}']);
 
   final pumps = of((e) => e.type == 'pump');
   final pumped = pumps.fold<double>(0.0, (a, e) => a + _num(e, 'left_ml') + _num(e, 'right_ml'));

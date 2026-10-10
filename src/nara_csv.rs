@@ -141,6 +141,20 @@ fn consistency(v: Option<&str>) -> Option<PoopConsistency> {
     }
 }
 
+/// Nestling's own `[Diaper] Potty` column (see `csv_export.rs`).
+fn potty(v: &str) -> Option<Potty> {
+    let v = v.to_lowercase();
+    if v.contains("accident") {
+        Some(Potty::Accident)
+    } else if v.contains("dry") {
+        Some(Potty::SatDry)
+    } else if v.contains("potty") || v.contains("success") {
+        Some(Potty::Success)
+    } else {
+        None
+    }
+}
+
 /// `Tummy time` → `tummy_time`.
 fn activity_kind(v: &str) -> String {
     let s: String = v
@@ -265,14 +279,16 @@ fn convert_row(row: &Row) -> Result<Vec<(String, Details, i64, Option<i64>)>, St
             let kind = row.get("[Diaper] Type").unwrap_or("").to_lowercase();
             let detail = row.get("[Diaper] Detail").unwrap_or("").to_lowercase();
             let dirty = kind.contains("dirty") || kind.contains("poo");
+            let potty = row.get("[Diaper] Potty").and_then(potty);
             let d = Diaper {
                 wet: kind.contains("wet") || kind.contains("pee"),
                 dirty,
                 dry: kind.contains("dry"),
                 rash: detail.contains("rash"),
-                blowout: dirty && detail.contains("blowout"),
+                blowout: dirty && potty.is_none() && detail.contains("blowout"),
                 color: if dirty { color(row.get("[Diaper] Dirty Color")) } else { None },
                 consistency: if dirty { consistency(row.get("[Diaper] Dirty Texture")) } else { None },
+                potty,
             };
             if !(d.wet || d.dirty || d.dry) {
                 return Err("empty diaper".into());

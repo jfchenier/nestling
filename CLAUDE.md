@@ -52,6 +52,9 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 
 - `src/model.rs` — event `Details` enum (serde internally tagged by `type`, flattened into
   `EventInput`/`EventOut`) + validation.
+  Potty trips are `diaper` events with `potty` (`sat_dry`/`success`/`accident`; `wet`/`dirty` = pee/poo),
+  counted apart from diapers in Trends. Medicines, activities and solid foods are picked from lists
+  (`app/lib/widgets/pickers.dart`): the child's past entries first (custom names included), then common ones.
 - `src/routes/` — accounts, families (members, invites), children, events (CRUD, list, sync),
   timers (breastfeed/pump/sleep with segments; `PATCH` corrects start/durations; stop → event), insights (summary, trends, SSE
   stream), import (Nara).

@@ -7,7 +7,7 @@ import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/date_time.dart';
-import '../widgets/medicine_picker.dart';
+import '../widgets/pickers.dart';
 
 /// Log a new event of [type] (feeds also take a [method]) or edit [event].
 Future<void> showEventForm(BuildContext context, {String? type, String? method, Event? event}) => showModalBottomSheet(
@@ -53,6 +53,10 @@ class _EventFormState extends State<EventForm> {
   late bool _wet = e?['wet'] ?? true, _dirty = e?['dirty'] ?? false, _dry = e?['dry'] ?? false;
   late bool _rash = e?['rash'] ?? false, _blowout = e?['blowout'] ?? false;
   late String? _color = e?['color'], _consistency = e?['consistency'];
+  // potty (diaper page, Potty tab): sat_dry / success / accident; _wet/_dirty are pee/poo.
+  // A new entry opens on the tab of the last diaper/potty entry.
+  late bool _pottyMode = e != null ? e!['potty'] != null : context.read<AppState>().summary?['last']?['diaper']?['potty'] != null;
+  late String _potty = e?['potty'] ?? 'success';
   // pump
   late final _leftMl = _num(e?['left_ml'], u.volumeIn);
   late final _rightMl = _num(e?['right_ml'], u.volumeIn);
@@ -86,7 +90,7 @@ class _EventFormState extends State<EventForm> {
   static double? _read(TextEditingController c) => double.tryParse(c.text.trim().replaceAll(',', '.'));
   static String? _text(TextEditingController c) => c.text.trim().isEmpty ? null : c.text.trim();
 
-  Kind get kind => Kind.of(widget.type, _method);
+  Kind get kind => Kind.of(widget.type, widget.type == 'diaper' && _pottyMode ? 'potty' : _method);
 
   String get _title => switch (widget.type) {
     'feed' => switch (_method) {
@@ -97,6 +101,7 @@ class _EventFormState extends State<EventForm> {
     },
     'health' => cap(_healthKind),
     'milestone' => 'Baby First',
+    'diaper' when _pottyMode => 'Potty',
     _ => kind.label,
   };
 
@@ -137,8 +142,13 @@ class _EventFormState extends State<EventForm> {
       case 'sleep':
         body['end'] = _end == null ? null : formatTime(_end!);
         body['location'] = _location;
+      case 'diaper' when _pottyMode:
+        final dry = _potty == 'sat_dry';
+        body.addAll({'potty': _potty, 'wet': !dry && _wet, 'dirty': !dry && _dirty, 'dry': dry, 'rash': false, 'blowout': false});
+        body['color'] = !dry && _dirty ? _color : null;
+        body['consistency'] = !dry && _dirty ? _consistency : null;
       case 'diaper':
-        body.addAll({'wet': _wet, 'dirty': _dirty, 'dry': _dry, 'rash': _rash, 'blowout': _blowout});
+        body.addAll({'potty': null, 'wet': _wet, 'dirty': _dirty, 'dry': _dry, 'rash': _rash, 'blowout': _blowout});
         body['color'] = _dirty ? _color : null;
         body['consistency'] = _dirty ? _consistency : null;
       case 'pump':
@@ -175,6 +185,12 @@ class _EventFormState extends State<EventForm> {
   Future<void> _save() async {
     if (widget.type == 'sleep' && _end == null) {
       return showMessage(context, 'When did the sleep end? Use the sleep timer for a nap in progress.');
+    }
+    if (widget.type == 'diaper' && _pottyMode && _potty != 'sat_dry' && !_wet && !_dirty) {
+      return showMessage(context, 'Was it pee, poo or both?');
+    }
+    if (widget.type == 'diaper' && !_pottyMode && !_wet && !_dirty && !_dry) {
+      return showMessage(context, 'Was the diaper wet, dirty or dry?');
     }
     setState(() => _busy = true);
     final s = context.read<AppState>();
@@ -270,6 +286,43 @@ class _EventFormState extends State<EventForm> {
     );
   }
 
+  /// Activity list (this child's own first, then the built-in ones, or a new name).
+  Future<void> _chooseActivity() async {
+    final a = await showActivityPicker(context);
+    if (a != null && mounted) setState(() => _activityKind.text = a);
+  }
+
+  /// Foods list (several at once): foods already tried, usual first foods, or new ones.
+  Future<void> _chooseFoods() async {
+    final f = await showFoodPicker(context, splitFoods(_foods.text));
+    if (f != null && mounted) setState(() => _foods.text = f.join(', '));
+  }
+
+  /// A row that opens a picker: the chosen value, or an accent "Choose".
+  Widget _pickRow(String label, String value, VoidCallback onTap) => FormRow(
+    label: label,
+    onTap: onTap,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(
+            value.isEmpty ? 'Choose' : value,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 2,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontSize: 17,
+              color: value.isEmpty ? context.pal.accent : context.pal.ink,
+              fontWeight: value.isEmpty ? FontWeight.w600 : null,
+            ),
+          ),
+        ),
+        Icon(Icons.chevron_right_rounded, color: context.pal.muted),
+      ],
+    ),
+  );
+
   /// Medicine list (recent first, then common, or a custom name); fills the last dose used.
   Future<void> _chooseMedicine() async {
     final m = await showMedicinePicker(context);
@@ -345,7 +398,7 @@ class _EventFormState extends State<EventForm> {
             ),
             if (_milk != 'breast_milk') _textRow('Formula', _formula, hint: 'Brand (optional)'),
           ],
-          if (_method == 'solids') _textRow('Foods', _foods, hint: 'Avocado, banana…'),
+          if (_method == 'solids') _pickRow('Foods', _foods.text, _chooseFoods),
         ];
       case 'sleep':
         return [
@@ -367,47 +420,30 @@ class _EventFormState extends State<EventForm> {
         ];
       case 'diaper':
         return [
-          _timeRow('Time', _start, (v) => setState(() => _start = v)),
-          Container(
-            decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: context.pal.line)),
-            ),
-            padding: const EdgeInsets.symmetric(vertical: 36),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircleToggle(
-                  label: 'wet',
-                  selected: _wet,
-                  onTap: () => setState(() {
-                    _wet = !_wet;
-                    if (_wet) _dry = false;
-                  }),
-                ),
-                const SizedBox(width: 20),
-                CircleToggle(
-                  label: 'dirty',
-                  selected: _dirty,
-                  onTap: () => setState(() {
-                    _dirty = !_dirty;
-                    if (_dirty) _dry = false;
-                  }),
-                ),
-                const SizedBox(width: 20),
-                CircleToggle(
-                  label: 'dry',
-                  selected: _dry,
-                  onTap: () => setState(() {
-                    _dry = !_dry;
-                    if (_dry) _wet = _dirty = false;
-                  }),
-                ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 4),
+            child: SegmentedButton<bool>(
+              segments: const [
+                ButtonSegment(value: false, label: Text('Diaper'), icon: Icon(Icons.baby_changing_station_rounded)),
+                ButtonSegment(value: true, label: Text('Potty'), icon: Icon(Icons.wc_rounded)),
               ],
+              selected: {_pottyMode},
+              showSelectedIcon: false,
+              style: SegmentedButton.styleFrom(
+                selectedBackgroundColor: kind.fill(context.pal),
+                selectedForegroundColor: context.pal.bandInk,
+                side: BorderSide(color: context.pal.line),
+              ),
+              onSelectionChanged: (v) => setState(() {
+                _pottyMode = v.first;
+                // A potty trip starts as "pee in the potty"; back on Diaper, a sat-but-dry trip
+                // isn't a dry diaper.
+                if (_pottyMode && !_wet && !_dirty) _wet = true;
+              }),
             ),
           ),
-          if (_dirty) FormRow(label: 'Texture & Color', below: _textureAndColor()),
-          _switchRow('Blowout', _blowout, (v) => setState(() => _blowout = v)),
-          _switchRow('Diaper Rash', _rash, (v) => setState(() => _rash = v)),
+          _timeRow('Time', _start, (v) => setState(() => _start = v)),
+          if (_pottyMode) ..._pottyFields() else ..._diaperFields(),
         ];
       case 'pump':
         return [
@@ -442,27 +478,7 @@ class _EventFormState extends State<EventForm> {
             _numRow('Temperature', _temp, u.tempUnit)
           else ...[
             if (_healthKind == 'medicine')
-              FormRow(
-                label: 'Medicine',
-                onTap: _chooseMedicine,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        _name.text.isEmpty ? 'Choose' : _name.text,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 17,
-                          color: _name.text.isEmpty ? context.pal.accent : context.pal.ink,
-                          fontWeight: _name.text.isEmpty ? FontWeight.w600 : null,
-                        ),
-                      ),
-                    ),
-                    Icon(Icons.chevron_right_rounded, color: context.pal.muted),
-                  ],
-                ),
-              )
+              _pickRow('Medicine', _name.text, _chooseMedicine)
             else
               _textRow(switch (_healthKind) {
                 'vaccine' => 'Vaccine',
@@ -474,24 +490,7 @@ class _EventFormState extends State<EventForm> {
         ];
       case 'activity':
         return [
-          FormRow(
-            label: 'Activity',
-            below: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                for (final a in const ['tummy_time', 'bath', 'outdoor', 'play', 'read', 'nail_trim', 'vitamin'])
-                  ChoiceChip(
-                    label: Text(cap(a), style: TextStyle(color: _activityKind.text == a ? context.pal.bandInk : context.pal.ink)),
-                    selected: _activityKind.text == a,
-                    selectedColor: kind.fill(context.pal),
-                    showCheckmark: false,
-                    onSelected: (_) => setState(() => _activityKind.text = a),
-                  ),
-              ],
-            ),
-          ),
-          _textRow('Other', _activityKind, hint: 'Type an activity'),
+          _pickRow('Activity', cap(_text(_activityKind)), _chooseActivity),
           _timeRow('Start Time', _start, (v) => setState(() => _start = v)),
           _numRow('Duration', _activityMinutes, 'min'),
         ];
@@ -512,6 +511,82 @@ class _EventFormState extends State<EventForm> {
         return [_timeRow('Time', _start, (v) => setState(() => _start = v))];
     }
   }
+
+  List<Widget> _diaperFields() => [
+    Container(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: context.pal.line)),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 36),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircleToggle(
+            label: 'wet',
+            selected: _wet,
+            onTap: () => setState(() {
+              _wet = !_wet;
+              if (_wet) _dry = false;
+            }),
+          ),
+          const SizedBox(width: 20),
+          CircleToggle(
+            label: 'dirty',
+            selected: _dirty,
+            onTap: () => setState(() {
+              _dirty = !_dirty;
+              if (_dirty) _dry = false;
+            }),
+          ),
+          const SizedBox(width: 20),
+          CircleToggle(
+            label: 'dry',
+            selected: _dry,
+            onTap: () => setState(() {
+              _dry = !_dry;
+              if (_dry) _wet = _dirty = false;
+            }),
+          ),
+        ],
+      ),
+    ),
+    if (_dirty) FormRow(label: 'Texture & Color', below: _textureAndColor()),
+    _switchRow('Blowout', _blowout, (v) => setState(() => _blowout = v)),
+    _switchRow('Diaper Rash', _rash, (v) => setState(() => _rash = v)),
+  ];
+
+  /// Potty tab: what happened (one of three), then pee/poo unless the baby stayed dry.
+  List<Widget> _pottyFields() => [
+    Container(
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: context.pal.line)),
+      ),
+      padding: const EdgeInsets.symmetric(vertical: 30),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (final (i, (value, label, icon)) in pottyResults.indexed) ...[
+            if (i > 0) const SizedBox(width: 16),
+            CircleToggle(label: label, icon: icon, size: 96, selected: _potty == value, onTap: () => setState(() => _potty = value)),
+          ],
+        ],
+      ),
+    ),
+    if (_potty != 'sat_dry') ...[
+      FormRow(
+        label: 'What came',
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleToggle(label: 'pee', size: 60, selected: _wet, onTap: () => setState(() => _wet = !_wet)),
+            const SizedBox(width: 12),
+            CircleToggle(label: 'poo', size: 60, selected: _dirty, onTap: () => setState(() => _dirty = !_dirty)),
+          ],
+        ),
+      ),
+      if (_dirty) FormRow(label: 'Texture & Color', below: _textureAndColor()),
+    ],
+  ];
 
   Widget _textureAndColor() {
     const textures = ['runny', 'mucousy', 'mushy', 'solid', 'pebbles'];

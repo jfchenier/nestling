@@ -20,6 +20,7 @@ const _milks = ['breast_milk', 'formula', 'mixed'];
 const _sides = ['left', 'right', 'both'];
 const _poopColors = ['yellow', 'green', 'brown', 'black', 'red', 'gray'];
 const _poopConsistencies = ['runny', 'mushy', 'mucousy', 'pebbles', 'solid'];
+const _potty = ['sat_dry', 'success', 'accident'];
 const _healthKinds = ['medicine', 'temperature', 'vaccine', 'appointment', 'symptom'];
 
 /// Field kinds per event type, in the order the server writes them.
@@ -43,6 +44,7 @@ const _fields = <String, Map<String, String>>{
     'blowout': 'bool',
     'color': 'color',
     'consistency': 'consistency',
+    'potty': 'potty',
   },
   'pump': {'left_ml': 'num', 'right_ml': 'num', 'left_seconds': 'secs', 'right_seconds': 'secs'},
   'growth': {'weight_g': 'num', 'length_cm': 'num', 'head_cm': 'num'},
@@ -82,6 +84,7 @@ Map<String, dynamic> normalizeDetails(Map<String, dynamic> input) {
       'color' => enumOf(_poopColors),
       'consistency' => enumOf(_poopConsistencies),
       'health' => enumOf(_healthKinds),
+      'potty' => enumOf(_potty),
       _ => v,
     };
   }
@@ -117,6 +120,15 @@ void validateEvent(Map<String, dynamic> d, int start, int? end, String? note) {
       if (d['wet'] != true && d['dirty'] != true && d['dry'] != true) throw badRequest('a diaper must be wet, dirty or dry');
       if ((d['color'] != null || d['consistency'] != null) && d['dirty'] != true) {
         throw badRequest('color and consistency only apply to dirty diapers');
+      }
+      final pee = d['wet'] == true || d['dirty'] == true;
+      switch (d['potty']) {
+        case 'sat_dry' when pee:
+          throw badRequest('sat_dry cannot be wet or dirty');
+        case 'success' || 'accident' when !pee:
+          throw badRequest('a potty success or accident must be wet (pee) or dirty (poo)');
+        case String _ when d['blowout'] == true:
+          throw badRequest('blowout only applies to diapers');
       }
     case 'pump':
       _nonNegative('left_ml', d['left_ml'], 1000);
@@ -359,7 +371,7 @@ class _Extra {
     'solids_count': 0,
   };
   final sleep = <String, num>{'total_seconds': 0, 'day_seconds': 0, 'night_seconds': 0, 'nap_count': 0, 'longest_seconds': 0};
-  final diaper = <String, num>{'count': 0, 'wet': 0, 'dirty': 0, 'day_count': 0, 'night_count': 0, 'day_wet': 0, 'day_dirty': 0};
+  final diaper = <String, num>{'count': 0, 'wet': 0, 'dirty': 0, 'day_count': 0, 'night_count': 0, 'day_wet': 0, 'day_dirty': 0, 'potty_count': 0, 'potty_success': 0, 'potty_accidents': 0};
   final pump = <String, num>{'count': 0, 'total_ml': 0.0, 'total_seconds': 0};
   final extra = _Extra();
   void add(Map<String, num> m, String k, num v) => m[k] = m[k]! + v;
@@ -417,6 +429,10 @@ class _Extra {
             extra.naps++;
           }
         }
+      case 'diaper' when startsIn && d['potty'] != null:
+        add(diaper, 'potty_count', 1);
+        if (d['potty'] == 'success') add(diaper, 'potty_success', 1);
+        if (d['potty'] == 'accident') add(diaper, 'potty_accidents', 1);
       case 'diaper' when startsIn:
         add(diaper, 'count', 1);
         if (d['wet'] == true) add(diaper, 'wet', 1);
@@ -517,6 +533,9 @@ Map<String, dynamic> computeTrends(List<TrendEvent> events, DateTime from, int d
       'night_diapers_per_day': avg((d) => d['diaper']['night_count']),
       'night_wet_per_day': avg((d) => d['diaper']['wet'] - d['diaper']['day_wet']),
       'night_dirty_per_day': avg((d) => d['diaper']['dirty'] - d['diaper']['day_dirty']),
+      'potty_per_day': avg((d) => d['diaper']['potty_count']),
+      'potty_success_per_day': avg((d) => d['diaper']['potty_success']),
+      'potty_accidents_per_day': avg((d) => d['diaper']['potty_accidents']),
       'pumps_per_day': avg((d) => d['pump']['count']),
       'pumped_ml_per_day': avg((d) => d['pump']['total_ml']),
       'pump_seconds_per_day': avg((d) => d['pump']['total_seconds']),

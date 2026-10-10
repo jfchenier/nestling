@@ -5,7 +5,7 @@ use chrono::{Duration, NaiveDate, TimeZone};
 use chrono_tz::Tz;
 use serde::Serialize;
 
-use crate::model::{Details, FeedMethod, Milk};
+use crate::model::{Details, FeedMethod, Milk, Potty};
 
 /// When daytime starts and ends, in minutes after local midnight (`start < end`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -88,6 +88,11 @@ pub struct DiaperStats {
     pub night_count: u32,
     pub day_wet: u32,
     pub day_dirty: u32,
+    /// Potty trips (not counted in the diaper numbers above), and how many ended in the potty
+    /// or as an accident.
+    pub potty_count: u32,
+    pub potty_success: u32,
+    pub potty_accidents: u32,
 }
 
 #[derive(Debug, Default, Clone, Serialize)]
@@ -143,6 +148,9 @@ pub struct Averages {
     pub night_diapers_per_day: f64,
     pub night_wet_per_day: f64,
     pub night_dirty_per_day: f64,
+    pub potty_per_day: f64,
+    pub potty_success_per_day: f64,
+    pub potty_accidents_per_day: f64,
     pub pumps_per_day: f64,
     pub pumped_ml_per_day: f64,
     pub pump_seconds_per_day: f64,
@@ -259,6 +267,14 @@ fn window_stats(events: &[TrendEvent], date: NaiveDate, w0: i64, w1: i64, daytim
                         extra.nap_seconds += dur;
                         extra.naps += 1;
                     }
+                }
+            }
+            Details::Diaper(d) if starts_in && d.potty.is_some() => {
+                day.diaper.potty_count += 1;
+                match d.potty {
+                    Some(Potty::Success) => day.diaper.potty_success += 1,
+                    Some(Potty::Accident) => day.diaper.potty_accidents += 1,
+                    _ => {}
                 }
             }
             Details::Diaper(d) if starts_in => {
@@ -384,6 +400,9 @@ pub fn compute(events: &[TrendEvent], tz: Tz, window: DayWindow, from: NaiveDate
         night_diapers_per_day: avg(&|d| d.diaper.night_count as f64),
         night_wet_per_day: avg(&|d| (d.diaper.wet - d.diaper.day_wet) as f64),
         night_dirty_per_day: avg(&|d| (d.diaper.dirty - d.diaper.day_dirty) as f64),
+        potty_per_day: avg(&|d| d.diaper.potty_count as f64),
+        potty_success_per_day: avg(&|d| d.diaper.potty_success as f64),
+        potty_accidents_per_day: avg(&|d| d.diaper.potty_accidents as f64),
         pumps_per_day: avg(&|d| d.pump.count as f64),
         pumped_ml_per_day: avg(&|d| d.pump.total_ml),
         pump_seconds_per_day: avg(&|d| d.pump.total_seconds as f64),
@@ -496,6 +515,10 @@ mod tests {
                 details: Details::Feed(Feed { method: FeedMethod::Bottle, left_seconds: None, right_seconds: None, start_side: None, amount_ml: Some(90.0), milk: Some(Milk::Formula), formula_name: None, foods: None }),
             },
             TrendEvent { start: ms(tz, "2026-10-02T20:00"), end: None, details: Details::Diaper(Diaper { wet: true, dirty: true, ..Default::default() }) },
+            // Potty trips are counted on their own, not as diapers.
+            TrendEvent { start: ms(tz, "2026-10-02T09:00"), end: None, details: Details::Diaper(Diaper { wet: true, potty: Some(Potty::Success), ..Default::default() }) },
+            TrendEvent { start: ms(tz, "2026-10-02T11:00"), end: None, details: Details::Diaper(Diaper { dry: true, potty: Some(Potty::SatDry), ..Default::default() }) },
+            TrendEvent { start: ms(tz, "2026-10-02T15:00"), end: None, details: Details::Diaper(Diaper { dirty: true, potty: Some(Potty::Accident), ..Default::default() }) },
         ];
         let now = ms(tz, "2026-10-05T00:00");
         let t = compute_with_previous(&events, tz, DayWindow::default(), NaiveDate::from_ymd_opt(2026, 10, 2).unwrap(), 1, now);
@@ -505,6 +528,8 @@ mod tests {
         assert_eq!((a.night_breast_left_seconds_per_day, a.night_breast_right_seconds_per_day), (60.0, 120.0));
         assert_eq!((a.breast_feeds_per_day, a.bottle_feeds_per_day, a.formula_ml_per_day), (2.0, 1.0, 90.0));
         assert_eq!((a.night_diapers_per_day, a.night_wet_per_day, a.day_diapers_per_day), (1.0, 1.0, 0.0));
+        assert_eq!((a.diapers_per_day, a.wet_per_day, a.dirty_per_day), (1.0, 1.0, 1.0));
+        assert_eq!((a.potty_per_day, a.potty_success_per_day, a.potty_accidents_per_day), (3.0, 1.0, 1.0));
         let p = t.previous.as_ref().expect("previous period");
         assert_eq!((p.feeds_per_day, p.breast_seconds_per_day), (1.0, 200.0));
         // Nothing logged before Oct 1: no comparison.

@@ -56,6 +56,7 @@ pub const COLUMNS: &[&str] = &[
     "[Profile] Type",
     // Nestling's own columns.
     "[Solids] Food",
+    "[Diaper] Potty",
     "[Sleep] Location",
     "[Pump] Left Volume",
     "[Pump] Left Volume Unit",
@@ -243,6 +244,14 @@ pub fn write(family_id: &str, tz: Tz, children: &[ExportChild], events: &[Export
                 r.set("[Diaper] Detail", details.join(" "));
                 r.opt("[Diaper] Dirty Color", d.color.map(|c| format!("{c:?}").to_uppercase()));
                 r.opt("[Diaper] Dirty Texture", d.consistency.map(|c| format!("{c:?}").to_uppercase()));
+                r.opt(
+                    "[Diaper] Potty",
+                    d.potty.map(|p| match p {
+                        Potty::SatDry => "Sat but dry",
+                        Potty::Success => "Potty",
+                        Potty::Accident => "Accident",
+                    }),
+                );
             }
             Details::Pump(p) => {
                 r.set("Type", "Pump");

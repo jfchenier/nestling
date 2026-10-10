@@ -217,6 +217,37 @@ class _TrendsScreenState extends State<TrendsScreen> {
                   },
                   label: (v) => v.toStringAsFixed(0),
                 ),
+                if (either('potty_per_day')) ...[
+                  const SectionTitle('Potty'),
+                  _AverageGrid(
+                    items: [
+                      _Stat(
+                        Kind.potty,
+                        'Potty trips',
+                        'potty_per_day',
+                        'per day',
+                        count,
+                        lines: [('In the potty', count(avg['potty_success_per_day'])), ('Accidents', count(avg['potty_accidents_per_day']))],
+                      ),
+                      _Stat(Kind.potty, 'In the potty', 'potty_success_per_day', 'per day', count),
+                      _Stat(Kind.potty, 'Accidents', 'potty_accidents_per_day', 'per day', count),
+                    ],
+                    previous: prev,
+                    current: avg,
+                  ),
+                  const SizedBox(height: 10),
+                  _Chart(
+                    days: days,
+                    kind: Kind.potty,
+                    legend: const ['In the potty', 'Accident', 'Sat but dry'],
+                    stacks: (d) {
+                      final all = toDouble(d['diaper']['potty_count']) ?? 0;
+                      final ok = toDouble(d['diaper']['potty_success']) ?? 0, oops = toDouble(d['diaper']['potty_accidents']) ?? 0;
+                      return [ok, oops, all - ok - oops];
+                    },
+                    label: (v) => v.toStringAsFixed(0),
+                  ),
+                ],
                 const SectionTitle('Sleep'),
                 _AverageGrid(
                   items: [
