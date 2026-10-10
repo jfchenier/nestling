@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -169,7 +170,6 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
   final _scroll = ScrollController();
   final _keys = {for (final c in BookChapter.values) c: GlobalKey()};
   BookChapter _current = BookChapter.values.first;
-  static const _barHeight = 104.0;
 
   @override
   bool get wantsGrowth => true;
@@ -363,7 +363,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
             ),
             SliverPersistentHeader(
               pinned: true,
-              delegate: _ContentsBar(height: _barHeight, current: _current, onTap: _jump, background: context.pal.background),
+              delegate: _ContentsBar(height: _ContentsBar.heightFor(context, math.min(MediaQuery.sizeOf(context).width, 640)), current: _current, onTap: _jump, background: context.pal.background),
             ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 48),
@@ -602,7 +602,32 @@ class _ContentsBar extends SliverPersistentHeaderDelegate {
   double get maxExtent => height;
 
   @override
-  bool shouldRebuild(_ContentsBar old) => old.current != current || old.background != background;
+  bool shouldRebuild(_ContentsBar old) => old.current != current || old.background != background || old.height != height;
+
+  static const _pad = EdgeInsets.fromLTRB(16, 6, 16, 6), _pillPad = EdgeInsets.symmetric(horizontal: 14, vertical: 9);
+  static const _gap = 8.0, _icon = 17.0, _iconGap = 6.0;
+  static const _label = TextStyle(fontWeight: FontWeight.w700);
+
+  /// The bar's height for a [width]: as many rows as the pills wrap onto (one on a computer,
+  /// two on most phones).
+  static double heightFor(BuildContext context, double width) {
+    final style = DefaultTextStyle.of(context).style.merge(_label);
+    final scaler = MediaQuery.textScalerOf(context);
+    final room = width - _pad.horizontal;
+    var rows = 1, x = 0.0, pill = 0.0;
+    for (final ch in BookChapter.values) {
+      final text = TextPainter(text: TextSpan(text: ch.tab, style: style), textScaler: scaler, textDirection: Directionality.of(context))..layout();
+      final w = _pillPad.horizontal + _icon + _iconGap + text.width;
+      pill = math.max(pill, _pillPad.vertical + math.max(_icon, text.height));
+      if (x > 0 && x + _gap + w > room) {
+        rows++;
+        x = w;
+      } else {
+        x += (x > 0 ? _gap : 0) + w;
+      }
+    }
+    return _pad.vertical + rows * pill + (rows - 1) * _gap + 1;
+  }
 
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
@@ -612,10 +637,10 @@ class _ContentsBar extends SliverPersistentHeaderDelegate {
     return Container(
       color: background,
       alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+      padding: _pad,
       child: Wrap(
-        spacing: 8,
-        runSpacing: 8,
+        spacing: _gap,
+        runSpacing: _gap,
         children: [
           for (final ch in BookChapter.values)
             Semantics(
@@ -628,13 +653,13 @@ class _ContentsBar extends SliverPersistentHeaderDelegate {
                   customBorder: const StadiumBorder(),
                   onTap: () => onTap(ch),
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                    padding: _pillPad,
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(ch.icon, size: 17, color: ch == current ? c.bandInk : k.on(c)),
-                        const SizedBox(width: 6),
-                        Text(ch.tab, style: TextStyle(fontWeight: FontWeight.w700, color: ch == current ? c.bandInk : c.ink)),
+                        Icon(ch.icon, size: _icon, color: ch == current ? c.bandInk : k.on(c)),
+                        const SizedBox(width: _iconGap),
+                        Text(ch.tab, style: _label.copyWith(color: ch == current ? c.bandInk : c.ink)),
                       ],
                     ),
                   ),
