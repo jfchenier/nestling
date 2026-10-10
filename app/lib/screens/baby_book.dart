@@ -93,6 +93,12 @@ const milestoneIdeas = [
   MilestoneIdea('First snow', Icons.ac_unit_rounded, 'any time'),
   MilestoneIdea('First day at daycare', Icons.school_rounded, 'any time'),
   MilestoneIdea('First tooth', Icons.auto_awesome_rounded, '6–10 months', BookChapter.growing),
+  MilestoneIdea('Up a diaper size', Icons.baby_changing_station_rounded, 'now and then', BookChapter.growing, true),
+  MilestoneIdea('Up a clothes size', Icons.checkroom_rounded, 'now and then', BookChapter.growing, true),
+  MilestoneIdea('Outgrew the bassinet', Icons.crib_rounded, '3–6 months', BookChapter.growing),
+  MilestoneIdea('Own room', Icons.bedroom_baby_rounded, 'any time', BookChapter.growing),
+  MilestoneIdea('Forward-facing car seat', Icons.directions_car_rounded, 'after 2 years', BookChapter.growing),
+  MilestoneIdea('First shoes', Icons.directions_run_rounded, 'first steps', BookChapter.growing),
   MilestoneIdea('First Christmas', Icons.park_rounded, 'December', BookChapter.celebrations),
   MilestoneIdea('First Halloween', Icons.dark_mode_rounded, 'October', BookChapter.celebrations),
   MilestoneIdea('First Easter', Icons.egg_rounded, 'spring', BookChapter.celebrations),
@@ -113,12 +119,20 @@ const bananaName = 'Banana for scale';
 
 bool isBanana(Event e) => _key((e['name'] as String?) ?? '') == _key(bananaName);
 
-/// The chapter a memory goes in when none was picked: its idea's, else Firsts.
-BookChapter autoChapter(String? name) =>
-    ideaFor(name)?.chapter ?? (name != null && _key(name) == _key(bananaName) ? BookChapter.growing : BookChapter.firsts);
+/// The chapter a memory goes in when none was picked: its idea's, Waiting for you before the
+/// [birth] day, else Firsts.
+BookChapter autoChapter(String? name, {DateTime? at, DateTime? birth}) {
+  final idea = ideaFor(name);
+  if (idea != null) return idea.chapter;
+  if (name != null && _key(name) == _key(bananaName)) return BookChapter.growing;
+  if (at != null && birth != null && at.isBefore(DateTime(birth.year, birth.month, birth.day))) return BookChapter.waiting;
+  return BookChapter.firsts;
+}
 
-/// The chapter a memory is in.
-BookChapter chapterOf(Event e) => BookChapter.byId(e['chapter']) ?? autoChapter(e['name'] as String?);
+/// The chapter a memory is in: the one saved with it (the app saves it always; older entries and
+/// imports may have none).
+BookChapter chapterOf(Event e, {DateTime? birth}) =>
+    BookChapter.byId(e['chapter']) ?? autoChapter(e['name'] as String?, at: e.start, birth: birth);
 
 /// The selected child's memories (milestones), oldest first, reloaded whenever data changes.
 mixin _Memories<T extends StatefulWidget> on State<T> {
@@ -246,7 +260,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
     final byChapter = {for (final c in BookChapter.values) c: <Event>[]};
     final bananas = <Event>[];
     for (final e in list ?? const <Event>[]) {
-      (isBanana(e) ? bananas : byChapter[chapterOf(e)]!).add(e);
+      (isBanana(e) ? bananas : byChapter[chapterOf(e, birth: child.birthDate)]!).add(e);
     }
     final logged = loggedKeys;
     var printIndex = 0;
@@ -329,9 +343,9 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
       ideas(BookChapter.hello),
       // Firsts
       heading(BookChapter.firsts),
-      ideas(BookChapter.firsts, seeAll: true),
       if (list != null && byChapter[BookChapter.firsts]!.isEmpty) const _EmptyBook(),
       ...prints(byChapter[BookChapter.firsts]!, byAge: true),
+      ideas(BookChapter.firsts, seeAll: true),
       // Growing up
       heading(BookChapter.growing),
       SectionTitle(
@@ -343,6 +357,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
       _BananaStrip(child: child, photos: bananas),
       ...prints(byChapter[BookChapter.growing]!),
       GrowthPage(child: child, growth: growth),
+      ideas(BookChapter.growing),
       // Celebrations
       heading(BookChapter.celebrations),
       ...prints(byChapter[BookChapter.celebrations]!),
@@ -611,7 +626,9 @@ class _ContentsBar extends SliverPersistentHeaderDelegate {
   /// The bar's height for a [width]: as many rows as the pills wrap onto (one on a computer,
   /// two on most phones).
   static double heightFor(BuildContext context, double width) {
-    final style = DefaultTextStyle.of(context).style.merge(_label);
+    // The theme's body text, as the pills get it inside the Scaffold: [context] may sit above any
+    // Material (a pushed route), where the default text style is Flutter's oversized fallback.
+    final style = Theme.of(context).textTheme.bodyMedium!.merge(_label);
     final scaler = MediaQuery.textScalerOf(context);
     final room = width - _pad.horizontal;
     var rows = 1, x = 0.0, pill = 0.0;
@@ -909,7 +926,7 @@ class _EmptyBook extends StatelessWidget {
         Text('The first page is waiting', style: serifStyle(22), textAlign: TextAlign.center),
         const SizedBox(height: 6),
         Text(
-          'Pick an idea above or add your own: a photo, the day and a few words about it.',
+          'Pick an idea below or add your own: a photo, the day and a few words about it.',
           textAlign: TextAlign.center,
           style: TextStyle(color: context.pal.muted, height: 1.35),
         ),
@@ -1078,8 +1095,14 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
   late DateTime _start = e?.start ?? DateTime.now();
   late String? _tooth = e?['tooth'];
 
-  /// Picked by hand; null follows the name ([autoChapter]).
-  late BookChapter? _chapter = BookChapter.byId(e?['chapter']) ?? (widget.chapter == autoChapter(widget.name) ? null : widget.chapter);
+  /// The chapter picked by hand, or the one it was opened in (an existing memory's, an idea's, the
+  /// chapter's "Your own"). Null only for a new memory from nowhere in particular: it then follows
+  /// the name and date ([autoChapter]) until one is picked.
+  late BookChapter? _chapter = e != null
+      ? chapterOf(e!, birth: context.read<AppState>().child?.birthDate)
+      : ideaFor(widget.name)?.chapter ?? widget.chapter;
+
+  BookChapter _chapterNow(AppState s) => _chapter ?? autoChapter(_name.text, at: _start, birth: s.child?.birthDate);
   Uint8List? _newPhoto;
   bool _removePhoto = false, _busy = false, _preparing = false;
 
@@ -1115,7 +1138,8 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
     final messenger = ScaffoldMessenger.of(context);
     final note = _note.text.trim();
     final tooth = _key(name) == 'first tooth' || e?['tooth'] != null ? _tooth : null;
-    final chapter = _chapter == null || _chapter == autoChapter(name) ? null : _chapter!.id;
+    // Always saved, so a renamed memory (or a later list of ideas) never moves it.
+    final chapter = _chapterNow(s).id;
     final body = {'type': 'milestone', 'name': name, 'start': formatTime(_start), 'note': note.isEmpty ? null : note, 'tooth': tooth, 'chapter': chapter};
     if (e == null) body.removeWhere((k, v) => v == null);
     final saved = await guard(context, () => s.act((api) => e == null ? api.post('/children/${s.childId}/events', body) : api.patch('/events/${e!.id}', body)));
@@ -1161,11 +1185,15 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
     final showsPhoto = _newPhoto != null || (_hadPhoto && !_removePhoto);
     final idea = ideaFor(_name.text);
 
-    // Ideas not in the book yet that match what's typed.
+    final chapter = _chapterNow(s);
+
+    // Ideas not in the book yet: the chapter's, or, once something is typed, any that match
+    // (the chapter's first).
     final typed = _key(_name.text), logged = loggedKeys;
+    final open = milestoneIdeas.where((i) => (i.repeats || !logged.contains(_key(i.name))) && (typed.isEmpty ? i.chapter == chapter : _key(i.name).contains(typed)));
     final suggestions = e != null || idea != null
         ? const <MilestoneIdea>[]
-        : milestoneIdeas.where((i) => !logged.contains(_key(i.name)) && _key(i.name).contains(typed)).take(12).toList();
+        : [...open.where((i) => i.chapter == chapter), ...open.where((i) => i.chapter != chapter)].take(12).toList();
 
     return Padding(
       padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
@@ -1206,6 +1234,22 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
                       Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 16), child: showsPhoto ? _photoPreview(picture) : _addPhoto()),
                     Divider(height: 1, color: c.line),
                     FormRow(
+                      label: 'Chapter',
+                      below: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final ch in BookChapter.values)
+                            ChoiceChip(
+                              avatar: Icon(ch.icon, size: 18, color: k.on(c)),
+                              label: Text(ch.title),
+                              selected: chapter == ch,
+                              onSelected: (_) => setState(() => _chapter = ch),
+                            ),
+                        ],
+                      ),
+                    ),
+                    FormRow(
                       label: 'What happened?',
                       below: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1225,7 +1269,10 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
                                   ActionChip(
                                     avatar: Icon(i.icon, size: 18, color: k.on(c)),
                                     label: Text(i.name),
-                                    onPressed: () => _name.text = i.name,
+                                    onPressed: () => setState(() {
+                                      _chapter = i.chapter;
+                                      _name.text = i.name;
+                                    }),
                                   ),
                               ],
                             ),
@@ -1249,22 +1296,6 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
                     FormRow(
                       label: 'When',
                       child: DateTimeValue(value: _start, onChanged: (v) => setState(() => _start = v)),
-                    ),
-                    FormRow(
-                      label: 'Chapter',
-                      below: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          for (final ch in BookChapter.values)
-                            ChoiceChip(
-                              avatar: Icon(ch.icon, size: 18, color: k.on(c)),
-                              label: Text(ch.title),
-                              selected: (_chapter ?? autoChapter(_name.text)) == ch,
-                              onSelected: (_) => setState(() => _chapter = ch),
-                            ),
-                        ],
-                      ),
                     ),
                     FormRow(
                       label: 'The story',
