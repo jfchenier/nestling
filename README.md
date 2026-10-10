@@ -76,11 +76,11 @@ to Home Assistant.
 ### 1. Run the server
 
 ```bash
-git clone https://github.com/jfchenier/nestling && cd nestling
+git clone <this repository's URL> nestling && cd nestling
 docker compose up -d --build
 ```
 
-Or use the prebuilt image `ghcr.io/jfchenier/nestling:latest` (see
+Or use the prebuilt image `ghcr.io/<owner>/nestling:latest` (see
 [Deploy with Portainer](#deploy-with-portainer)). The web app is now at `http://<your-server>:8080/`.
 
 ### 2. Create the admin account
@@ -140,10 +140,11 @@ docker compose start
 
 ### Deploy with Portainer
 
-Every push to `main` publishes `ghcr.io/jfchenier/nestling:latest` (version tags add `:0.2.0`-style
+Every push to `main` publishes `ghcr.io/<owner>/nestling:latest` (version tags add `:0.2.0`-style
 tags). In Portainer: **Stacks → Add stack → Web editor**, paste
 [`deploy/portainer-stack.yml`](deploy/portainer-stack.yml) (port 8383 → 8080, data in the
-`nestling-data` volume) and deploy. To update, **Pull and redeploy** the stack.
+`nestling-data` volume), add the environment variable `NESTLING_IMAGE` = the image above, and
+deploy. To update, **Pull and redeploy** the stack.
 
 ### Behind a reverse proxy
 

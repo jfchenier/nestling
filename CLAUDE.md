@@ -1,14 +1,17 @@
 # Nestling — context for Claude Code
 
 Self-hosted, open-source replacement for the **Nara Baby** tracker app (which went from free to paid).
-Owner: JF (github.com/jfchenier). Built from his reverse-engineered Nara API:
-https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's Firebase backend).
+Built from a reverse-engineered Nara API (a Python wrapper around Nara's Firebase backend).
+
+**Privacy:** never put the owner's name, GitHub handle, email, the live server's domain or any other
+personal or private URL in code, docs, commits or screenshots. Use `nestling.example.com` and
+generic wording ("the owner").
 
 ## Status (2026-10-10)
 
 - Server: `cargo test` green (33 tests), one cosmetic clippy warning (`nara_csv.rs`, complex type).
-  Runs in Docker on JF's home server (Portainer stack from `ghcr.io/jfchenier/nestling:latest`).
-  The Nara CSV import is verified on JF's real export; the Nara *account* import is not yet tried.
+  Runs in Docker on the owner's home server (Portainer stack from the GHCR image).
+  The Nara CSV import is verified on a real export; the Nara *account* import is not yet tried.
 - App (`app/`, Flutter): web build tested end-to-end in headless Chromium against the real server.
   CI builds the APK for tagged GitHub Releases (v0.1.0 to v0.2.1 so far); notifications,
   serverless sync and Drive are not yet tried on real phones.
@@ -16,13 +19,13 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 ## Working agreement
 
 - For change requests: change the code and test it (analyze, tests, browser check), then commit
-  and push. **Don't** start a GitHub release or redeploy Portainer unless JF asks for it.
+  and push. **Don't** start a GitHub release or redeploy Portainer unless the owner asks for it.
 
 ## Decisions already made (don't revisit without asking)
 
 - Order of work: **server API first**, then a **web app (PWA)**, then a **native mobile app**.
 - Client: **Flutter**, one codebase for web (served by the server) and Android. Nestling's own
-  airy design (JF did *not* want a Nara copy); the one thing taken from Nara is the home **activity
+  airy design (the owner did *not* want a Nara copy); the one thing taken from Nara is the home **activity
   cards** — two per row, fixed order (Feed·Sleep / Diaper·Pump / Growth·Health / Routine·Firsts),
   colored header band + history icon, **tap the card to log** (no floating +). Timers: big
   Left/Right circles (nursing) or one big button; editable start time and durations (pencils);
@@ -98,7 +101,7 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 ### 1. Make the server work (next)
 - [x] `cargo build` + `cargo test` green; `cargo clippy` has one cosmetic warning (nara_csv.rs).
 - [x] Run in Docker on the home server (Portainer stack, image built by `docker.yml`).
-- [x] Nara CSV import verified on JF's real export.
+- [x] Nara CSV import verified on a real export.
 - [ ] Nara **account** import dry run on the real account to verify the assumptions above.
 
 ### 2. Known server gaps
@@ -114,7 +117,7 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - [x] **Nara child names:** the CSV import reads the Profile row (name, birth date, sex). The
       account import still creates "Baby" / "Baby N".
 - [x] **Nara CSV import** (`/import/nara-csv`, app: Family → Import from Nara → Export file); verified
-      on JF's real export (2,090 rows → 2,086 events, 4 empty medical rows skipped).
+      on a real export (2,090 rows → 2,086 events, 4 empty medical rows skipped).
 - [x] **Security basics:** login/register rate limits (`src/limiter.rs`, in memory). Password reset
       without email: admins set a new password, or the `set-password` CLI.
 - [x] **Data export:** `GET /families/{id}/export.csv` (app: Family → Settings → Export data), in
@@ -139,7 +142,7 @@ https://github.com/jfchenier/nara-baby-tracker-api (Python wrapper around Nara's
 - [x] Calendar tab: week grid (days × 00–24), a bar per entry, filters, tap to edit.
 - [x] Sign-in, onboarding, family invites, child switcher, settings, Nara import screen.
 - [x] Live updates via `/families/{id}/stream`; installable PWA (manifest, icons).
-- [x] Layout after JF's Nara screenshots; original palette; light + dark themes.
+- [x] Layout after the owner's Nara screenshots; original palette; light + dark themes.
 - [x] GitHub Actions: CI (`ci.yml`), Docker image (`docker.yml`) and tag-triggered APK release
       (`release.yml`), all running.
 - [x] On GitHub; releases v0.1.0 to v0.2.1.
