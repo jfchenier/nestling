@@ -55,6 +55,20 @@ void main() {
     expect(chapterOf(Event({'name': 'First Christmas', 'chapter': 'firsts'})), BookChapter.firsts);
   });
 
+  test('a memory without a chapter dated before birth is in Waiting for you', () {
+    final birth = DateTime(2026, 5, 20);
+    expect(chapterOf(Event({'name': 'Painted the room', 'start': '2026-03-01T10:00:00-05:00'}), birth: birth), BookChapter.waiting);
+    expect(chapterOf(Event({'name': 'Painted the room', 'start': '2026-05-20T01:00:00-04:00'}), birth: birth), BookChapter.firsts);
+    expect(chapterOf(Event({'name': 'Came home', 'start': '2026-03-01T10:00:00-05:00'}), birth: birth), BookChapter.hello);
+    expect(chapterOf(Event({'name': 'Retour à la maison', 'chapter': 'hello', 'start': '2026-05-23T10:00:00-04:00'}), birth: birth), BookChapter.hello);
+  });
+
+  test('every chapter offers a few ideas', () {
+    for (final c in BookChapter.values) {
+      expect(milestoneIdeas.where((i) => i.chapter == c).length, greaterThanOrEqualTo(4), reason: c.title);
+    }
+  });
+
   test('memories before birth say how far along', () {
     final c = Child({'id': 'c', 'birth_date': '2026-05-20', 'book': {'due_date': '2026-05-27'}});
     expect(pregnancyWeeks(c, DateTime(2026, 1, 7, 15)), '20 weeks along');

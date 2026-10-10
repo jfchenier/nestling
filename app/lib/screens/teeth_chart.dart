@@ -303,6 +303,7 @@ class _ToothSheetState extends State<_ToothSheet> {
         'type': 'milestone',
         'name': anyTooth ? widget.tooth.name : 'First tooth',
         'tooth': widget.tooth.code,
+        'chapter': 'growing',
         'start': start,
       }),
     );
