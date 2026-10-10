@@ -589,6 +589,14 @@ paths:
                 name: { type: string }
                 birth_date: { type: string, format: date, nullable: true }
                 sex: { allOf: [{ $ref: "#/components/schemas/Sex" }], nullable: true }
+                medicines:
+                  type: array
+                  description: Replaces the whole list.
+                  items: { $ref: "#/components/schemas/Medicine" }
+                reminders:
+                  type: array
+                  description: Replaces the whole list (one per type).
+                  items: { $ref: "#/components/schemas/Reminder" }
       responses:
         "200":
           description: The updated child
@@ -1400,7 +1408,7 @@ components:
           items: { $ref: "#/components/schemas/Child" }
     Child:
       type: object
-      required: [id, family_id, name, birth_date, sex, created_at, updated_at, photo_version]
+      required: [id, family_id, name, birth_date, sex, created_at, updated_at, photo_version, medicines, reminders]
       properties:
         id: { type: string }
         family_id: { type: string }
@@ -1414,6 +1422,45 @@ components:
           format: int64
           nullable: true
           description: Changes whenever the photo does; null without a photo.
+        medicines:
+          type: array
+          items: { $ref: "#/components/schemas/Medicine" }
+        reminders:
+          type: array
+          items: { $ref: "#/components/schemas/Reminder" }
+    Medicine:
+      type: object
+      description: |
+        A medicine schedule. Its doses are the child's `health` events with `kind: medicine` and the
+        same name (case and extra spaces ignored).
+      required: [name, every_hours]
+      properties:
+        name: { type: string, maxLength: 80 }
+        every_hours: { type: number, minimum: 0.5, maximum: 168 }
+        max_per_day: { type: integer, minimum: 1, maximum: 24, description: At most this many doses in any 24 hours }
+        dose: { type: number, minimum: 0, description: The usual dose (fills the app's form) }
+        dose_unit: { type: string }
+        remind: { type: boolean, default: false, description: Notify phones when the next dose is due (server with notifications) }
+    Reminder:
+      type: object
+      description: |
+        Shown by the app when due; also sent to phones by a server with notifications set up.
+        `sleep` counts time awake.
+      required: [type, after_minutes]
+      properties:
+        type: { type: string, enum: [feed, sleep, diaper, pump] }
+        after_minutes: { type: integer, minimum: 15, maximum: 1440 }
+    MedicineStatus:
+      allOf:
+        - { $ref: "#/components/schemas/Medicine" }
+        - type: object
+          required: [last_at, next_at, due, doses_24h, limited]
+          properties:
+            last_at: { type: string, format: date-time, nullable: true }
+            next_at: { type: string, format: date-time, nullable: true, description: When the next dose is allowed; null when none was given }
+            due: { type: boolean }
+            doses_24h: { type: integer }
+            limited: { type: boolean, description: "`max_per_day` is what holds the next dose back" }
 
     # -------- events
     EventCommonInput:
@@ -1772,9 +1819,13 @@ components:
           description: The same averages for the period just before `from`; null when nothing was logged then.
     Summary:
       type: object
-      required: [child, last, since, timers, today, last_24h]
+      required: [child, medicines, last, since, timers, today, last_24h]
       properties:
         child: { $ref: "#/components/schemas/Child" }
+        medicines:
+          type: array
+          description: Each medicine schedule with when its next dose is allowed.
+          items: { $ref: "#/components/schemas/MedicineStatus" }
         last:
           type: object
           description: The latest event of each kind (null when none).
