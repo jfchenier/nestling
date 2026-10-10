@@ -71,6 +71,8 @@ pub const COLUMNS: &[&str] = &[
     "[Medical] Appointment",
     "[Milestone] Milestone",
     "[Milestone] Tooth",
+    "[Milestone] Chapter",
+    "[Profile] Book",
     "End Date/time",
     "End Date/time (Epoch)",
     "_familyKey",
@@ -83,6 +85,8 @@ pub struct ExportChild {
     pub name: String,
     pub birth_date: Option<String>,
     pub sex: Option<String>,
+    /// The baby book's pages (JSON object), `{}` when empty.
+    pub book: String,
 }
 
 pub struct ExportEvent {
@@ -158,6 +162,9 @@ pub fn write(family_id: &str, tz: Tz, children: &[ExportChild], events: &[Export
         r.set("Profile Name", c.name.clone());
         r.opt("[Profile] Birth Date", c.birth_date.as_ref());
         r.opt("[Profile] Sex", c.sex.as_ref().map(|s| s.to_uppercase()));
+        if c.book != "{}" {
+            r.set("[Profile] Book", c.book.clone());
+        }
         r.set("_familyKey", family_id);
         r.set("_profileKey", c.id.clone());
         w.write_record(r.cells()).expect("in-memory write");
@@ -291,6 +298,9 @@ pub fn write(family_id: &str, tz: Tz, children: &[ExportChild], events: &[Export
                 r.set("[Milestone] Milestone", m.name.clone());
                 if let Some(t) = &m.tooth {
                     r.set("[Milestone] Tooth", t.clone());
+                }
+                if let Some(c) = &m.chapter {
+                    r.set("[Milestone] Chapter", c.clone());
                 }
             }
             Details::Note(_) => r.set("Type", "Note"),

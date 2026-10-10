@@ -143,6 +143,11 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       (saved apart, clocks `ep:<id>`), Drive sync sends each photo once as `photo-<id>-<version>.bin`.
       Teeth chart (`app/lib/screens/teeth_chart.dart`): milestones with `tooth` = A–T (A–J upper, the
       baby's right to left; K–T lower, left to right); only "First tooth" shows as a memory card.
+      Chapters (Waiting for you, Hello world, Firsts, Growing up, Celebrations) live in the app
+      (`BookChapter`); a milestone's `chapter` is any short id to the server. The book's own pages
+      are texts on the child (`book`, replaced whole by `PATCH /children/{id}`; CSV `[Profile] Book`).
+      "Banana for scale": repeatable milestones shown as a monthly photo strip.
+      Bottom tabs: Home, Timeline, Calendar, Trends, Book; Family opens from Home's top-right button.
 - [ ] Optional: Home Assistant integration (`/children/{id}/summary` already works as a REST sensor).
 - Note: SSE behind a reverse proxy needs response buffering disabled (the stream sends `X-Accel-Buffering: no`,
   which covers nginx). The app reconnects after 40 s without the 15 s `ping`, on resume, and reloads on reconnect.

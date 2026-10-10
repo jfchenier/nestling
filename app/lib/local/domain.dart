@@ -23,6 +23,9 @@ const _poopConsistencies = ['runny', 'mushy', 'mucousy', 'pebbles', 'solid'];
 const _potty = ['sat_dry', 'success', 'accident'];
 const _healthKinds = ['medicine', 'temperature', 'vaccine', 'appointment', 'symptom'];
 
+/// A baby book chapter id (`valid_chapter` in src/model.rs): the chapters are the app's.
+bool validChapter(Object? id) => id is String && RegExp(r'^[a-z][a-z0-9_]{0,31}$').hasMatch(id);
+
 /// Field kinds per event type, in the order the server writes them.
 const _fields = <String, Map<String, String>>{
   'feed': {
@@ -50,7 +53,7 @@ const _fields = <String, Map<String, String>>{
   'growth': {'weight_g': 'num', 'length_cm': 'num', 'head_cm': 'num'},
   'health': {'kind': 'health', 'name': 'str', 'dose': 'num', 'dose_unit': 'str', 'temperature_c': 'num'},
   'activity': {'kind': 'str'},
-  'milestone': {'name': 'str', 'tooth': 'tooth'},
+  'milestone': {'name': 'str', 'tooth': 'tooth', 'chapter': 'chapter'},
   'note': {},
 };
 
@@ -86,9 +89,28 @@ Map<String, dynamic> normalizeDetails(Map<String, dynamic> input) {
       'health' => enumOf(_healthKinds),
       'potty' => enumOf(_potty),
       'tooth' => v is String && RegExp(r'^[A-T]$').hasMatch(v) ? v : throw badRequest("tooth must be a letter from A to T, not '$v'"),
+      'chapter' => validChapter(v) ? v : throw badRequest("chapter must be a short lowercase id like 'firsts', not '$v'"),
       _ => v,
     };
   }
+  return out;
+}
+
+/// The baby book's pages on a child: short texts by key (`check_book` in src/routes/children.rs).
+/// Empty texts are dropped.
+Map<String, dynamic> checkBook(Object? raw) {
+  if (raw is! Map) throw badRequest('book must be an object');
+  final out = <String, dynamic>{};
+  for (final MapEntry(:key, :value) in raw.entries) {
+    if (value == null || (value is String && value.trim().isEmpty)) continue;
+    if (key is! String || !RegExp(r'^[a-z0-9_]{1,40}$').hasMatch(key)) {
+      throw badRequest("book key '$key' must be 1-40 lowercase letters, digits or _");
+    }
+    if (value is! String) throw badRequest('book.$key must be a string');
+    if (value.runes.length > 4000) throw badRequest('book.$key is too long (4000 characters at most)');
+    out[key] = value.trim();
+  }
+  if (out.length > 80) throw badRequest('book has too many entries (80 at most)');
   return out;
 }
 

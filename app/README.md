@@ -21,7 +21,8 @@ activity color. Colors live in
 
 ## Screens
 
-- **Home** — running-timer banners, today's totals, then two cards per row in a fixed order
+- **Home** — the baby's name and photo at the top (tap them to switch baby or add one) and the
+  Family button top right; then running-timer banners, today's totals, then two cards per row in a fixed order
   (Feed · Sleep / Diaper · Pump / Growth · Health / Routine · Firsts). Each card shows the latest
   entry and a big value ("last side", "dirty", "1h 06m"…), or the live clock of a running timer.
   **Tap a card to log** (Feed asks Breastfeed / Bottle / Solids / Combo; Firsts adds a memory, over the baby book); the button in its header (History; Charts for Growth, Book for Firsts)
@@ -70,20 +71,27 @@ activity color. Colors live in
   blowout) or potty trip (sat, pee/poo in the potty, accident; on the same page), pump, growth,
   health (medicine, temperature, vaccine, symptom, appointment), activity, milestone, note. Tap any
   entry to edit or delete it.
-- **Baby book** — the Firsts card's Book button opens the child's firsts as a scrapbook: a cover
-  (photo, name, birth date, how many memories and photos), "Ideas to remember" (24 built-in
-  firsts such as first smile, first tooth, first steps; "See all" ticks the ones in the book) and
-  the memories oldest first, grouped by age ("Newborn", "3 months"…), each a taped-in print with
-  its photo, day, age and story. Tap a memory to edit it, its photo to see it big. Any name works,
-  not only the ideas (`lib/screens/baby_book.dart`). One photo per memory
-  (`PUT /events/{id}/photo`), scaled to at most 1600 px and saved as a JPEG on the device first
-  (`pickMemoryPhoto` in `lib/widgets/photo.dart`). Without a server, photos are kept on the phone
-  apart from the other data, travel with Wi-Fi sync, and go through Google Drive sync once each as
-  files of their own; the web app without a server doesn't take photos (browser storage is too small).
-  A **teeth chart** sits above the memories (`lib/screens/teeth_chart.dart`): the 20 baby teeth as
-  seen facing the child, tap one when it comes in. Each tooth is a milestone with a `tooth` letter
-  (A–T, the usual dental lettering); the first one is the "First tooth" memory (or gets attached to
-  an existing one), later ones only show on the chart.
+- **Baby book** — the Book tab (or the Firsts card's Book button) opens the child's book: a cover
+  (photo, name, birth date, how many memories and photos), contents tabs pinned under the title,
+  then five chapters (`lib/screens/baby_book.dart`):
+  **Waiting for you** (the pregnancy: due date, then ultrasound, belly and other memories, each
+  saying "22 weeks along"), **Hello, world** (the book's own pages "The day you were born", "Your
+  name" and "The world you were born into", `lib/screens/book_pages.dart`), **Firsts** (memories
+  grouped by age), **Growing up** (teeth chart, "Banana for scale" photo strip, month-by-month
+  growth from the Growth entries) and **Celebrations**. Each chapter offers its built-in ideas
+  ("See all" lists them by chapter); any name works too, and the memory form picks the chapter
+  (stored as the milestone's `chapter`; the chapters are the app's, the server takes any short id).
+  Memories are taped-in prints with photo, day, age and story; tap one to edit it, its photo to see
+  it big. The pages' texts are kept on the child as `book` (birth time and place, hair, eyes,
+  name, world news and prices, due date); the moon phase on the birth day is computed. One photo
+  per memory (`PUT /events/{id}/photo`), scaled to at most 1600 px and saved as a JPEG on the
+  device first (`pickMemoryPhoto` in `lib/widgets/photo.dart`). Without a server, photos are kept
+  on the phone apart from the other data, travel with Wi-Fi sync, and go through Google Drive sync
+  once each as files of their own; the web app without a server doesn't take photos (browser
+  storage is too small). The **teeth chart** (`lib/screens/teeth_chart.dart`) shows the 20 baby
+  teeth as seen facing the child; tap one when it comes in. Each tooth is a milestone with a
+  `tooth` letter (A–T, the usual dental lettering); the first one is the "First tooth" memory (or
+  gets attached to an existing one), later ones only show on the chart.
 - **Timeline** — everything, grouped by day, filter by type, infinite scroll; Summary sheet with counts per type (today / last 24 h).
 - **Running-timer notifications** (Android) — while a timer runs, an ongoing notification shows it
   with a live clock that Android keeps counting with the app closed; paused timers say so; it goes
@@ -100,7 +108,7 @@ activity color. Colors live in
 - **Trends** — 7/14/30-day averages (feeds, feed interval, sleep, wake window, naps, diapers, potty,
   bottle, breastfeeding, pumping) with the change since the period before, day/night splits, and
   daily charts.
-- **Family** — babies (with a profile picture: tap a baby → Add a photo; cropped to a 512 px square
+- **Family** (the people button on Home) — babies (with a profile picture: tap a baby → Add a photo; cropped to a 512 px square
   before upload), caregivers, invite codes, join a family, units (metric/imperial), time zone,
   daytime hours for the day/night split (Day and night),
   history import from a previous tracker's CSV export (preview first), CSV export of everything, API token for Home

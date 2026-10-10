@@ -89,6 +89,15 @@ list (the child JSON carries both).
   notifications set up (`GET /push/config` → `enabled`). Checked every minute; each one is sent
   once per entry it is about, to every phone of the family.
 
+### Baby book pages
+
+`PATCH /children/{id}` with `book` replaces the child's book pages: a flat object of short texts
+by key, which the app fills from its "The day you were born", "Your name" and "The world you were
+born into" pages (`birth_time`, `birth_place`, `hair`, `eyes`, `birth_note`, `full_name`,
+`name_why`, `name_others`, `world_…`, `price_…`). Keys are 1–40 lowercase letters, digits or `_`
+(80 at most); values are strings of 4,000 characters at most; empty ones are dropped. The child JSON
+carries it as `book` (`{}` when empty); the CSV export keeps it in a `[Profile] Book` column.
+
 ## Events
 
 Every record is an event with a `type`, a `start`, an optional `end`, an optional `note`, and type-specific fields.
@@ -126,7 +135,7 @@ Response shape:
 | `growth` | `weight_g`, `length_cm`, `head_cm` (at least one) |
 | `health` | `kind`: `medicine` (`name`, `dose`, `dose_unit`) \| `temperature` (`temperature_c`) \| `vaccine` (`name`) \| `appointment` (`name` = doctor) \| `symptom` (`name`) |
 | `activity` | `kind`: free text, e.g. `bath`, `tummy_time`, `outdoor`, `play`, `read`, `nail_trim`, `vitamin` |
-| `milestone` | `name`; `tooth`: `A`–`T` for a baby tooth that came in (the usual primary-teeth letters: `A`–`J` upper, right to left; `K`–`T` lower, left to right) |
+| `milestone` | `name`; `tooth`: `A`–`T` for a baby tooth that came in (the usual primary-teeth letters: `A`–`J` upper, right to left; `K`–`T` lower, left to right); `chapter`: the baby book chapter, an id of the app's (`waiting`, `hello`, `firsts`, `growing`, `celebrations` today; any lowercase id of up to 32 letters, digits or `_` is kept; absent: the app picks one from the name) |
 | `note` | just `note` |
 
 Examples:

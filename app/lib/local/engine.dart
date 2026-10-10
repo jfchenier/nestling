@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:cryptography/dart.dart';
 
+import '../api/api.dart';
 import '../models.dart';
 import 'domain.dart';
 import 'nara_csv.dart';
@@ -246,6 +247,7 @@ class LocalEngine {
       'photo_version': null,
       'medicines': <dynamic>[],
       'reminders': <dynamic>[],
+      'book': <String, dynamic>{},
     };
     (f['children'] as List).add(child);
     store.markChanged('c:${child['id']}');
@@ -264,6 +266,7 @@ class LocalEngine {
     }
     if (req['medicines'] != null) c['medicines'] = checkMedicines(req['medicines']);
     if (req['reminders'] != null) c['reminders'] = checkReminders(req['reminders']);
+    if (req['book'] != null) c['book'] = checkBook(req['book']);
     c['updated_at'] = fmt(nowMs());
     store.markChanged('c:$id');
     return c;
@@ -392,10 +395,19 @@ class LocalEngine {
       final p = csv.profiles[key];
       final c = store.child(id);
       if (p == null || c == null) continue;
-      final before = '${c['birth_date']}/${c['sex']}';
+      final before = jsonEncode([c['birth_date'], c['sex'], c['book']]);
       c['birth_date'] ??= p.birthDate;
       c['sex'] ??= p.sex;
-      if ('${c['birth_date']}/${c['sex']}' != before) store.markChanged('c:$id');
+      // The baby book's pages, when the child has none yet.
+      if (p.book case final book? when (c['book'] as Map?)?.isEmpty ?? true) {
+        try {
+          final checked = checkBook(book);
+          if (checked.isNotEmpty) c['book'] = checked;
+        } on ApiException {
+          // A damaged column: the pages are left out.
+        }
+      }
+      if (jsonEncode([c['birth_date'], c['sex'], c['book']]) != before) store.markChanged('c:$id');
     }
 
     var inserted = 0, updated = 0;

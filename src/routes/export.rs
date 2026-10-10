@@ -25,12 +25,12 @@ pub async fn export_csv(State(state): State<AppState>, user: AuthUser, Path(fami
     let (family_name,): (String,) = sqlx::query_as("SELECT name FROM families WHERE id = ?").bind(&family_id).fetch_one(&state.db).await?;
 
     let children: Vec<ExportChild> =
-        sqlx::query_as::<_, (String, String, Option<String>, Option<String>)>("SELECT id, name, birth_date, sex FROM children WHERE family_id = ? ORDER BY created_at")
+        sqlx::query_as::<_, (String, String, Option<String>, Option<String>, String)>("SELECT id, name, birth_date, sex, book FROM children WHERE family_id = ? ORDER BY created_at")
             .bind(&family_id)
             .fetch_all(&state.db)
             .await?
             .into_iter()
-            .map(|(id, name, birth_date, sex)| ExportChild { id, name, birth_date, sex })
+            .map(|(id, name, birth_date, sex, book)| ExportChild { id, name, birth_date, sex, book })
             .collect();
 
     let rows: Vec<EventRow> = sqlx::query_as(

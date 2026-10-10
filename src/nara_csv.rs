@@ -22,6 +22,8 @@ pub struct Profile {
     pub birth_date: Option<NaiveDate>,
     /// `female` / `male` / `other`.
     pub sex: Option<String>,
+    /// The baby book's pages (Nestling's own exports only).
+    pub book: Option<Map<String, Value>>,
 }
 
 #[derive(Debug, Default)]
@@ -384,7 +386,8 @@ fn convert_row(row: &Row) -> Result<Vec<(String, Details, i64, Option<i64>)>, St
             let name = row.get("[Milestone] Milestone").or(row.get("[Baby First] Name")).or(row.get("Note")).ok_or("milestone without a name")?;
             // Nestling's own `[Milestone] Tooth` column (see `csv_export.rs`).
             let tooth = row.get("[Milestone] Tooth").map(|t| t.trim().to_uppercase()).filter(|t| t.len() == 1 && ("A"..="T").contains(&t.as_str()));
-            one(Details::Milestone(Milestone { name: name.to_string(), tooth }), None)
+            let chapter = row.get("[Milestone] Chapter").map(|c| c.trim().to_lowercase()).filter(|c| valid_chapter(c));
+            one(Details::Milestone(Milestone { name: name.to_string(), tooth, chapter }), None)
         }
         other => Err(format!("unsupported type: {other}")),
     }
@@ -418,6 +421,7 @@ pub fn parse(text: &str) -> Result<CsvImport, String> {
                     "MALE" | "M" | "BOY" => "male".to_string(),
                     _ => "other".to_string(),
                 });
+                p.book = row.get("[Profile] Book").and_then(|b| serde_json::from_str(b).ok());
             }
             continue;
         }
@@ -511,7 +515,7 @@ mod tests {
     fn parses_every_type() {
         let r = parse(&sample()).unwrap();
         assert_eq!(r.rows, 12);
-        assert_eq!(r.profiles["c-1"], Profile { name: Some("Mia".into()), birth_date: NaiveDate::from_ymd_opt(2026, 5, 30), sex: Some("female".into()) });
+        assert_eq!(r.profiles["c-1"], Profile { name: Some("Mia".into()), birth_date: NaiveDate::from_ymd_opt(2026, 5, 30), sex: Some("female".into()), book: None });
 
         let bf = find(&r, "t-bf");
         let Details::Feed(f) = &bf.details else { panic!() };

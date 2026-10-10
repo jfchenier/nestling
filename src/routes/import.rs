@@ -12,7 +12,7 @@ use crate::{
     error::{bad, ApiJson, AppError, AppResult},
     nara::{self, Converted},
     nara_csv::{self, Profile},
-    routes::children::insert_child,
+    routes::children::{check_book, insert_child},
     state::AppState,
     util::{new_id, now_ms},
 };
@@ -210,6 +210,16 @@ async fn apply(state: &AppState, user: &AuthUser, family_id: &str, plan: Plan) -
                 .bind(child)
                 .execute(&state.db)
                 .await?;
+            // The baby book's pages, when the child has none yet.
+            if let Some(mut book) = p.book.clone() {
+                if check_book(&mut book).is_ok() && !book.is_empty() {
+                    sqlx::query("UPDATE children SET book = ? WHERE id = ? AND book = '{}'")
+                        .bind(serde_json::to_string(&book)?)
+                        .bind(child)
+                        .execute(&state.db)
+                        .await?;
+                }
+            }
         }
     }
 

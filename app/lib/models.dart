@@ -54,6 +54,12 @@ class Child {
   /// Reminders (`{type, after_minutes}`), sent by a server set up for notifications.
   List<Map<String, dynamic>> get reminders => [for (final r in (json['reminders'] as List? ?? const [])) Map<String, dynamic>.from(r)];
 
+  /// The baby book's own pages: short texts by key (`birth_place`, `name_why`, `world_songs`…).
+  Map<String, String> get book => {
+    for (final MapEntry(:key, :value) in ((json['book'] as Map?) ?? const {}).entries)
+      if (value is String) key as String: value,
+  };
+
   /// "3 months 2 weeks", "5 days", "1 year 2 months".
   String? get age => ageAt(DateTime.now());
 

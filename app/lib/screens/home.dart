@@ -14,6 +14,7 @@ import '../widgets/common.dart';
 import 'baby_book.dart';
 import 'child_form.dart';
 import 'event_form.dart';
+import 'family.dart';
 import 'growth_chart.dart';
 import 'timeline.dart';
 import 'timer_screen.dart';
@@ -540,7 +541,13 @@ class _Header extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(child.name, style: serifStyle(34), overflow: TextOverflow.ellipsis),
+              // Tapping the name (or the photo) switches baby or adds one.
+              Row(
+                children: [
+                  Flexible(child: Text(child.name, style: serifStyle(34), overflow: TextOverflow.ellipsis)),
+                  Icon(Icons.expand_more_rounded, color: context.pal.muted, semanticLabel: 'Switch baby'),
+                ],
+              ),
               const SizedBox(height: 2),
               Row(
                 children: [
@@ -577,12 +584,10 @@ class _Header extends StatelessWidget {
         ),
       ),
       _SquareButton(
-        icon: Icons.view_agenda_outlined,
-        tooltip: 'Timeline',
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const TimelineScreen(initialFilter: null))),
+        icon: Icons.people_rounded,
+        tooltip: 'Family and settings',
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FamilyScreen())),
       ),
-      const SizedBox(width: 8),
-      _SquareButton(icon: Icons.more_horiz_rounded, tooltip: 'Switch baby', onTap: () => _switchChild(context)),
     ],
   );
 

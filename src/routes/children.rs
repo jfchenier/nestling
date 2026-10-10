@@ -16,10 +16,10 @@ use crate::{
     util::{fmt_time, new_id, now_ms},
 };
 
-type ChildRow = (String, String, String, Option<String>, Option<String>, i64, i64, Option<i64>, String, String);
+type ChildRow = (String, String, String, Option<String>, Option<String>, i64, i64, Option<i64>, String, String, String);
 
 fn child_value(row: ChildRow, tz: Tz) -> Value {
-    let (id, family_id, name, birth_date, sex, created_at, updated_at, photo_version, medicines, reminders) = row;
+    let (id, family_id, name, birth_date, sex, created_at, updated_at, photo_version, medicines, reminders, book) = row;
     json!({
         "id": id, "family_id": family_id, "name": name, "birth_date": birth_date, "sex": sex,
         "created_at": fmt_time(created_at, tz), "updated_at": fmt_time(updated_at, tz),
@@ -27,11 +27,12 @@ fn child_value(row: ChildRow, tz: Tz) -> Value {
         "photo_version": photo_version,
         "medicines": parse_medicines(&medicines),
         "reminders": parse_reminders(&reminders),
+        "book": parse_book(&book),
     })
 }
 
 const CHILD_COLS: &str = "id, family_id, name, birth_date, sex, created_at, updated_at, \
-    (SELECT p.updated_at FROM child_photos p WHERE p.child_id = children.id) AS photo_version, medicines, reminders";
+    (SELECT p.updated_at FROM child_photos p WHERE p.child_id = children.id) AS photo_version, medicines, reminders, book";
 
 pub async fn children_json(state: &AppState, family_id: &str, tz: Tz) -> AppResult<Vec<Value>> {
     let rows: Vec<ChildRow> = sqlx::query_as(&format!("SELECT {CHILD_COLS} FROM children WHERE family_id = ? ORDER BY created_at"))
@@ -47,6 +48,39 @@ pub async fn child_json(state: &AppState, child_id: &str, tz: Tz) -> AppResult<V
         .fetch_one(&state.db)
         .await?;
     Ok(child_value(row, tz))
+}
+
+/// The baby book's pages: short texts by key (`birth_place`, `name_why`, `world_songs`…). The
+/// keys are the app's business; the server only keeps the object small and flat.
+pub type Book = serde_json::Map<String, Value>;
+
+pub fn parse_book(text: &str) -> Value {
+    match serde_json::from_str::<Value>(text) {
+        Ok(v @ Value::Object(_)) => v,
+        _ => json!({}),
+    }
+}
+
+/// Keys of lowercase letters, digits and `_` (40 at most), string values of 4,000 characters at
+/// most, 80 keys at most. Empty strings and nulls are dropped.
+pub fn check_book(book: &mut Book) -> AppResult<()> {
+    book.retain(|_, v| !(v.is_null() || v.as_str().is_some_and(|s| s.trim().is_empty())));
+    if book.len() > 80 {
+        return bad("book has too many entries (80 at most)");
+    }
+    for (k, v) in book.iter_mut() {
+        if k.is_empty() || k.len() > 40 || !k.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_') {
+            return bad(format!("book key '{k}' must be 1-40 lowercase letters, digits or _"));
+        }
+        let Some(text) = v.as_str() else {
+            return bad(format!("book.{k} must be a string"));
+        };
+        if text.chars().count() > 4000 {
+            return bad(format!("book.{k} is too long (4000 characters at most)"));
+        }
+        *v = Value::String(text.trim().to_string());
+    }
+    Ok(())
 }
 
 fn check_sex(sex: &Option<String>) -> AppResult<()> {
@@ -123,6 +157,9 @@ pub struct UpdateChildReq {
     medicines: Option<Vec<Medicine>>,
     #[serde(default)]
     reminders: Option<Vec<Reminder>>,
+    /// The baby book's pages; replaces the whole object.
+    #[serde(default)]
+    book: Option<Book>,
 }
 
 fn double_option<'de, T, D>(d: D) -> Result<Option<Option<T>>, D::Error>
@@ -164,6 +201,14 @@ pub async fn update(State(state): State<AppState>, user: AuthUser, Path(child_id
         check_reminders(&list)?;
         sqlx::query("UPDATE children SET reminders = ? WHERE id = ?")
             .bind(serde_json::to_string(&list)?)
+            .bind(&child_id)
+            .execute(&state.db)
+            .await?;
+    }
+    if let Some(mut book) = req.book {
+        check_book(&mut book)?;
+        sqlx::query("UPDATE children SET book = ? WHERE id = ?")
+            .bind(serde_json::to_string(&book)?)
             .bind(&child_id)
             .execute(&state.db)
             .await?;
