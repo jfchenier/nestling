@@ -287,6 +287,22 @@ class AppState extends ChangeNotifier {
   // ---- loading ----
 
   /// Loads the account and families, then the selected child's data.
+  /// Home-screen reminders swiped away on this device. Each key names what it was about (e.g. the
+  /// feed it counted from), so the reminder comes back once that changes.
+  late final Set<String> dismissed = {...?_prefs.getStringList('dismissed_reminders')};
+
+  void dismiss(String key) {
+    dismissed.add(key);
+    // Only the latest ones matter: older keys are about entries long replaced.
+    final keep = dismissed.toList();
+    if (keep.length > 100) keep.removeRange(0, keep.length - 100);
+    dismissed
+      ..clear()
+      ..addAll(keep);
+    unawaited(_prefs.setStringList('dismissed_reminders', keep));
+    notifyListeners();
+  }
+
   /// The server sends notifications to phones (Firebase is set up on it): reminders can be used.
   bool pushEnabled = false;
 

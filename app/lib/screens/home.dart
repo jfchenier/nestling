@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../format.dart';
+import '../local/schedule.dart' show medicineKey;
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
@@ -686,10 +687,10 @@ class _ReminderStripState extends State<_ReminderStrip> {
     return max == null ? 'Next dose at $when' : 'Next dose at $when · ${m['doses_24h']} of $max in 24 h';
   }
 
-  /// The child's reminders that are due now: type and time since (like src/reminders.rs, which
-  /// also sends them to phones when the server can).
-  static List<(String, Duration)> dueReminders(AppState s, DateTime now) {
-    final out = <(String, Duration)>[];
+  /// The child's reminders that are due now: type, time since, and a key naming the entry it
+  /// counts from (like src/reminders.rs, which also sends them to phones when the server can).
+  static List<(String, Duration, String)> dueReminders(AppState s, DateTime now) {
+    final out = <(String, Duration, String)>[];
     for (final r in s.child?.reminders ?? const <Map<String, dynamic>>[]) {
       final type = r['type'] as String?, after = toInt(r['after_minutes']);
       if (type == null || after == null) continue;
@@ -698,8 +699,9 @@ class _ReminderStripState extends State<_ReminderStrip> {
       final v = s.summary?['last']?[type];
       if (v is! Map<String, dynamic>) continue;
       final e = Event(v);
-      final since = now.difference(type == 'sleep' ? (e.end ?? e.start) : e.start);
-      if (since.inMinutes >= after) out.add((type, since));
+      final ref = type == 'sleep' ? (e.end ?? e.start) : e.start;
+      final since = now.difference(ref);
+      if (since.inMinutes >= after) out.add((type, since, '${s.childId}/$type/${ref.millisecondsSinceEpoch}'));
     }
     return out;
   }
@@ -708,13 +710,9 @@ class _ReminderStripState extends State<_ReminderStrip> {
   Widget build(BuildContext context) {
     final s = context.watch<AppState>();
     final pal = context.pal, now = DateTime.now();
-    final meds = [
-      for (final m in (s.summary?['medicines'] as List? ?? const []))
-        if (m is Map) m,
-    ];
-    final due = dueReminders(s, now);
-    if (meds.isEmpty && due.isEmpty) return const SizedBox.shrink();
+    // Swiping a row away hides it on this device until what it is about changes (its key).
     Widget row({
+      required String key,
       required Kind kind,
       IconData? icon,
       required String title,
@@ -722,63 +720,69 @@ class _ReminderStripState extends State<_ReminderStrip> {
       required bool urgent,
       String? action,
       VoidCallback? onTap,
-    }) => ListTile(
-      leading: BlobIcon(kind, icon: icon, size: 38),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-      subtitle: Text(
-        status,
-        style: TextStyle(color: urgent ? kind.on(pal) : pal.muted, fontWeight: urgent ? FontWeight.w700 : null),
+    }) => Dismissible(
+      key: ValueKey(key),
+      onDismissed: (_) => s.dismiss(key),
+      child: ListTile(
+        leading: BlobIcon(kind, icon: icon, size: 38),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text(
+          status,
+          style: TextStyle(color: urgent ? kind.on(pal) : pal.muted, fontWeight: urgent ? FontWeight.w700 : null),
+        ),
+        trailing: action == null ? null : FilledButton.tonal(onPressed: onTap, child: Text(action)),
+        onTap: onTap,
       ),
-      trailing: action == null ? null : FilledButton.tonal(onPressed: onTap, child: Text(action)),
-      onTap: onTap,
     );
-    return Container(
-      margin: const EdgeInsets.only(bottom: 18),
-      decoration: BoxDecoration(
-        color: pal.surface,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: pal.line),
-      ),
-      child: Column(
-        children: [
-          for (final (type, since) in due)
-            row(
-              kind: switch (type) {
-                'feed' => Kind.breast,
-                'sleep' => Kind.sleep,
-                'diaper' => Kind.diaper,
-                _ => Kind.pump,
-              },
-              title: switch (type) {
-                'feed' => 'Feed reminder',
-                'sleep' => 'Sleep reminder',
-                'diaper' => 'Diaper reminder',
-                _ => 'Pump reminder',
-              },
-              status: switch (type) {
-                'feed' => 'No feed for ${duration(since.inSeconds)}',
-                'sleep' => 'Awake for ${duration(since.inSeconds)}',
-                'diaper' => 'No diaper change for ${duration(since.inSeconds)}',
-                _ => 'No pumping for ${duration(since.inSeconds)}',
-              },
-              urgent: true,
-              action: type == 'sleep' ? 'Start' : 'Log',
-              onTap: () => switch (type) {
-                'feed' => showFeedPicker(context),
-                'diaper' => showEventForm(context, type: 'diaper'),
-                final kind => TimerScreen.open(context, kind),
-              },
-            ),
-          for (final m in meds)
-            () {
-              final next = DateTime.tryParse('${m['next_at']}')?.toLocal();
-              final canGive = next == null || !next.isAfter(now);
-              void give() => showEventForm(
-                context,
-                type: 'health',
-                prefill: {'kind': 'medicine', 'name': m['name'], 'dose': m['dose'], 'dose_unit': m['dose_unit']},
-              );
-              return row(
+    final rows = <(String, Widget Function(String))>[
+      for (final (type, since, key) in dueReminders(s, now))
+        (
+          key,
+          (key) => row(
+            key: key,
+            kind: switch (type) {
+              'feed' => Kind.breast,
+              'sleep' => Kind.sleep,
+              'diaper' => Kind.diaper,
+              _ => Kind.pump,
+            },
+            title: switch (type) {
+              'feed' => 'Feed reminder',
+              'sleep' => 'Sleep reminder',
+              'diaper' => 'Diaper reminder',
+              _ => 'Pump reminder',
+            },
+            status: switch (type) {
+              'feed' => 'No feed for ${duration(since.inSeconds)}',
+              'sleep' => 'Awake for ${duration(since.inSeconds)}',
+              'diaper' => 'No diaper change for ${duration(since.inSeconds)}',
+              _ => 'No pumping for ${duration(since.inSeconds)}',
+            },
+            urgent: true,
+            action: type == 'sleep' ? 'Start' : 'Log',
+            onTap: () => switch (type) {
+              'feed' => showFeedPicker(context),
+              'diaper' => showEventForm(context, type: 'diaper'),
+              final kind => TimerScreen.open(context, kind),
+            },
+          ),
+        ),
+      for (final m in (s.summary?['medicines'] as List? ?? const []))
+        if (m is Map)
+          () {
+            final next = DateTime.tryParse('${m['next_at']}')?.toLocal();
+            final canGive = next == null || !next.isAfter(now);
+            void give() => showEventForm(
+              context,
+              type: 'health',
+              prefill: {'kind': 'medicine', 'name': m['name'], 'dose': m['dose'], 'dose_unit': m['dose_unit']},
+            );
+            // Comes back after the next dose, and when the next one becomes allowed.
+            final key = '${s.childId}/medicine/${medicineKey('${m['name']}')}/${m['next_at']}/$canGive';
+            return (
+              key,
+              (String key) => row(
+                key: key,
                 kind: Kind.health,
                 icon: Icons.medication_rounded,
                 title: '${m['name']}',
@@ -786,10 +790,20 @@ class _ReminderStripState extends State<_ReminderStrip> {
                 urgent: canGive,
                 action: canGive ? 'Give' : null,
                 onTap: give,
-              );
-            }(),
-        ],
+              ),
+            );
+          }(),
+    ].where((r) => !s.dismissed.contains(r.$1)).toList();
+    if (rows.isEmpty) return const SizedBox.shrink();
+    return Container(
+      margin: const EdgeInsets.only(bottom: 18),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: pal.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: pal.line),
       ),
+      child: Column(children: [for (final (key, build) in rows) build(key)]),
     );
   }
 }

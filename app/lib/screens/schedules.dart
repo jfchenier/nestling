@@ -185,11 +185,11 @@ class SchedulesScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               s.pushEnabled
-                  ? 'A reminder that is due shows on the home screen and is sent to the phones of everyone in the family. '
+                  ? 'A reminder that is due shows on the home screen (swipe it away to hide it) and is sent to the phones of everyone in the family. '
                         'A medicine\'s phone reminder is turned on in its schedule.'
                   : s.serverless
-                  ? 'A reminder that is due shows on the home screen. Phone notifications need a Nestling server with them set up.'
-                  : 'A reminder that is due shows on the home screen. To also get it as a phone notification, set up '
+                  ? 'A reminder that is due shows on the home screen (swipe it away to hide it). Phone notifications need a Nestling server with them set up.'
+                  : 'A reminder that is due shows on the home screen (swipe it away to hide it). To also get it as a phone notification, set up '
                         'notifications on the server (see "Notifications on phones" in the README).',
               style: TextStyle(color: pal.muted, fontSize: 13, height: 1.4),
             ),
