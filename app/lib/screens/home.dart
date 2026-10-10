@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -39,7 +40,7 @@ class HomeScreen extends StatelessWidget {
                 // Rolling last 24 hours (older servers: the calendar day).
                 if ((s.summary?['last_24h'] ?? s.summary?['today']) case final Map<String, dynamic> stats)
                   _TodayStrip(today: stats, units: s.units, rolling: s.summary?['last_24h'] != null),
-                if (s.summary?['medicines'] case final List meds when meds.isNotEmpty) _MedicineStrip(meds: meds.whereType<Map>().toList()),
+                const _ReminderStrip(),
                 _CardGrid(cards: _cards(context, s, history)),
                 const SizedBox(height: 8),
                 Center(
@@ -649,12 +650,32 @@ class ChildAvatar extends StatelessWidget {
   }
 }
 
-/// The child's medicine schedules: when the next dose is allowed, and a button to log one.
-class _MedicineStrip extends StatelessWidget {
-  const _MedicineStrip({required this.meds});
-  final List<Map> meds;
+/// What needs doing: the child's medicine schedules (when the next dose is allowed, with a button
+/// to log one) and the reminders that are due ("no feed for 3h 10m"). Works without a server's
+/// notifications; refreshed every minute so a reminder shows up as soon as it's due.
+class _ReminderStrip extends StatefulWidget {
+  const _ReminderStrip();
 
-  static String _status(Map m, DateTime now) {
+  @override
+  State<_ReminderStrip> createState() => _ReminderStripState();
+}
+
+class _ReminderStripState extends State<_ReminderStrip> {
+  late final Timer _tick;
+
+  @override
+  void initState() {
+    super.initState();
+    _tick = Timer.periodic(const Duration(minutes: 1), (_) => setState(() {}));
+  }
+
+  @override
+  void dispose() {
+    _tick.cancel();
+    super.dispose();
+  }
+
+  static String _medicineStatus(Map m, DateTime now) {
     final next = DateTime.tryParse('${m['next_at']}')?.toLocal();
     if (next == null) return 'No dose given yet';
     if (!next.isAfter(now)) return 'Next dose can be given now';
@@ -665,40 +686,106 @@ class _MedicineStrip extends StatelessWidget {
     return max == null ? 'Next dose at $when' : 'Next dose at $when · ${m['doses_24h']} of $max in 24 h';
   }
 
+  /// The child's reminders that are due now: type and time since (like src/reminders.rs, which
+  /// also sends them to phones when the server can).
+  static List<(String, Duration)> dueReminders(AppState s, DateTime now) {
+    final out = <(String, Duration)>[];
+    for (final r in s.child?.reminders ?? const <Map<String, dynamic>>[]) {
+      final type = r['type'] as String?, after = toInt(r['after_minutes']);
+      if (type == null || after == null) continue;
+      final timer = type == 'feed' ? 'breastfeed' : type;
+      if (s.timers.any((t) => t.kind == timer)) continue;
+      final v = s.summary?['last']?[type];
+      if (v is! Map<String, dynamic>) continue;
+      final e = Event(v);
+      final since = now.difference(type == 'sleep' ? (e.end ?? e.start) : e.start);
+      if (since.inMinutes >= after) out.add((type, since));
+    }
+    return out;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final s = context.watch<AppState>();
     final pal = context.pal, now = DateTime.now();
+    final meds = [
+      for (final m in (s.summary?['medicines'] as List? ?? const []))
+        if (m is Map) m,
+    ];
+    final due = dueReminders(s, now);
+    if (meds.isEmpty && due.isEmpty) return const SizedBox.shrink();
+    Widget row({
+      required Kind kind,
+      IconData? icon,
+      required String title,
+      required String status,
+      required bool urgent,
+      String? action,
+      VoidCallback? onTap,
+    }) => ListTile(
+      leading: BlobIcon(kind, icon: icon, size: 38),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+      subtitle: Text(
+        status,
+        style: TextStyle(color: urgent ? kind.on(pal) : pal.muted, fontWeight: urgent ? FontWeight.w700 : null),
+      ),
+      trailing: action == null ? null : FilledButton.tonal(onPressed: onTap, child: Text(action)),
+      onTap: onTap,
+    );
     return Container(
       margin: const EdgeInsets.only(bottom: 18),
-      decoration: BoxDecoration(color: pal.surface, borderRadius: BorderRadius.circular(14), border: Border.all(color: pal.line)),
+      decoration: BoxDecoration(
+        color: pal.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: pal.line),
+      ),
       child: Column(
         children: [
+          for (final (type, since) in due)
+            row(
+              kind: switch (type) {
+                'feed' => Kind.breast,
+                'sleep' => Kind.sleep,
+                'diaper' => Kind.diaper,
+                _ => Kind.pump,
+              },
+              title: switch (type) {
+                'feed' => 'Feed reminder',
+                'sleep' => 'Sleep reminder',
+                'diaper' => 'Diaper reminder',
+                _ => 'Pump reminder',
+              },
+              status: switch (type) {
+                'feed' => 'No feed for ${duration(since.inSeconds)}',
+                'sleep' => 'Awake for ${duration(since.inSeconds)}',
+                'diaper' => 'No diaper change for ${duration(since.inSeconds)}',
+                _ => 'No pumping for ${duration(since.inSeconds)}',
+              },
+              urgent: true,
+              action: type == 'sleep' ? 'Start' : 'Log',
+              onTap: () => switch (type) {
+                'feed' => showFeedPicker(context),
+                'diaper' => showEventForm(context, type: 'diaper'),
+                final kind => TimerScreen.open(context, kind),
+              },
+            ),
           for (final m in meds)
             () {
               final next = DateTime.tryParse('${m['next_at']}')?.toLocal();
-              final due = next == null || !next.isAfter(now);
-              return ListTile(
-                leading: const BlobIcon(Kind.health, icon: Icons.medication_rounded, size: 38),
-                title: Text('${m['name']}', style: const TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text(
-                  _status(m, now),
-                  style: TextStyle(color: due ? Kind.health.on(pal) : pal.muted, fontWeight: due ? FontWeight.w700 : null),
-                ),
-                trailing: due
-                    ? FilledButton.tonal(
-                        onPressed: () => showEventForm(
-                          context,
-                          type: 'health',
-                          prefill: {'kind': 'medicine', 'name': m['name'], 'dose': m['dose'], 'dose_unit': m['dose_unit']},
-                        ),
-                        child: const Text('Give'),
-                      )
-                    : null,
-                onTap: () => showEventForm(
-                  context,
-                  type: 'health',
-                  prefill: {'kind': 'medicine', 'name': m['name'], 'dose': m['dose'], 'dose_unit': m['dose_unit']},
-                ),
+              final canGive = next == null || !next.isAfter(now);
+              void give() => showEventForm(
+                context,
+                type: 'health',
+                prefill: {'kind': 'medicine', 'name': m['name'], 'dose': m['dose'], 'dose_unit': m['dose_unit']},
+              );
+              return row(
+                kind: Kind.health,
+                icon: Icons.medication_rounded,
+                title: '${m['name']}',
+                status: _medicineStatus(m, now),
+                urgent: canGive,
+                action: canGive ? 'Give' : null,
+                onTap: give,
               );
             }(),
         ],

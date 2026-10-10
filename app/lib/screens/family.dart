@@ -130,8 +130,8 @@ class FamilyScreen extends StatelessWidget {
                   if (s.child case final child?)
                     ListTile(
                       leading: const Icon(Icons.medication_outlined),
-                      title: Text(s.pushEnabled ? 'Medicines and reminders' : 'Medicine schedule'),
-                      subtitle: Text(SchedulesScreen.describe(child, reminders: s.pushEnabled)),
+                      title: const Text('Medicines and reminders'),
+                      subtitle: Text(SchedulesScreen.describe(child)),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SchedulesScreen())),
                     ),

@@ -170,8 +170,9 @@ headers, and every release gets new file URLs.
 
 Optional. With it, when a caregiver starts, pauses or stops a timer, the other caregivers' Android
 phones show it in their notifications (with the live clock) even while the app is closed. Without
-it, they see it as soon as they open the app. It also turns on **reminders** ("no feed in 3 h",
-"next dose of Tylenol can be given now"), set per baby in Family → Medicines and reminders. It goes through Google's Firebase Cloud Messaging,
+it, they see it as soon as they open the app. It also sends **reminders** ("no feed in 3 h",
+"next dose of Tylenol can be given now") to the phones; they are set per baby in Family → Medicines
+and reminders, and without notifications they only show on the app's home screen. It goes through Google's Firebase Cloud Messaging,
 in a free Firebase project of your own:
 
 1. At [console.firebase.google.com](https://console.firebase.google.com), create a project

@@ -133,9 +133,10 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       made on the server in step with `app/lib/timer_notifications.dart`.
 - [x] **Medicine schedules + reminders** (`src/schedule.rs`, `src/reminders.rs`; Dart port
       `app/lib/local/schedule.dart`): lists saved on the child; the summary says when the next dose
-      is allowed; reminders ("no feed in 3 h", "dose due") are pushed only when Firebase is set up
-      (`state.push`), checked every minute, once per entry (`reminders_sent`). App: Family →
-      Medicines and reminders; home medicine strip; early-dose warning in the medicine form.
+      is allowed; reminders ("no feed in 3 h", "dose due") show on the app's home strip when due
+      (any mode) and are pushed only when Firebase is set up (`state.push`), checked every minute,
+      once per entry (`reminders_sent`). App: Family → Medicines and reminders; home strip
+      (`_ReminderStrip`, same due rule as `reminders.rs`); early-dose warning in the medicine form.
 - [ ] Optional: photos on milestones, Home Assistant integration
       (`/children/{id}/summary` already works as a REST sensor).
 - Note: SSE behind a reverse proxy needs response buffering disabled (the stream sends `X-Accel-Buffering: no`,

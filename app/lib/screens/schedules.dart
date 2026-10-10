@@ -8,7 +8,8 @@ import '../widgets/common.dart';
 import '../widgets/medicine_picker.dart';
 
 /// The selected child's medicine schedules (how often each may be given; the home screen shows
-/// when the next dose is allowed) and, on a server that sends notifications, reminders.
+/// when the next dose is allowed) and reminders (shown on the home screen when due, and sent to
+/// phones by a server with notifications set up).
 /// Both are saved on the child (`PATCH /children/{id}`, see src/schedule.rs).
 class SchedulesScreen extends StatelessWidget {
   const SchedulesScreen({super.key});
@@ -23,19 +24,19 @@ class SchedulesScreen extends StatelessWidget {
 
   static String _n(num v) => v == v.roundToDouble() ? '${v.round()}' : '$v';
 
-  /// "30 min", "2 h", "1 h 30 min".
+  /// "30 min", "2 h", "1 h 30 min" (no line break inside a number and its unit).
   static String hm(int minutes) => switch ((minutes ~/ 60, minutes % 60)) {
-    (0, final m) => '$m min',
-    (final h, 0) => '$h h',
-    (final h, final m) => '$h h $m min',
+    (0, final m) => '$m\u00a0min',
+    (final h, 0) => '$h\u00a0h',
+    (final h, final m) => '$h\u00a0h $m\u00a0min',
   };
 
   /// The Family screen's line: "Vitamin D, Tylenol · feed reminder".
-  static String describe(Child c, {required bool reminders}) {
+  static String describe(Child c) {
     final meds = c.medicines.map((m) => '${m['name']}').join(', ');
-    final rem = reminders ? c.reminders.map((r) => '${r['type']}').join(', ') : '';
+    final rem = c.reminders.map((r) => '${r['type']}').join(', ');
     final parts = [if (meds.isNotEmpty) meds, if (rem.isNotEmpty) '$rem reminder${c.reminders.length == 1 ? '' : 's'}'];
-    return parts.isEmpty ? (reminders ? 'Doses on a schedule, "no feed in 3 h"…' : 'Doses on a schedule') : parts.join(' · ');
+    return parts.isEmpty ? 'Doses on a schedule, "no feed in 3 h"…' : parts.join(' · ');
   }
 
   static const _types = {'feed': ('Feed', 'feed'), 'sleep': ('Sleep', 'sleep'), 'diaper': ('Diaper', 'diaper change'), 'pump': ('Pump', 'pumping')};
@@ -123,7 +124,7 @@ class SchedulesScreen extends StatelessWidget {
       if (s.pushEnabled && m['remind'] == true) 'reminder on',
     ].join(' · ');
     return Scaffold(
-      appBar: AppBar(title: Text(s.pushEnabled ? 'Medicines and reminders' : 'Medicine schedule')),
+      appBar: AppBar(title: const Text('Medicines and reminders')),
       body: Constrained(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
@@ -146,7 +147,10 @@ class SchedulesScreen extends StatelessWidget {
                       onTap: () => _editMedicine(context, c, i),
                     ),
                   ListTile(
-                    leading: CircleAvatar(backgroundColor: pal.line, child: Icon(Icons.add, color: pal.ink)),
+                    leading: CircleAvatar(
+                      backgroundColor: pal.line,
+                      child: Icon(Icons.add, color: pal.ink),
+                    ),
                     title: const Text('Add a medicine'),
                     onTap: () => _addMedicine(context, c),
                   ),
@@ -154,49 +158,41 @@ class SchedulesScreen extends StatelessWidget {
               ),
             ),
             const SectionTitle('Reminders'),
-            if (s.pushEnabled)
-              Card(
-                child: Column(
-                  children: [
-                    for (final MapEntry(key: type, value: (label, what)) in _types.entries)
-                      () {
-                        final r = c.reminders.where((r) => r['type'] == type).firstOrNull;
-                        final kind = Kind.of(type == 'feed' ? 'feed' : type);
-                        return ListTile(
-                          leading: BlobIcon(kind, size: 40),
-                          title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          subtitle: Text(
-                            r == null
-                                ? 'Off'
-                                : type == 'sleep'
-                                ? 'When awake for ${hm(r['after_minutes'] as int)}'
-                                : 'When there was no $what for ${hm(r['after_minutes'] as int)}',
-                          ),
-                          trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: () => _editReminder(context, c, type),
-                        );
-                      }(),
-                  ],
-                ),
-              )
-            else
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  s.serverless
-                      ? 'Reminders ("no feed in 3 h", "next dose is due") are sent by a Nestling server with phone notifications set up.'
-                      : 'Reminders ("no feed in 3 h", "next dose is due") need phone notifications set up on the server. '
-                            'See "Notifications on phones" in the README.',
-                  style: TextStyle(color: pal.muted, fontSize: 14, height: 1.4),
-                ),
+            Card(
+              child: Column(
+                children: [
+                  for (final MapEntry(key: type, value: (label, what)) in _types.entries)
+                    () {
+                      final r = c.reminders.where((r) => r['type'] == type).firstOrNull;
+                      final kind = Kind.of(type == 'feed' ? 'feed' : type);
+                      return ListTile(
+                        leading: BlobIcon(kind, size: 40),
+                        title: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text(
+                          r == null
+                              ? 'Off'
+                              : type == 'sleep'
+                              ? 'When awake for ${hm(r['after_minutes'] as int)}'
+                              : 'When there was no $what for ${hm(r['after_minutes'] as int)}',
+                        ),
+                        trailing: const Icon(Icons.chevron_right_rounded),
+                        onTap: () => _editReminder(context, c, type),
+                      );
+                    }(),
+                ],
               ),
-            if (s.pushEnabled) ...[
-              const SizedBox(height: 8),
-              Text(
-                'Reminders go to the phones of everyone in the family. A medicine\'s reminder is turned on in its schedule.',
-                style: TextStyle(color: pal.muted, fontSize: 13, height: 1.4),
-              ),
-            ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              s.pushEnabled
+                  ? 'A reminder that is due shows on the home screen and is sent to the phones of everyone in the family. '
+                        'A medicine\'s phone reminder is turned on in its schedule.'
+                  : s.serverless
+                  ? 'A reminder that is due shows on the home screen. Phone notifications need a Nestling server with them set up.'
+                  : 'A reminder that is due shows on the home screen. To also get it as a phone notification, set up '
+                        'notifications on the server (see "Notifications on phones" in the README).',
+              style: TextStyle(color: pal.muted, fontSize: 13, height: 1.4),
+            ),
           ],
         ),
       ),
@@ -264,7 +260,10 @@ class _MedicineDialogState extends State<_MedicineDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          TextField(controller: _name, decoration: const InputDecoration(labelText: 'Name')),
+          TextField(
+            controller: _name,
+            decoration: const InputDecoration(labelText: 'Name'),
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: _every,
@@ -302,7 +301,13 @@ class _MedicineDialogState extends State<_MedicineDialog> {
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(flex: 2, child: TextField(controller: _unit, decoration: const InputDecoration(labelText: 'Unit'))),
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: _unit,
+                  decoration: const InputDecoration(labelText: 'Unit'),
+                ),
+              ),
             ],
           ),
           if (widget.canRemind) ...[
@@ -314,10 +319,7 @@ class _MedicineDialogState extends State<_MedicineDialog> {
               onChanged: (v) => setState(() => _remind = v),
             ),
           ],
-          if (_error != null) ...[
-            const SizedBox(height: 8),
-            Text(_error!, style: TextStyle(color: pal.danger)),
-          ],
+          if (_error != null) ...[const SizedBox(height: 8), Text(_error!, style: TextStyle(color: pal.danger))],
         ],
       ),
       actions: [

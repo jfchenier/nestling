@@ -84,7 +84,8 @@ list (the child JSON carries both).
   next dose is allowed.
 - `reminders`: one per `type` (`feed`, `sleep`, `diaper`, `pump`), `after_minutes` 15–1440. Sleep
   counts time awake.
-- Reminders and a medicine's `remind` become phone notifications only on a server with
+- The app shows a reminder on its home screen once it is due (computed from the summary's `last`),
+  on any server. Reminders and a medicine's `remind` also become phone notifications on a server with
   notifications set up (`GET /push/config` → `enabled`). Checked every minute; each one is sent
   once per entry it is about, to every phone of the family.
 
