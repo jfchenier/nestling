@@ -7,7 +7,7 @@ import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/date_time.dart';
-import '../widgets/pickers.dart';
+import '../widgets/medicine_picker.dart';
 
 /// Log a new event of [type] (feeds also take a [method]) or edit [event].
 Future<void> showEventForm(BuildContext context, {String? type, String? method, Event? event}) => showModalBottomSheet(
