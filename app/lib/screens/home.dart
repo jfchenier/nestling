@@ -169,8 +169,8 @@ class HomeScreen extends StatelessWidget {
         'milestone' => openBook,
         _ => () => history(filter),
       },
-      // Growth's header icon opens the growth charts (its history is listed there too), Firsts'
-      // the baby book (like tapping the card).
+      // Growth's header button opens the growth charts (its history is listed there too), Firsts'
+      // the baby book.
       historyIcon: switch (filter) {
         'growth' => Icons.show_chart_rounded,
         'milestone' => Icons.auto_stories_rounded,
@@ -180,6 +180,11 @@ class HomeScreen extends StatelessWidget {
         'growth' => 'Growth charts',
         'milestone' => 'Baby book',
         _ => '$title history',
+      },
+      historyShort: switch (filter) {
+        'growth' => 'Charts',
+        'milestone' => 'Book',
+        _ => 'History',
       },
     );
     return [
@@ -200,8 +205,7 @@ class HomeScreen extends StatelessWidget {
         Kind.milestone,
         'Firsts',
         simple(latest('milestone'), (e) => (e['name'] as String?) ?? 'Milestone'),
-        // Opens the baby book (memories with photos, ideas of firsts, "Add a memory").
-        openBook,
+        () => showEventForm(context, type: 'milestone'),
         'milestone',
       ),
     ];
@@ -266,6 +270,7 @@ class _ActivityCard extends StatelessWidget {
     required this.onHistory,
     this.historyIcon = Icons.history_rounded,
     required this.historyLabel,
+    required this.historyShort,
   });
   final Kind kind;
   final String title;
@@ -276,6 +281,9 @@ class _ActivityCard extends StatelessWidget {
   final VoidCallback onHistory;
   final IconData historyIcon;
   final String historyLabel;
+
+  /// Word on the header button ("History", "Charts", "Book"), so it reads as a button.
+  final String historyShort;
 
   @override
   Widget build(BuildContext context) {
@@ -303,7 +311,7 @@ class _ActivityCard extends StatelessWidget {
               children: [
                 Container(
                   color: kind.fill(c),
-                  padding: const EdgeInsets.fromLTRB(14, 2, 2, 2),
+                  padding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
                   child: Row(
                     children: [
                       Expanded(
@@ -312,11 +320,34 @@ class _ActivityCard extends StatelessWidget {
                           style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: c.bandInk),
                         ),
                       ),
-                      IconButton(
-                        onPressed: onHistory,
-                        tooltip: historyLabel,
-                        visualDensity: VisualDensity.compact,
-                        icon: Icon(historyIcon, color: c.bandInk, size: 22),
+                      // A pill with a word, so it's clearly a button of its own (the rest of the
+                      // card logs).
+                      Tooltip(
+                        message: historyLabel,
+                        child: Semantics(
+                          button: true,
+                          label: historyLabel,
+                          excludeSemantics: true,
+                          child: Material(
+                            color: c.surface.withValues(alpha: c.isDark ? 0.3 : 0.65),
+                            shape: StadiumBorder(side: BorderSide(color: c.bandInk.withValues(alpha: 0.18))),
+                            child: InkWell(
+                              customBorder: const StadiumBorder(),
+                              onTap: onHistory,
+                              child: Padding(
+                                padding: const EdgeInsets.fromLTRB(8, 5, 10, 5),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(historyIcon, color: c.bandInk, size: 17),
+                                    const SizedBox(width: 4),
+                                    Text(historyShort, style: TextStyle(color: c.bandInk, fontSize: 12.5, fontWeight: FontWeight.w700)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),

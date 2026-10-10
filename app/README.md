@@ -24,7 +24,7 @@ activity color. Colors live in
 - **Home** — running-timer banners, today's totals, then two cards per row in a fixed order
   (Feed · Sleep / Diaper · Pump / Growth · Health / Routine · Firsts). Each card shows the latest
   entry and a big value ("last side", "dirty", "1h 06m"…), or the live clock of a running timer.
-  **Tap a card to log** (Feed asks Breastfeed / Bottle / Solids / Combo; Firsts opens the baby book, as does its book icon); the clock icon in its header
+  **Tap a card to log** (Feed asks Breastfeed / Bottle / Solids / Combo; Firsts adds a memory); the button in its header (History; Charts for Growth, Book for Firsts)
   opens its history. "Add a note" sits under the grid.
 - **Timers** — breastfeed (tap Left/Right to start, switch sides, pause), sleep (with location) and pump
   (left/right/both, asks for amounts at the end). Shared live with every caregiver. While one runs you can
@@ -70,7 +70,7 @@ activity color. Colors live in
   blowout) or potty trip (sat, pee/poo in the potty, accident; on the same page), pump, growth,
   health (medicine, temperature, vaccine, symptom, appointment), activity, milestone, note. Tap any
   entry to edit or delete it.
-- **Baby book** — tapping the Firsts card opens the child's firsts as a scrapbook: a cover
+- **Baby book** — the Firsts card's Book button opens the child's firsts as a scrapbook: a cover
   (photo, name, birth date, how many memories and photos), "Ideas to remember" (24 built-in
   firsts such as first smile, first tooth, first steps; "See all" ticks the ones in the book) and
   the memories oldest first, grouped by age ("Newborn", "3 months"…), each a taped-in print with
