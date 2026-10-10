@@ -1,0 +1,1892 @@
+openapi: 3.0.3
+info:
+  title: Nestling API
+  version: "1"
+  description: |
+    The HTTP API of the Nestling server, for generating client code. `docs/API.md` explains the
+    same API in prose; keep both in step with `src/routes/` (`tests/openapi.rs` checks that every
+    route is listed here).
+
+    - **Auth:** `Authorization: Bearer <token>`. `EventSource` (which can't set headers) may pass
+      `?access_token=<token>` instead.
+    - **Times in requests:** `"now"`, a local time in the family's time zone
+      (`"2026-10-08T14:30"`) or RFC 3339 with an offset. An omitted `start` means now.
+    - **Times in responses:** RFC 3339; family data in the family's time zone, account and token
+      data in UTC.
+    - **Units:** metric only (`_ml`, `_g`, `_cm`, `_c` = °C, `_seconds`).
+    - **IDs:** opaque strings (UUIDv7). Where a client may supply its own id it must be a UUID.
+    - Things you don't have access to answer `404`, like things that don't exist.
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:8080/api/v1
+  - url: https://nestling.example.com/api/v1
+security:
+  - bearer: []
+tags:
+  - name: accounts
+  - name: admin
+  - name: families
+  - name: children
+  - name: events
+  - name: timers
+  - name: insights
+  - name: sync
+  - name: import-export
+
+paths:
+  /openapi.yaml:
+    get:
+      tags: [accounts]
+      operationId: getOpenApi
+      summary: This document
+      security: []
+      responses:
+        "200":
+          description: The OpenAPI document (YAML).
+          content:
+            application/yaml:
+              schema: { type: string }
+
+  # ---------------------------------------------------------------- accounts
+  /auth/setup:
+    get:
+      tags: [accounts]
+      operationId: getSetup
+      summary: Whether the server still needs its first (admin) account
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [needs_setup, open_registration]
+                properties:
+                  needs_setup: { type: boolean, description: true while the server has no account }
+                  open_registration: { type: boolean, description: whether POST /auth/register is open }
+  /auth/register:
+    post:
+      tags: [accounts]
+      operationId: register
+      summary: Create an account
+      description: |
+        Only the first account (it becomes the admin), unless `NESTLING_OPEN_REGISTRATION` is on;
+        otherwise `403`. Sign-ups count toward the per-address sign-in limit.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password, name]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                name: { type: string }
+                units: { $ref: "#/components/schemas/Units" }
+      responses:
+        "201":
+          description: Signed in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /auth/login:
+    post:
+      tags: [accounts]
+      operationId: login
+      summary: Sign in
+      description: |
+        After 5 failed attempts on an account, or 20 from one address, within 15 minutes: `429`
+        until the oldest one is 15 minutes old. Behind a reverse proxy the address comes from
+        `X-Real-IP` / `X-Forwarded-For`.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400":
+          description: Wrong email or password
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+  /auth/logout:
+    post:
+      tags: [accounts]
+      operationId: logout
+      summary: Revoke the current token
+      responses:
+        "204": { description: Signed out }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /me:
+    get:
+      tags: [accounts]
+      operationId: getMe
+      summary: The signed-in account and its families
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    patch:
+      tags: [accounts]
+      operationId: updateMe
+      summary: Change name, units or password
+      description: Changing the password needs `current_password` and signs out the other sessions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                units: { $ref: "#/components/schemas/Units" }
+                password: { type: string, minLength: 8 }
+                current_password: { type: string }
+      responses:
+        "200":
+          description: The updated account
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /me/tokens:
+    get:
+      tags: [accounts]
+      operationId: listTokens
+      summary: Sessions and API tokens
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tokens]
+                properties:
+                  tokens:
+                    type: array
+                    items: { $ref: "#/components/schemas/TokenInfo" }
+    post:
+      tags: [accounts]
+      operationId: createToken
+      summary: Create a long-lived API token (Home Assistant, scripts)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        "201":
+          description: The token, shown only this once
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [id, name, token]
+                properties:
+                  id: { type: string }
+                  name: { type: string }
+                  token: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /me/tokens/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    delete:
+      tags: [accounts]
+      operationId: deleteToken
+      summary: Revoke a session or API token
+      responses:
+        "204": { description: Revoked }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /push/config:
+    get:
+      tags: [accounts]
+      operationId: getPushConfig
+      summary: Firebase settings the Android app registers with
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enabled]
+                properties:
+                  enabled: { type: boolean }
+                  android:
+                    type: object
+                    description: Present when `enabled`.
+                    required: [api_key, app_id, project_id, sender_id]
+                    properties:
+                      api_key: { type: string }
+                      app_id: { type: string }
+                      project_id: { type: string }
+                      sender_id: { type: string }
+  /me/push-devices:
+    post:
+      tags: [accounts]
+      operationId: addPushDevice
+      summary: Register this phone's Firebase token
+      description: |
+        The phone then gets a data message whenever a family timer starts, changes or stops
+        (`{action: "show"|"cancel", id, title, body, running, started_at, chip, seq}`). The token
+        is forgotten when the session ends.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        "204": { description: Registered }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /me/push-devices/{token}:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      tags: [accounts]
+      operationId: removePushDevice
+      summary: Stop notifications to a phone
+      responses:
+        "204": { description: Removed }
+
+  # ---------------------------------------------------------------- admin
+  /admin/users:
+    get:
+      tags: [admin]
+      operationId: listUsers
+      summary: Every account (admins only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [users]
+                properties:
+                  users:
+                    type: array
+                    items: { $ref: "#/components/schemas/AdminUser" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      tags: [admin]
+      operationId: createUser
+      summary: Create an account (admins only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, name, password]
+              properties:
+                email: { type: string, format: email }
+                name: { type: string }
+                password: { type: string, minLength: 8 }
+                is_admin: { type: boolean, default: false }
+                family_id: { type: string, description: also add the account to this family as a caregiver }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /admin/users/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    patch:
+      tags: [admin]
+      operationId: updateUser
+      summary: Rename, promote/demote or set a new password (admins only)
+      description: A new password signs the account out everywhere; the last admin can't be demoted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                is_admin: { type: boolean }
+                password: { type: string, minLength: 8 }
+      responses:
+        "200":
+          description: The updated account
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [admin]
+      operationId: deleteUser
+      summary: Delete an account (admins only; not yourself)
+      description: The account's families and their data stay.
+      responses:
+        "204": { description: Deleted }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ---------------------------------------------------------------- families
+  /families:
+    get:
+      tags: [families]
+      operationId: listFamilies
+      summary: Your families, with members and children
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [families]
+                properties:
+                  families:
+                    type: array
+                    items: { $ref: "#/components/schemas/Family" }
+    post:
+      tags: [families]
+      operationId: createFamily
+      summary: Create a family (you become its owner)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                timezone: { type: string, description: "IANA name (default UTC)", example: America/Toronto }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Family" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+  /families/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [families]
+      operationId: getFamily
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Family" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [families]
+      operationId: updateFamily
+      summary: Rename, change the time zone or the daytime hours
+      description: |
+        The time zone sets day boundaries for trends; `day_start` / `day_end` set daytime for
+        the day/night split.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                timezone: { type: string }
+                day_start: { $ref: "#/components/schemas/HourMinute" }
+                day_end: { $ref: "#/components/schemas/HourMinute" }
+      responses:
+        "200":
+          description: The updated family
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Family" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [families]
+      operationId: deleteFamily
+      summary: Delete the family and everything in it (owners only)
+      responses:
+        "204": { description: Deleted }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /families/{id}/invites:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [families]
+      operationId: createInvite
+      summary: Make an invite code (valid 7 days, single use)
+      description: The body is optional; without it the invite is for a caregiver.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role: { $ref: "#/components/schemas/Role" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [code, family_id, role, expires_at]
+                properties:
+                  code: { type: string, example: K7M2QX9A }
+                  family_id: { type: string }
+                  role: { $ref: "#/components/schemas/Role" }
+                  expires_at: { type: string, format: date-time }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /invites/{code}/accept:
+    parameters:
+      - name: code
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      tags: [families]
+      operationId: acceptInvite
+      summary: Join a family with an invite code
+      responses:
+        "200":
+          description: The family joined
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Family" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /families/{id}/members/{user_id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+      - name: user_id
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      tags: [families]
+      operationId: removeMember
+      summary: An owner removes someone, or anyone leaves
+      responses:
+        "204": { description: Removed }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  # ---------------------------------------------------------------- children
+  /families/{id}/children:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [children]
+      operationId: listChildren
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [children]
+                properties:
+                  children:
+                    type: array
+                    items: { $ref: "#/components/schemas/Child" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [children]
+      operationId: createChild
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, birth_date]
+              properties:
+                name: { type: string }
+                birth_date: { type: string, format: date, description: birth or due date }
+                sex: { $ref: "#/components/schemas/Sex" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Child" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /children/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [children]
+      operationId: getChild
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Child" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [children]
+      operationId: updateChild
+      summary: Send only what changes; `null` clears `birth_date` / `sex`
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                birth_date: { type: string, format: date, nullable: true }
+                sex: { allOf: [{ $ref: "#/components/schemas/Sex" }], nullable: true }
+      responses:
+        "200":
+          description: The updated child
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Child" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [children]
+      operationId: deleteChild
+      summary: Delete the child and its records
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /children/{id}/photo:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [children]
+      operationId: getChildPhoto
+      summary: The profile picture
+      responses:
+        "200":
+          description: The image
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [children]
+      operationId: putChildPhoto
+      summary: Set the profile picture (raw JPEG, PNG or WebP, at most 5 MB)
+      description: The child's `photo_version` changes.
+      requestBody:
+        required: true
+        content:
+          image/jpeg: { schema: { type: string, format: binary } }
+          image/png: { schema: { type: string, format: binary } }
+          image/webp: { schema: { type: string, format: binary } }
+      responses:
+        "200":
+          description: The child
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Child" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [children]
+      operationId: deleteChildPhoto
+      responses:
+        "204": { description: Removed }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ---------------------------------------------------------------- events
+  /children/{id}/events:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [events]
+      operationId: listEvents
+      summary: A child's events, newest first
+      parameters:
+        - name: type
+          in: query
+          description: Comma-separated event types, e.g. `feed,diaper`.
+          schema: { type: string }
+        - name: from
+          in: query
+          description: Only events starting at or after this time.
+          schema: { $ref: "#/components/schemas/TimeInput" }
+        - name: to
+          in: query
+          description: Only events starting before this time; page back with the previous `next_to`.
+          schema: { $ref: "#/components/schemas/TimeInput" }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 1000, default: 100 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events, next_to]
+                properties:
+                  events:
+                    type: array
+                    items: { $ref: "#/components/schemas/Event" }
+                  next_to:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    description: Pass as `to` for the next page; null on the last page.
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [events]
+      operationId: createEvent
+      summary: Log an event
+      description: |
+        May carry its own `id` (a UUID) so a retried request doesn't log twice: the repeat answers
+        `200` with the same event.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EventInput" }
+            examples:
+              breastfeed:
+                value: { type: feed, method: breast, left_seconds: 600, right_seconds: 420, start_side: left, start: "2026-10-08T03:10" }
+              bottle:
+                value: { type: feed, method: bottle, amount_ml: 120, milk: formula }
+              sleep:
+                value: { type: sleep, start: "2026-10-08T13:00", end: "2026-10-08T14:20", location: crib }
+              diaper:
+                value: { type: diaper, wet: true }
+              potty:
+                value: { type: diaper, potty: success, wet: true }
+              temperature:
+                value: { type: health, kind: temperature, temperature_c: 38.2 }
+      responses:
+        "200":
+          description: Retry of an earlier create with the same `id`
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Event" }
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Event" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /events/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [events]
+      operationId: getEvent
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Event" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [events]
+      operationId: updateEvent
+      summary: Send only what changes; `null` removes a field
+      description: |
+        Any field of `EventInput` except `id`. Changing `type` is allowed (fields of the old type
+        that don't apply are dropped). `start` can't be removed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+            example: { amount_ml: 150, note: null }
+      responses:
+        "200":
+          description: The updated event
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Event" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [events]
+      operationId: deleteEvent
+      responses:
+        "204": { description: Deleted }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ---------------------------------------------------------------- timers
+  /children/{id}/timers:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [timers]
+      operationId: listTimers
+      summary: Running and paused timers
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [timers]
+                properties:
+                  timers:
+                    type: array
+                    items: { $ref: "#/components/schemas/Timer" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [timers]
+      operationId: startTimer
+      summary: Start a timer (one per child per kind)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [kind]
+              properties:
+                id: { type: string, format: uuid, description: client-chosen id; a retry answers 200 with the same timer }
+                kind: { $ref: "#/components/schemas/TimerKind" }
+                side:
+                  allOf: [{ $ref: "#/components/schemas/Side" }]
+                  description: "breastfeed: left/right (default left); pump: left/right/both (default both); sleep: none"
+                start: { allOf: [{ $ref: "#/components/schemas/TimeInput" }], description: may be in the past }
+      responses:
+        "200":
+          description: Retry with the same `id`
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Timer" }
+        "201":
+          description: Started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Timer" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /timers/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [timers]
+      operationId: getTimer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Timer" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      tags: [timers]
+      operationId: editTimer
+      summary: Correct a timer; it keeps running
+      description: |
+        `start` moves the start (the total grows or shrinks by the same amount, even while running);
+        `left_seconds` / `right_seconds` set the time on each side (breastfeed); `seconds` sets the
+        total time (sleep and pump).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                start: { $ref: "#/components/schemas/TimeInput" }
+                left_seconds: { type: integer, minimum: 0 }
+                right_seconds: { type: integer, minimum: 0 }
+                seconds: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: The corrected timer
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Timer" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [timers]
+      operationId: discardTimer
+      summary: Discard without saving
+      responses:
+        "204": { description: Discarded }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /timers/{id}/pause:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [timers]
+      operationId: pauseTimer
+      responses:
+        "200":
+          description: Paused
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Timer" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /timers/{id}/resume:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [timers]
+      operationId: resumeTimer
+      description: The body is optional.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SideRequest" }
+      responses:
+        "200":
+          description: Running
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Timer" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+  /timers/{id}/switch:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [timers]
+      operationId: switchTimer
+      summary: Change side (without a body, flips left/right); resumes if paused
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SideRequest" }
+      responses:
+        "200":
+          description: Running on the new side
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Timer" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /timers/{id}/stop:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [timers]
+      operationId: stopTimer
+      summary: Stop and save as an event
+      description: |
+        The body is optional. Two caregivers stopping at once save one event; the second gets `404`.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                event_id: { type: string, format: uuid, description: client-chosen id of the saved event; a retry answers 200 with it }
+                end: { allOf: [{ $ref: "#/components/schemas/TimeInput" }], description: trim the end ("fell asleep 5 min ago") }
+                note: { type: string }
+                left_ml: { type: number, description: pump only }
+                right_ml: { type: number, description: pump only }
+                location: { type: string, description: sleep only }
+      responses:
+        "200":
+          description: Retry with the same `event_id`
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Event" }
+        "201":
+          description: The saved event
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Event" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /events/{id}/continue:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [timers]
+      operationId: continueEvent
+      summary: Turn a saved breastfeed, pump or sleep entry back into a running timer
+      description: |
+        Same start, same time per side; it keeps going from now on `side` (default: the last side).
+        The entry is deleted; stopping the timer saves it again. The body is optional.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                timer_id: { type: string, format: uuid, description: client-chosen timer id; a retry answers 200 with it }
+                side: { $ref: "#/components/schemas/Side" }
+      responses:
+        "200":
+          description: Retry with the same `timer_id`
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Timer" }
+        "201":
+          description: The running timer
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Timer" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+
+  # ---------------------------------------------------------------- insights
+  /children/{id}/summary:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [insights]
+      operationId: getSummary
+      summary: Home screen / Home Assistant summary
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Summary" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /children/{id}/trends:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [insights]
+      operationId: getTrends
+      summary: Daily statistics and averages
+      description: |
+        Days are calendar days in the family time zone; daytime is the family's
+        `day_start`–`day_end`. Sleep crossing midnight is split between days. Averages use complete
+        days only.
+      parameters:
+        - name: days
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 90, default: 7 }
+        - name: to
+          in: query
+          description: Last day of the range (default today).
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trends" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /families/{id}/stream:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+      - name: access_token
+        in: query
+        description: The token, for `EventSource` (which can't set headers).
+        schema: { type: string }
+    get:
+      tags: [insights]
+      operationId: streamChanges
+      summary: Live changes (Server-Sent Events)
+      description: |
+        First `event: ready`, then one `event: change` per change with a `Change` as data. A client
+        that falls behind gets `event: resync` and should call `GET /families/{id}/sync`.
+        `event: ping` comes every 15 s; a client that hears nothing for longer should reconnect and
+        reload (changes made while disconnected aren't replayed). The response carries
+        `X-Accel-Buffering: no`.
+      responses:
+        "200":
+          description: An endless event stream
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ---------------------------------------------------------------- sync
+  /families/{id}/sync:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [sync]
+      operationId: pullSync
+      summary: Everything, or what changed since a cursor
+      parameters:
+        - name: since
+          in: query
+          description: The `cursor` of the previous sync; omit for everything.
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cursor, full, children, events, timers]
+                properties:
+                  cursor: { type: integer, format: int64, description: store it for next time }
+                  full: { type: boolean, description: true without `since` }
+                  children:
+                    type: array
+                    items: { $ref: "#/components/schemas/Child" }
+                  events:
+                    type: array
+                    description: With `since`, deletions come as `DeletedEvent`.
+                    items: { $ref: "#/components/schemas/EventOrDeleted" }
+                  timers:
+                    type: array
+                    items: { $ref: "#/components/schemas/Timer" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [sync]
+      operationId: pushSync
+      summary: Push changes made offline
+      description: |
+        Each record is settled on its own. The most recent change wins (a `changed_at` in the
+        future counts as now); a deletion is final; a timer started offline while another device
+        started the same kind for the same child keeps the earlier start. Pushing the same batch
+        twice changes nothing. At most 5000 records per push.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                events:
+                  type: array
+                  items: { $ref: "#/components/schemas/SyncEventIn" }
+                timers:
+                  type: array
+                  items: { $ref: "#/components/schemas/SyncTimerIn" }
+      responses:
+        "200":
+          description: One result per record
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events, timers]
+                properties:
+                  events:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/SyncResult"
+                        - type: object
+                          properties:
+                            current: { allOf: [{ $ref: "#/components/schemas/EventOrDeleted" }], nullable: true }
+                  timers:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: "#/components/schemas/SyncResult"
+                        - type: object
+                          properties:
+                            current: { allOf: [{ $ref: "#/components/schemas/Timer" }], nullable: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  # ---------------------------------------------------------------- import / export
+  /families/{id}/export.csv:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [import-export]
+      operationId: exportCsv
+      summary: Everything in the family as CSV (same layout the CSV import reads)
+      responses:
+        "200":
+          description: "The CSV file (`Content-Disposition: attachment`)"
+          content:
+            text/csv:
+              schema: { type: string }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /families/{id}/import/nara-csv:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [import-export]
+      operationId: importNaraCsv
+      summary: Import a CSV export of the previous tracker app (up to 64 MB)
+      parameters:
+        - name: dry_run
+          in: query
+          schema: { type: boolean, default: false }
+        - name: child_id
+          in: query
+          description: Put every exported child into this child.
+          schema: { type: string }
+        - name: children
+          in: query
+          description: "`<profile key>:<child id>`, comma-separated."
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          text/csv:
+            schema: { type: string }
+      responses:
+        "200":
+          description: What was (or, for a dry run, would be) imported
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /families/{id}/import/nara:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      tags: [import-export]
+      operationId: importNara
+      summary: Import from the previous tracker app's account, or an uploaded data dump
+      description: Credentials are used once to download the data and are never stored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email: { type: string }
+                password: { type: string }
+                tracks:
+                  description: Instead of credentials, the `trackz` object, a full `sync2` response or an array of tracks.
+                children:
+                  type: object
+                  additionalProperties: { type: string }
+                  description: source child key → child id
+                child_id: { type: string, description: put unmapped source children into this child }
+                dry_run: { type: boolean, default: false }
+      responses:
+        "200":
+          description: What was (or would be) imported
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImportResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "502": { $ref: "#/components/responses/Upstream" }
+
+components:
+  securitySchemes:
+    bearer:
+      type: http
+      scheme: bearer
+
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing, wrong or revoked token
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: Not allowed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Doesn't exist, or you don't have access
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Conflicts with the current state
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    TooManyRequests:
+      description: Too many failed sign-ins; try again later
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Upstream:
+      description: The other app's servers failed
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [bad_request, unauthorized, forbidden, not_found, conflict, too_many_requests, upstream_error, internal]
+            message: { type: string }
+      example: { error: { code: bad_request, message: "a diaper must be wet, dirty or dry" } }
+
+    TimeInput:
+      type: string
+      description: '"now", a local time in the family time zone ("2026-10-08T14:30") or RFC 3339.'
+      example: "2026-10-08T14:30"
+    HourMinute:
+      type: string
+      pattern: '^\d{2}:\d{2}$'
+      example: "06:00"
+    Units:
+      type: string
+      enum: [metric, imperial]
+    Role:
+      type: string
+      enum: [owner, caregiver]
+    Sex:
+      type: string
+      enum: [female, male, other]
+    Side:
+      type: string
+      enum: [left, right, both]
+    TimerKind:
+      type: string
+      enum: [breastfeed, pump, sleep]
+
+    # -------- accounts
+    User:
+      type: object
+      required: [id, email, name, units, is_admin]
+      properties:
+        id: { type: string }
+        email: { type: string }
+        name: { type: string }
+        units: { $ref: "#/components/schemas/Units" }
+        is_admin: { type: boolean }
+    Me:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          required: [families]
+          properties:
+            families:
+              type: array
+              items: { $ref: "#/components/schemas/FamilyRef" }
+    FamilyRef:
+      type: object
+      required: [id, name, role]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+    Session:
+      type: object
+      required: [token, user]
+      properties:
+        token: { type: string }
+        user: { $ref: "#/components/schemas/User" }
+    TokenInfo:
+      type: object
+      required: [id, name, kind, created_at, last_used_at, current]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        kind: { type: string, enum: [session, api] }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: string, format: date-time, nullable: true }
+        current: { type: boolean, description: the token making this request }
+    AdminUser:
+      type: object
+      required: [id, email, name, is_admin, created_at, families, you]
+      properties:
+        id: { type: string }
+        email: { type: string }
+        name: { type: string }
+        is_admin: { type: boolean }
+        created_at: { type: string, format: date-time }
+        families:
+          type: array
+          items: { $ref: "#/components/schemas/FamilyRef" }
+        you: { type: boolean }
+
+    # -------- families and children
+    Family:
+      type: object
+      required: [id, name, timezone, created_at, day_start, day_end, role, members, children]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        timezone: { type: string, example: America/Toronto }
+        created_at: { type: string, format: date-time }
+        day_start: { $ref: "#/components/schemas/HourMinute" }
+        day_end: { $ref: "#/components/schemas/HourMinute" }
+        role: { $ref: "#/components/schemas/Role" }
+        members:
+          type: array
+          items:
+            type: object
+            required: [user_id, name, email, role]
+            properties:
+              user_id: { type: string }
+              name: { type: string }
+              email: { type: string }
+              role: { $ref: "#/components/schemas/Role" }
+        children:
+          type: array
+          items: { $ref: "#/components/schemas/Child" }
+    Child:
+      type: object
+      required: [id, family_id, name, birth_date, sex, created_at, updated_at, photo_version]
+      properties:
+        id: { type: string }
+        family_id: { type: string }
+        name: { type: string }
+        birth_date: { type: string, format: date, nullable: true }
+        sex: { allOf: [{ $ref: "#/components/schemas/Sex" }], nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        photo_version:
+          type: integer
+          format: int64
+          nullable: true
+          description: Changes whenever the photo does; null without a photo.
+
+    # -------- events
+    EventCommonInput:
+      type: object
+      properties:
+        id: { type: string, format: uuid, description: client-chosen id (create only) }
+        start: { $ref: "#/components/schemas/TimeInput" }
+        end: { $ref: "#/components/schemas/TimeInput" }
+        note: { type: string }
+    EventCommonOutput:
+      type: object
+      required: [id, child_id, type, start, created_by, updated_by, created_at, updated_at]
+      properties:
+        id: { type: string }
+        child_id: { type: string }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time }
+        duration_seconds: { type: integer, format: int64, description: present when `end` is }
+        note: { type: string }
+        created_by: { type: string, nullable: true }
+        updated_by: { type: string, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+        source: { type: string, description: '"nara" for imported events', example: nara }
+
+    FeedDetails:
+      type: object
+      required: [type, method]
+      properties:
+        type: { type: string, enum: [feed] }
+        method: { type: string, enum: [breast, bottle, combo, solids] }
+        left_seconds: { type: integer, minimum: 0 }
+        right_seconds: { type: integer, minimum: 0 }
+        start_side: { type: string, enum: [left, right] }
+        amount_ml: { type: number, minimum: 0, maximum: 2000 }
+        milk: { type: string, enum: [breast_milk, formula, mixed], description: bottle or combo only }
+        formula_name: { type: string }
+        foods: { type: string, description: what was eaten (solids) }
+    SleepDetails:
+      type: object
+      required: [type]
+      description: Needs `end` (use a sleep timer for a sleep in progress).
+      properties:
+        type: { type: string, enum: [sleep] }
+        location: { type: string }
+    DiaperDetails:
+      type: object
+      required: [type]
+      description: |
+        At least one of `wet`, `dirty`, `dry`. `color` and `consistency` need `dirty`. With
+        `potty` it is a potty trip instead of a diaper: `wet`/`dirty` are pee/poo
+        (one is required for `success`/`accident`), `sat_dry` goes with `dry`.
+      properties:
+        type: { type: string, enum: [diaper] }
+        wet: { type: boolean, default: false }
+        dirty: { type: boolean, default: false }
+        dry: { type: boolean, default: false }
+        rash: { type: boolean, default: false }
+        blowout: { type: boolean, default: false }
+        color: { type: string, enum: [yellow, green, brown, black, red, gray] }
+        consistency: { type: string, enum: [runny, mushy, mucousy, pebbles, solid] }
+        potty: { type: string, enum: [sat_dry, success, accident] }
+    PumpDetails:
+      type: object
+      required: [type]
+      properties:
+        type: { type: string, enum: [pump] }
+        left_ml: { type: number, minimum: 0, maximum: 1000 }
+        right_ml: { type: number, minimum: 0, maximum: 1000 }
+        left_seconds: { type: integer, minimum: 0 }
+        right_seconds: { type: integer, minimum: 0 }
+    GrowthDetails:
+      type: object
+      required: [type]
+      description: At least one measurement.
+      properties:
+        type: { type: string, enum: [growth] }
+        weight_g: { type: number, minimum: 0, maximum: 50000 }
+        length_cm: { type: number, minimum: 0, maximum: 200 }
+        head_cm: { type: number, minimum: 0, maximum: 80 }
+    HealthDetails:
+      type: object
+      required: [type, kind]
+      description: |
+        `medicine`, `vaccine` and `symptom` need `name`; `temperature` needs `temperature_c`;
+        for `appointment`, `name` is the doctor.
+      properties:
+        type: { type: string, enum: [health] }
+        kind: { type: string, enum: [medicine, temperature, vaccine, appointment, symptom] }
+        name: { type: string }
+        dose: { type: number, minimum: 0 }
+        dose_unit: { type: string }
+        temperature_c: { type: number, minimum: 25, maximum: 45 }
+    ActivityDetails:
+      type: object
+      required: [type, kind]
+      properties:
+        type: { type: string, enum: [activity] }
+        kind: { type: string, description: "free text, e.g. bath, tummy_time, outdoor, play, read, nail_trim, vitamin" }
+    MilestoneDetails:
+      type: object
+      required: [type, name]
+      properties:
+        type: { type: string, enum: [milestone] }
+        name: { type: string }
+    NoteDetails:
+      type: object
+      required: [type]
+      description: Needs `note`.
+      properties:
+        type: { type: string, enum: [note] }
+
+    EventInput:
+      oneOf:
+        - $ref: "#/components/schemas/FeedEventInput"
+        - $ref: "#/components/schemas/SleepEventInput"
+        - $ref: "#/components/schemas/DiaperEventInput"
+        - $ref: "#/components/schemas/PumpEventInput"
+        - $ref: "#/components/schemas/GrowthEventInput"
+        - $ref: "#/components/schemas/HealthEventInput"
+        - $ref: "#/components/schemas/ActivityEventInput"
+        - $ref: "#/components/schemas/MilestoneEventInput"
+        - $ref: "#/components/schemas/NoteEventInput"
+      discriminator:
+        propertyName: type
+        mapping:
+          feed: "#/components/schemas/FeedEventInput"
+          sleep: "#/components/schemas/SleepEventInput"
+          diaper: "#/components/schemas/DiaperEventInput"
+          pump: "#/components/schemas/PumpEventInput"
+          growth: "#/components/schemas/GrowthEventInput"
+          health: "#/components/schemas/HealthEventInput"
+          activity: "#/components/schemas/ActivityEventInput"
+          milestone: "#/components/schemas/MilestoneEventInput"
+          note: "#/components/schemas/NoteEventInput"
+    FeedEventInput:
+      allOf: [{ $ref: "#/components/schemas/EventCommonInput" }, { $ref: "#/components/schemas/FeedDetails" }]
+    SleepEventInput:
+      allOf: [{ $ref: "#/components/schemas/EventCommonInput" }, { $ref: "#/components/schemas/SleepDetails" }]
+    DiaperEventInput:
+      allOf: [{ $ref: "#/components/schemas/EventCommonInput" }, { $ref: "#/components/schemas/DiaperDetails" }]
+    PumpEventInput:
+      allOf: [{ $ref: "#/components/schemas/EventCommonInput" }, { $ref: "#/components/schemas/PumpDetails" }]
+    GrowthEventInput:
+      allOf: [{ $ref: "#/components/schemas/EventCommonInput" }, { $ref: "#/components/schemas/GrowthDetails" }]
+    HealthEventInput:
+      allOf: [{ $ref: "#/components/schemas/EventCommonInput" }, { $ref: "#/components/schemas/HealthDetails" }]
+    ActivityEventInput:
+      allOf: [{ $ref: "#/components/schemas/EventCommonInput" }, { $ref: "#/components/schemas/ActivityDetails" }]
+    MilestoneEventInput:
+      allOf: [{ $ref: "#/components/schemas/EventCommonInput" }, { $ref: "#/components/schemas/MilestoneDetails" }]
+    NoteEventInput:
+      allOf: [{ $ref: "#/components/schemas/EventCommonInput" }, { $ref: "#/components/schemas/NoteDetails" }]
+    Event:
+      oneOf:
+        - $ref: "#/components/schemas/FeedEvent"
+        - $ref: "#/components/schemas/SleepEvent"
+        - $ref: "#/components/schemas/DiaperEvent"
+        - $ref: "#/components/schemas/PumpEvent"
+        - $ref: "#/components/schemas/GrowthEvent"
+        - $ref: "#/components/schemas/HealthEvent"
+        - $ref: "#/components/schemas/ActivityEvent"
+        - $ref: "#/components/schemas/MilestoneEvent"
+        - $ref: "#/components/schemas/NoteEvent"
+      discriminator:
+        propertyName: type
+        mapping:
+          feed: "#/components/schemas/FeedEvent"
+          sleep: "#/components/schemas/SleepEvent"
+          diaper: "#/components/schemas/DiaperEvent"
+          pump: "#/components/schemas/PumpEvent"
+          growth: "#/components/schemas/GrowthEvent"
+          health: "#/components/schemas/HealthEvent"
+          activity: "#/components/schemas/ActivityEvent"
+          milestone: "#/components/schemas/MilestoneEvent"
+          note: "#/components/schemas/NoteEvent"
+    FeedEvent:
+      allOf: [{ $ref: "#/components/schemas/EventCommonOutput" }, { $ref: "#/components/schemas/FeedDetails" }]
+    SleepEvent:
+      allOf: [{ $ref: "#/components/schemas/EventCommonOutput" }, { $ref: "#/components/schemas/SleepDetails" }]
+    DiaperEvent:
+      allOf: [{ $ref: "#/components/schemas/EventCommonOutput" }, { $ref: "#/components/schemas/DiaperDetails" }]
+    PumpEvent:
+      allOf: [{ $ref: "#/components/schemas/EventCommonOutput" }, { $ref: "#/components/schemas/PumpDetails" }]
+    GrowthEvent:
+      allOf: [{ $ref: "#/components/schemas/EventCommonOutput" }, { $ref: "#/components/schemas/GrowthDetails" }]
+    HealthEvent:
+      allOf: [{ $ref: "#/components/schemas/EventCommonOutput" }, { $ref: "#/components/schemas/HealthDetails" }]
+    ActivityEvent:
+      allOf: [{ $ref: "#/components/schemas/EventCommonOutput" }, { $ref: "#/components/schemas/ActivityDetails" }]
+    MilestoneEvent:
+      allOf: [{ $ref: "#/components/schemas/EventCommonOutput" }, { $ref: "#/components/schemas/MilestoneDetails" }]
+    NoteEvent:
+      allOf: [{ $ref: "#/components/schemas/EventCommonOutput" }, { $ref: "#/components/schemas/NoteDetails" }]
+    DeletedEvent:
+      type: object
+      required: [id, child_id, deleted, updated_at]
+      properties:
+        id: { type: string }
+        child_id: { type: string }
+        deleted: { type: boolean, enum: [true] }
+        updated_at: { type: string, format: date-time }
+    EventOrDeleted:
+      oneOf:
+        - $ref: "#/components/schemas/Event"
+        - $ref: "#/components/schemas/DeletedEvent"
+
+    # -------- timers
+    Segment:
+      type: object
+      required: [side, start, end]
+      properties:
+        side: { allOf: [{ $ref: "#/components/schemas/Side" }], nullable: true }
+        start: { type: string, format: date-time }
+        end: { type: string, format: date-time, nullable: true, description: null while this segment runs }
+    Timer:
+      type: object
+      required: [id, child_id, kind, started_at, running, side, elapsed_seconds, segments, created_by, updated_at]
+      properties:
+        id: { type: string }
+        child_id: { type: string }
+        kind: { $ref: "#/components/schemas/TimerKind" }
+        started_at: { type: string, format: date-time }
+        running: { type: boolean, description: false while paused }
+        side: { allOf: [{ $ref: "#/components/schemas/Side" }], nullable: true }
+        elapsed_seconds: { type: integer, format: int64 }
+        left_seconds: { type: integer, format: int64, description: breastfeed and pump only }
+        right_seconds: { type: integer, format: int64, description: breastfeed and pump only }
+        segments:
+          type: array
+          items: { $ref: "#/components/schemas/Segment" }
+        created_by: { type: string, nullable: true }
+        updated_at: { type: string, format: date-time }
+    SideRequest:
+      type: object
+      properties:
+        side: { $ref: "#/components/schemas/Side" }
+
+    # -------- insights
+    FeedStats:
+      type: object
+      properties:
+        count: { type: integer }
+        breast_count: { type: integer }
+        breast_seconds: { type: integer }
+        breast_left_seconds: { type: integer }
+        breast_right_seconds: { type: integer }
+        day_breast_seconds: { type: integer, description: breastfeeding in feeds that started in the daytime }
+        day_breast_left_seconds: { type: integer }
+        day_breast_right_seconds: { type: integer }
+        bottle_count: { type: integer }
+        bottle_ml: { type: number }
+        breast_milk_ml: { type: number }
+        formula_ml: { type: number }
+        mixed_ml: { type: number }
+        solids_count: { type: integer }
+    SleepStats:
+      type: object
+      properties:
+        total_seconds: { type: integer }
+        day_seconds: { type: integer }
+        night_seconds: { type: integer }
+        nap_count: { type: integer, description: sleeps that started in the daytime }
+        longest_seconds: { type: integer }
+    DiaperStats:
+      type: object
+      description: Potty trips are counted apart from diapers.
+      properties:
+        count: { type: integer }
+        wet: { type: integer }
+        dirty: { type: integer }
+        day_count: { type: integer }
+        night_count: { type: integer }
+        day_wet: { type: integer }
+        day_dirty: { type: integer }
+        potty_count: { type: integer }
+        potty_success: { type: integer }
+        potty_accidents: { type: integer }
+    PumpStats:
+      type: object
+      properties:
+        count: { type: integer }
+        total_ml: { type: number }
+        total_seconds: { type: integer }
+    DayStats:
+      type: object
+      required: [date, complete, feed, sleep, diaper, pump]
+      properties:
+        date: { type: string, format: date }
+        complete: { type: boolean, description: false for today (and the rolling last 24 h) }
+        feed: { $ref: "#/components/schemas/FeedStats" }
+        sleep: { $ref: "#/components/schemas/SleepStats" }
+        diaper: { $ref: "#/components/schemas/DiaperStats" }
+        pump: { $ref: "#/components/schemas/PumpStats" }
+    Averages:
+      type: object
+      description: Per-day averages over complete days.
+      properties:
+        days: { type: integer, description: complete days averaged }
+        feeds_per_day: { type: number }
+        breast_feeds_per_day: { type: number }
+        bottle_feeds_per_day: { type: number }
+        solids_per_day: { type: number }
+        breast_seconds_per_day: { type: number }
+        breast_left_seconds_per_day: { type: number }
+        breast_right_seconds_per_day: { type: number }
+        day_breast_seconds_per_day: { type: number }
+        day_breast_left_seconds_per_day: { type: number }
+        day_breast_right_seconds_per_day: { type: number }
+        night_breast_seconds_per_day: { type: number }
+        night_breast_left_seconds_per_day: { type: number }
+        night_breast_right_seconds_per_day: { type: number }
+        bottle_ml_per_day: { type: number }
+        breast_milk_ml_per_day: { type: number }
+        formula_ml_per_day: { type: number }
+        mixed_ml_per_day: { type: number }
+        sleep_seconds_per_day: { type: number }
+        day_sleep_seconds_per_day: { type: number }
+        night_sleep_seconds_per_day: { type: number }
+        naps_per_day: { type: number }
+        longest_sleep_seconds: { type: number, description: average of each day's longest sleep }
+        diapers_per_day: { type: number }
+        wet_per_day: { type: number }
+        dirty_per_day: { type: number }
+        day_diapers_per_day: { type: number }
+        day_wet_per_day: { type: number }
+        day_dirty_per_day: { type: number }
+        night_diapers_per_day: { type: number }
+        night_wet_per_day: { type: number }
+        night_dirty_per_day: { type: number }
+        potty_per_day: { type: number }
+        potty_success_per_day: { type: number }
+        potty_accidents_per_day: { type: number }
+        pumps_per_day: { type: number }
+        pumped_ml_per_day: { type: number }
+        pump_seconds_per_day: { type: number }
+        feed_interval_seconds: { type: integer, nullable: true, description: start of one feed to the start of the next }
+        wake_window_seconds: { type: integer, nullable: true, description: time awake between two sleeps }
+        avg_breastfeed_seconds: { type: integer, nullable: true }
+        avg_bottle_ml: { type: number, nullable: true }
+        avg_nap_seconds: { type: integer, nullable: true }
+    Trends:
+      type: object
+      required: [timezone, from, to, days, averages, previous]
+      properties:
+        timezone: { type: string }
+        from: { type: string, format: date }
+        to: { type: string, format: date }
+        days:
+          type: array
+          items: { $ref: "#/components/schemas/DayStats" }
+        averages: { $ref: "#/components/schemas/Averages" }
+        previous:
+          allOf: [{ $ref: "#/components/schemas/Averages" }]
+          nullable: true
+          description: The same averages for the period just before `from`; null when nothing was logged then.
+    Summary:
+      type: object
+      required: [child, last, since, timers, today, last_24h]
+      properties:
+        child: { $ref: "#/components/schemas/Child" }
+        last:
+          type: object
+          description: The latest event of each kind (null when none).
+          properties:
+            feed: { allOf: [{ $ref: "#/components/schemas/Event" }], nullable: true }
+            sleep: { allOf: [{ $ref: "#/components/schemas/Event" }], nullable: true }
+            diaper: { allOf: [{ $ref: "#/components/schemas/Event" }], nullable: true }
+            pump: { allOf: [{ $ref: "#/components/schemas/Event" }], nullable: true }
+        since:
+          type: object
+          description: |
+            Seconds since the latest of each kind; `sleep_seconds` is time awake since the last
+            sleep ended (null while a sleep timer runs).
+          properties:
+            feed_seconds: { type: integer, nullable: true }
+            sleep_seconds: { type: integer, nullable: true }
+            diaper_seconds: { type: integer, nullable: true }
+            pump_seconds: { type: integer, nullable: true }
+        timers:
+          type: array
+          items: { $ref: "#/components/schemas/Timer" }
+        today: { $ref: "#/components/schemas/DayStats" }
+        last_24h: { $ref: "#/components/schemas/DayStats" }
+    Change:
+      type: object
+      description: Data of a stream `change` event.
+      required: [entity, action, data]
+      properties:
+        entity: { type: string, enum: [event, timer, child, family, import, sync] }
+        action: { type: string, enum: [created, updated, deleted, applied] }
+        data:
+          type: object
+          description: |
+            The event, timer or child (for deletions `{id, child_id, …}`); `{id}` for a family;
+            counts for `import` and `sync` (`{events, timers}` applied by a push).
+
+    # -------- sync
+    SyncEventIn:
+      description: |
+        A whole event as the device has it (`EventInput` fields; `start` is required here), plus
+        `id`, `child_id` and `changed_at`; or a deletion with `deleted: true`.
+      allOf:
+        - type: object
+          required: [id, child_id, changed_at]
+          properties:
+            id: { type: string, format: uuid }
+            child_id: { type: string }
+            changed_at: { $ref: "#/components/schemas/TimeInput" }
+            deleted: { type: boolean, default: false }
+          additionalProperties: true
+    SyncTimerIn:
+      type: object
+      required: [id, child_id, kind, changed_at]
+      properties:
+        id: { type: string, format: uuid }
+        child_id: { type: string }
+        kind: { $ref: "#/components/schemas/TimerKind" }
+        changed_at: { $ref: "#/components/schemas/TimeInput" }
+        deleted: { type: boolean, default: false }
+        segments:
+          type: array
+          items:
+            type: object
+            required: [start]
+            properties:
+              side: { $ref: "#/components/schemas/Side" }
+              start: { $ref: "#/components/schemas/TimeInput" }
+              end: { $ref: "#/components/schemas/TimeInput" }
+    SyncResult:
+      type: object
+      required: [id, status]
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [applied, conflict, rejected] }
+        message: { type: string }
+        current: { description: "the server's copy, for conflict and rejected (null: none)" }
+
+    # -------- import
+    ImportResult:
+      type: object
+      description: The real run reports `imported`, `updated` and `children_created`; a dry run the rest.
+      properties:
+        dry_run: { type: boolean }
+        tracks: { type: integer, description: records read }
+        importable: { type: integer }
+        imported: { type: integer }
+        updated: { type: integer }
+        by_type:
+          type: object
+          additionalProperties: { type: integer }
+        skipped:
+          type: object
+          additionalProperties: { type: integer }
+          description: reason → count
+        nara_children:
+          type: array
+          items:
+            type: object
+            properties:
+              key: { type: string }
+              name: { type: string, nullable: true }
+              birth_date: { type: string, format: date, nullable: true }
+              events: { type: integer }
+              child_id: { type: string, nullable: true }
+        children_to_create: { type: integer }
+        children_created:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string }
+              name: { type: string }
+              nara_child_key: { type: string }
+        first_ms: { type: integer, format: int64, nullable: true }
+        last_ms: { type: integer, format: int64, nullable: true }

@@ -24,16 +24,20 @@ One codebase ([`app/`](app/README.md)) for the browser and Android.
   ("last side: left", "awake 1h 20m", "130 mL pumped"). Tap a card to log.
 - **Live timers.** Breastfeeding (left/right, switch, pause), sleep and pumping. Start on one phone,
   switch sides on the other. Correct the start time or any side's duration with a pencil; close the
-  screen and the timer keeps running (on Android, a notification shows it with a live clock).
-- **Quick forms** for bottles, solids, diapers (color, consistency, rash, blowout), growth,
-  temperature, medicine (your recent ones first), vaccines, routines and baby's firsts.
+  screen and the timer keeps running (on Android, a notification shows it with a live clock). The
+  breastfeeding timer marks the side the last feed ended on, and **Continue** on a saved feed, pump
+  or sleep picks it back up as a running timer.
+- **Quick forms** for bottles, solids, diapers (color, consistency, rash, blowout), potty trips,
+  growth, temperature, medicine, vaccines, routines and baby's firsts. Medicines, activities and
+  foods are picked from your baby's past entries first, then a list of common ones, or typed in.
 - **Timeline** of everything, grouped by day and filterable; tap any entry to edit it. A summary counts each type for today or the last 24 hours.
 - **Calendar** with a column per day and a bar per entry: scroll back through weeks to see sleep
   and feeding patterns.
 - **Growth charts**: weight, length and head size on the WHO percentile curves (birth to 24
   months), with each measurement's percentile.
 - **Trends** over 7, 14 or 30 days: feeds per day, feed interval, sleep and naps, wake windows,
-  diapers, bottle and pumping volumes, with daily charts.
+  diapers and potty trips, bottle and pumping volumes, each with the change since the period
+  before, a day/night split (your family's daytime hours) and daily charts.
 - **Family sharing.** Several babies (each with a profile picture) and caregivers per family;
   changes appear on every device within a second.
 - **Yours to adjust.** Light and dark themes (or follow the system), metric or imperial units,
@@ -45,12 +49,14 @@ A single Rust binary ([`src/`](src)) with an SQLite file — happy on a NAS, a R
 to Home Assistant.
 
 - **Accounts.** The first account is the admin; admins create the other accounts (no public
-  sign-up).
+  sign-up). Repeated wrong passwords are slowed down (per account and per address).
 - **Families.** Any number of families, caregivers and children; invite codes to share a family.
-- **JSON API** ([`docs/API.md`](docs/API.md)). Metric units everywhere (mL, g, cm, °C, seconds),
-  times as `"now"`, local time or RFC 3339, one call per action.
+- **JSON API** ([`docs/API.md`](docs/API.md), with an OpenAPI description in
+  [`docs/openapi.yaml`](docs/openapi.yaml) for generating clients). Metric units everywhere (mL, g,
+  cm, °C, seconds), times as `"now"`, local time or RFC 3339, one call per action.
 - **Shared timers** stored on the server, so every caregiver sees the same running clock.
-- **Live updates** over Server-Sent Events, plus incremental `/sync` for offline clients.
+- **Live updates** over Server-Sent Events, plus `/sync` for clients that work offline: changes
+  logged without a connection are pushed later and settled per record (newest change wins).
 - **Daily statistics** (day/night split, naps, feed intervals) computed on the server, so every
   client shows the same numbers.
 - **History import** from a previous tracker's CSV export, with a preview before anything is saved,
@@ -206,7 +212,7 @@ app/         Flutter app (web + Android) — see app/README.md
 src/         Rust server: routes/ (HTTP API), model.rs (event types), trends.rs (statistics)
 migrations/  SQLite schema
 tests/       end-to-end API tests
-docs/        API reference, screenshots
+docs/        API reference (API.md, openapi.yaml), screenshots
 deploy/      Portainer stack
 ```
 
@@ -227,6 +233,8 @@ image from `main`, and a `v*` tag builds a GitHub Release with the Android APK a
 - [`app/README.md`](app/README.md) — the app: screens, design, building the web app and the APK,
   release signing.
 - [`docs/API.md`](docs/API.md) — the server's HTTP API, for scripts and other clients.
+- [`docs/openapi.yaml`](docs/openapi.yaml) — the same API as an OpenAPI 3.0 document (also served at
+  `/api/v1/openapi.yaml`), for generating client code.
 
 ## License
 

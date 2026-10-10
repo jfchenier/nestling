@@ -5,11 +5,15 @@ another client can use too.
 
 Base URL: `http://<server>:8080/api/v1`. JSON in, JSON out.
 
+The same API as an OpenAPI 3.0 document, for generating client code: [`openapi.yaml`](openapi.yaml),
+also served by every server at `GET /api/v1/openapi.yaml`. `cargo test` fails when a route is
+missing from it.
+
 ## Conventions
 
 - **Auth:** `Authorization: Bearer <token>`. For `EventSource` (which can't set headers) use `?access_token=<token>`.
 - **Times in requests:** `"now"`, a local time in the family's timezone (`"2026-10-08T14:30"`), or RFC 3339 with an offset (`"2026-10-08T14:30:00-04:00"`). Omitted `start` means now.
-- **Times in responses:** RFC 3339 in the family's timezone.
+- **Times in responses:** RFC 3339; family data in the family's timezone, account and token times in UTC.
 - **Units:** metric only — `_ml`, `_g`, `_cm`, `_c` (°C), `_seconds`. Each user has a `units` preference (`metric`/`imperial`) that clients use for display.
 - **IDs:** opaque strings (time-sortable UUIDv7).
 - **Errors:** `{"error": {"code": "bad_request", "message": "a diaper must be wet, dirty or dry"}}` with codes `bad_request` (400), `unauthorized` (401), `forbidden` (403), `not_found` (404), `conflict` (409), `too_many_requests` (429), `upstream_error` (502), `internal` (500). Things you don't have access to return 404.
@@ -20,7 +24,7 @@ Base URL: `http://<server>:8080/api/v1`. JSON in, JSON out.
 |---|---|---|
 | `GET /auth/setup` | | public: `{needs_setup, open_registration}`; `needs_setup` while the server has no account |
 | `POST /auth/register` | `{email, password (8+), name, units?}` | → `201 {token, user}`. Only the first account (it becomes the admin), unless `NESTLING_OPEN_REGISTRATION` is on; otherwise `403` |
-| `POST /auth/login` | `{email, password}` | → `{token, user}`. After 5 failed attempts on an account, or 20 from one address (sign-ups count too), within 15 minutes: `429` until the oldest one is 15 minutes old. Behind a reverse proxy the address comes from `X-Real-IP` / `X-Forwarded-For` |
+| `POST /auth/login` | `{email, password}` | → `{token, user}`; a wrong email or password is `400`. After 5 failed attempts on an account, or 20 from one address (sign-ups count too), within 15 minutes: `429` until the oldest one is 15 minutes old. Behind a reverse proxy the address comes from `X-Real-IP` / `X-Forwarded-For` |
 | `POST /auth/logout` | | revokes the current token |
 | `GET /admin/users` | | admins: every account with `is_admin` and families |
 | `POST /admin/users` | `{email, name, password, is_admin?, family_id?}` | admins: create an account (optionally added to a family as caregiver) |
@@ -177,7 +181,9 @@ Feeds and diapers count as daytime by their start time; feed days also carry `br
 ## Live updates and sync
 
 - `GET /families/{id}/stream` — Server-Sent Events. First an `event: ready`, then one `event: change` per change:
-  `{"entity": "event"|"timer"|"child"|"family"|"import", "action": "created"|"updated"|"deleted", "data": {…}}`.
+  `{"entity": "event"|"timer"|"child"|"family"|"import", "action": "created"|"updated"|"deleted", "data": {…}}`,
+  or `{"entity": "sync", "action": "applied", "data": {"events": 2, "timers": 0}}` after another device pushed
+  offline changes (reload what you show).
   If the client falls behind it gets `event: resync` and should call `/sync`.
   An `event: ping` comes every 15 s: a client that hears nothing for longer should reconnect (then reload, since
   changes made while it was disconnected aren't replayed). The response carries `X-Accel-Buffering: no` so nginx
@@ -186,7 +192,7 @@ Feeds and diapers count as daytime by their start time; feed days also carry `br
   everything; with it, only events changed since, including deletions as `{"id", "deleted": true}`. Store `cursor`
   for next time.
 - `POST /families/{id}/sync` — changes made offline:
-  `{"events": [{id, child_id, changed_at, deleted?, …event fields}], "timers": [{id, child_id, kind, changed_at, deleted?, segments: [{side, start, end}]}]}`.
+  `{"events": [{id, child_id, changed_at, deleted?, start, …event fields}], "timers": [{id, child_id, kind, changed_at, deleted?, segments: [{side, start, end}]}]}`.
   `id`s are UUIDs made on the device; `changed_at` is when the change was made there. Each record is settled on
   its own and answered `{id, status}`: `applied`, `conflict` (the server kept its copy) or `rejected` (invalid,
   with a `message`); the last two include `current`, the server's copy (`null` if it has none). Rules: the most

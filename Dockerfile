@@ -13,6 +13,7 @@ WORKDIR /src
 COPY Cargo.toml Cargo.lock* ./
 COPY migrations migrations
 COPY src src
+COPY docs/openapi.yaml docs/openapi.yaml
 RUN cargo build --release
 
 FROM debian:bookworm-slim

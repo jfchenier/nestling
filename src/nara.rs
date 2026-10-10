@@ -1,5 +1,5 @@
-//! Nara Baby import: logs in to Nara's Firebase backend (same flow as
-//! github.com/jfchenier/nara-baby-tracker-api) and converts its "tracks" into events.
+//! Nara Baby import: logs in to Nara's Firebase backend (same flow as a reverse-engineered
+//! Python wrapper of Nara's API) and converts its "tracks" into events.
 //!
 //! Nara stores quantities as `<field>Num` / `<field>Exp` / `<field>Unit`, meaning
 //! value = Num / 10^Exp in Unit (e.g. bottleVolumeNum=45, Exp=1, Unit=FLOZ -> 4.5 fl oz).

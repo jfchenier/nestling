@@ -18,10 +18,19 @@ use serde_json::json;
 
 use crate::state::AppState;
 
+/// `docs/openapi.yaml`, built into the binary.
+pub const OPENAPI: &str = include_str!("../../docs/openapi.yaml");
+
+async fn openapi() -> impl axum::response::IntoResponse {
+    ([(axum::http::header::CONTENT_TYPE, "application/yaml")], OPENAPI)
+}
+
 const IMPORT_LIMIT: usize = 64 * 1024 * 1024;
 
 pub fn api() -> Router<AppState> {
     Router::new()
+        // The API description, for generating client code.
+        .route("/openapi.yaml", get(openapi))
         // Accounts
         .route("/auth/setup", get(accounts::setup_status))
         .route("/auth/register", post(accounts::register))

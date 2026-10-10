@@ -25,7 +25,7 @@ pub struct NaraConfig {
 impl Default for NaraConfig {
     fn default() -> Self {
         // Public Firebase client configuration of the Nara Baby app
-        // (from github.com/jfchenier/nara-baby-tracker-api).
+        // (from a reverse-engineered Python wrapper of Nara's API).
         NaraConfig {
             api_key: "AIzaSyApsJ5h5-JCjp9SJvWbHG4Fxq8NbxDW0EQ".into(),
             auth_url: "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword".into(),
