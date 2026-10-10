@@ -169,7 +169,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
   final _scroll = ScrollController();
   final _keys = {for (final c in BookChapter.values) c: GlobalKey()};
   BookChapter _current = BookChapter.values.first;
-  static const _barHeight = 56.0;
+  static const _barHeight = 64.0;
 
   @override
   bool get wantsGrowth => true;
@@ -608,42 +608,57 @@ class _ContentsBar extends SliverPersistentHeaderDelegate {
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     final c = context.pal;
     final k = Kind.milestone;
+    // One equal slot per chapter (icon over a short label), so all of them fit on a phone.
     return Container(
       color: background,
-      alignment: Alignment.center,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      child: Row(
         children: [
-          for (final ch in BookChapter.values) ...[
-            if (ch.index > 0) const SizedBox(width: 8),
-            Semantics(
-              selected: ch == current,
-              button: true,
-              child: Material(
-                color: ch == current ? k.fill(c) : c.surface,
-                shape: StadiumBorder(side: BorderSide(color: ch == current ? k.fill(c) : c.line)),
-                child: InkWell(
-                  customBorder: const StadiumBorder(),
-                  onTap: () => onTap(ch),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(ch.icon, size: 17, color: ch == current ? c.bandInk : k.on(c)),
-                        const SizedBox(width: 6),
-                        Text(
-                          ch.tab,
-                          style: TextStyle(fontWeight: FontWeight.w700, color: ch == current ? c.bandInk : c.ink),
-                        ),
-                      ],
+          for (final ch in BookChapter.values)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: Semantics(
+                  selected: ch == current,
+                  button: true,
+                  label: ch.title,
+                  excludeSemantics: true,
+                  child: Material(
+                    color: ch == current ? k.fill(c) : c.surface,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                      side: BorderSide(color: ch == current ? k.fill(c) : c.line),
+                    ),
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () => onTap(ch),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(ch.icon, size: 18, color: ch == current ? c.bandInk : k.on(c)),
+                          const SizedBox(height: 2),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 4),
+                              child: Text(
+                                ch.tab,
+                                maxLines: 1,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                  color: ch == current ? c.bandInk : c.ink,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ],
         ],
       ),
     );
