@@ -412,8 +412,12 @@ class LocalEngine {
 
     var inserted = 0, updated = 0;
     final now = nowMs();
+    final ids = <String, String>{};
     for (final r in records) {
-      final id = naraEventId(familyId, r.sourceId);
+      // The family's own entry with that id (Nestling's export writes its ids), like the server.
+      final own = store.events[r.sourceId];
+      final id = own != null && children.any((c) => c['id'] == own['child_id']) ? r.sourceId : naraEventId(familyId, r.sourceId);
+      ids[r.sourceId] = id;
       final old = store.events[id];
       old != null ? updated++ : inserted++;
       store.events[id] = eventJson(
@@ -427,7 +431,7 @@ class LocalEngine {
         updatedBy: _userId,
         createdAt: old?['created_at'] ?? fmt(now),
         updatedAt: now,
-        source: 'nara',
+        source: old == null ? 'nara' : old['source'],
         photoVersion: toInt(old?['photo_version']),
       );
       store.markChanged('e:$id');
@@ -440,6 +444,7 @@ class LocalEngine {
       'skipped': sortedSkipped,
       'nara_children': childrenOut(),
       'children_created': created,
+      'ids': ids,
     };
   }
 

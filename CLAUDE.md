@@ -158,6 +158,12 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       are texts on the child (`book`, replaced whole by `PATCH /children/{id}`; CSV `[Profile] Book`).
       "Banana for scale": repeatable milestones shown as a monthly photo strip.
       Bottom tabs: Home, Timeline, Calendar, Trends, Book; Medicines and reminders, Family and Settings open from Home's three top-right buttons.
+- [x] **Google Drive backup in server mode** (`app/lib/local/server_backup.dart`): the Android app
+      saves each family's CSV export, a JSON of what the CSV leaves out (time zone, day hours,
+      medicines, reminders, book pages, profile pictures) and the book's photos to the app's Drive
+      folder daily once turned on; Settings → Restore from Google Drive (or setup) brings it back on any
+      server or without one. Photos find their entries through the import's `ids` (source id →
+      event id; events carry `source_id`). Needs the same Google OAuth client as serverless Drive.
 - [ ] Optional: Home Assistant integration (`/children/{id}/summary` already works as a REST sensor).
 - Note: SSE behind a reverse proxy needs response buffering disabled (the stream sends `X-Accel-Buffering: no`,
   which covers nginx). The app reconnects after 40 s without the 15 s `ping`, on resume, and reloads on reconnect.

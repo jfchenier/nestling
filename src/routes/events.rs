@@ -33,11 +33,12 @@ pub struct EventRow {
     pub updated_at: i64,
     pub deleted_at: Option<i64>,
     pub source: Option<String>,
+    pub source_id: Option<String>,
     /// When the entry's photo was last set (null: no photo).
     pub photo_version: Option<i64>,
 }
 
-pub const EVENT_COLS: &str = "id, family_id, child_id, type, start_at, end_at, data, note, created_by, updated_by, created_at, updated_at, deleted_at, source,
+pub const EVENT_COLS: &str = "id, family_id, child_id, type, start_at, end_at, data, note, created_by, updated_by, created_at, updated_at, deleted_at, source, source_id,
     (SELECT p.updated_at FROM event_photos p WHERE p.event_id = events.id) AS photo_version";
 
 impl EventRow {
@@ -63,6 +64,7 @@ impl EventRow {
             created_at: fmt_time(self.created_at, tz),
             updated_at: fmt_time(self.updated_at, tz),
             source: self.source.as_deref(),
+            source_id: self.source_id.as_deref(),
             photo_version: self.photo_version,
         };
         Ok(serde_json::to_value(out)?)
@@ -88,6 +90,9 @@ struct EventOut<'a> {
     updated_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     source: Option<&'a str>,
+    /// The record's id in the system it was imported from (the CSV export's `_activityKey`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    source_id: Option<&'a str>,
     /// Changes whenever the photo does (null: none); fetch it from `/events/{id}/photo`.
     photo_version: Option<i64>,
 }

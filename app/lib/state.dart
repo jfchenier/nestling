@@ -13,6 +13,7 @@ import 'local/drive_backup.dart';
 import 'local/drive_relay.dart';
 import 'local/engine.dart';
 import 'local/peer_sync.dart';
+import 'local/server_backup.dart';
 import 'local/store.dart';
 import 'models.dart';
 import 'push.dart';
@@ -86,6 +87,10 @@ class AppState extends ChangeNotifier {
 
   /// Backups to the caregiver's Google Drive (serverless mode).
   DriveBackup get drive => DriveBackup(store);
+
+  /// Server mode: a daily copy of the server's data in the caregiver's Google Drive, in case the
+  /// server is lost; restoring works in either mode.
+  ServerBackup get serverBackup => ServerBackup(store, serverless ? null : () => Api(server, api!.token));
 
   /// Syncs through a shared Google Drive folder, for phones that aren't open at the same time
   /// or on the same Wi-Fi (serverless mode).
@@ -386,6 +391,7 @@ class AppState extends ChangeNotifier {
       if (!serverless) {
         unawaited(PushRegistration.register(a));
         unawaited(_checkPush(a));
+        unawaited(serverBackup.backUpIfDue());
       }
       if (serverless) {
         unawaited(peers?.start());

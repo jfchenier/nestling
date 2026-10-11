@@ -73,6 +73,16 @@ activity color. Colors live in
   agree). Not available without a server: signing in to Nara for an import, CSV export, invites by
   code, API tokens, live updates across town. Pairing and Drive need
   the Android app; the web app can run serverless alone (saved in the browser).
+- **Google Drive backup with a server** (`lib/local/server_backup.dart`), in case the server is
+  lost: Settings → Back up to Google Drive (Android app, off until tapped once) keeps a copy of
+  every family this account looks after in the app's private Drive folder, then again once a day
+  when the app opens: the CSV export (`server-<family>.csv`), a JSON with what the CSV leaves out
+  (time zone, day hours, each child's medicines, reminders, book pages and profile picture) and
+  the baby book's photos, each sent once. Settings → Restore from Google Drive brings a copy into
+  the current family (children matched by name; the CSV goes through the import, so restoring
+  twice updates instead of doubling; photos find their entries through the import's `ids`).
+  Setting up a new server, or a phone without one, offers "Restore from Google Drive" to bring
+  it back as a new family.
 - **Times** use a 24-hour clock; date/time rows have separate day and time pills. Durations
   past 24 h read in days ("41d 11h").
 - **Forms** — a sheet with the activity's icon and title, label/value rows and a big Save button
@@ -128,7 +138,7 @@ activity color. Colors live in
   several) and a short Settings (units, appearance, join another family, leave this one, account).
   The server enforces it (`book_viewer` role, see `docs/API.md`).
 - **Settings** (the gear button on Home) — units (metric/imperial), appearance, daytime hours for the day/night split (Day and night), time zone, Google Drive sync
-  and backup (serverless), history import from a previous tracker's CSV export (preview first),
+  (serverless) and backup and restore, history import from a previous tracker's CSV export (preview first),
   CSV export of everything, API token for Home Assistant; account: change password, users
   (admins), sign out.
 

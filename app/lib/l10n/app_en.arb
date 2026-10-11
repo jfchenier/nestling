@@ -404,6 +404,7 @@
   "familyBackedUp": "Backed up to Google Drive",
   "familyBackupDrive": "Back up to Google Drive",
   "familyBackupHint": "Keeps a copy in your Google account, once a day",
+  "familyBackupServerHint": "A copy of the server's data in your Google account, once a day, in case the server is lost",
   "familyBookOnlyHint": "You can see the baby book. Ask an owner of the family for more.",
   "familyBorn": "born {date}",
   "familyCaregiverCount": "{count, plural, =1{1 caregiver} other{{count} caregivers}}",
@@ -825,6 +826,7 @@
   "onboardingNoBackup": "No Nestling backup in this Google account.",
   "onboardingOrJoin": "Or join one",
   "onboardingOrJoinPartner": "Or join your partner's",
+  "onboardingOrRestore": "Or bring back a backup",
   "onboardingOurFamily": "Our family",
   "@onboardingOurFamily": {
     "description": "Default family name."
@@ -989,6 +991,14 @@
   "pottySuccess": "Potty",
   "rash": "rash",
   "remove": "Remove",
+  "restore": "Restore",
+  "restoreConfirmInto": "{family}, saved {date}, goes into this family. Children are matched by name; entries already here are updated, not doubled.",
+  "restoreConfirmNew": "{family}, saved {date}, comes back as a new family with its entries, medicines, reminders and baby book photos.",
+  "restoreConfirmTitle": "Restore this backup?",
+  "restoreDone": "Backup restored: {entries} entries, {photos} photos",
+  "restoreFromDrive": "Restore from Google Drive",
+  "restoreFromDriveHint": "Brings a family's backup back into this one",
+  "restoreWhich": "Which backup?",
   "right": "Right",
   "rightShort": "R",
   "@rightShort": {

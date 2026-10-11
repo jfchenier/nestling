@@ -1480,6 +1480,12 @@ abstract class AppLocalizations {
   /// **'Keeps a copy in your Google account, once a day'**
   String get familyBackupHint;
 
+  /// No description provided for @familyBackupServerHint.
+  ///
+  /// In en, this message translates to:
+  /// **'A copy of the server\'s data in your Google account, once a day, in case the server is lost'**
+  String get familyBackupServerHint;
+
   /// No description provided for @familyBookOnlyHint.
   ///
   /// In en, this message translates to:
@@ -3448,6 +3454,12 @@ abstract class AppLocalizations {
   /// **'Or join your partner\'s'**
   String get onboardingOrJoinPartner;
 
+  /// No description provided for @onboardingOrRestore.
+  ///
+  /// In en, this message translates to:
+  /// **'Or bring back a backup'**
+  String get onboardingOrRestore;
+
   /// Default family name.
   ///
   /// In en, this message translates to:
@@ -4359,6 +4371,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Remove'**
   String get remove;
+
+  /// No description provided for @restore.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore'**
+  String get restore;
+
+  /// No description provided for @restoreConfirmInto.
+  ///
+  /// In en, this message translates to:
+  /// **'{family}, saved {date}, goes into this family. Children are matched by name; entries already here are updated, not doubled.'**
+  String restoreConfirmInto(Object date, Object family);
+
+  /// No description provided for @restoreConfirmNew.
+  ///
+  /// In en, this message translates to:
+  /// **'{family}, saved {date}, comes back as a new family with its entries, medicines, reminders and baby book photos.'**
+  String restoreConfirmNew(Object date, Object family);
+
+  /// No description provided for @restoreConfirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore this backup?'**
+  String get restoreConfirmTitle;
+
+  /// No description provided for @restoreDone.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup restored: {entries} entries, {photos} photos'**
+  String restoreDone(Object entries, Object photos);
+
+  /// No description provided for @restoreFromDrive.
+  ///
+  /// In en, this message translates to:
+  /// **'Restore from Google Drive'**
+  String get restoreFromDrive;
+
+  /// No description provided for @restoreFromDriveHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Brings a family\'s backup back into this one'**
+  String get restoreFromDriveHint;
+
+  /// No description provided for @restoreWhich.
+  ///
+  /// In en, this message translates to:
+  /// **'Which backup?'**
+  String get restoreWhich;
 
   /// No description provided for @right.
   ///

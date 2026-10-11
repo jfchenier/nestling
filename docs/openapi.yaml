@@ -1571,6 +1571,7 @@ components:
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
         source: { type: string, description: '"nara" for imported events', example: nara }
+        source_id: { type: string, description: "imported events: the record's id in the file or account it came from (the CSV export's `_activityKey`)" }
         photo_version:
           type: integer
           format: int64
@@ -2009,7 +2010,7 @@ components:
     # -------- import
     ImportResult:
       type: object
-      description: The real run reports `imported`, `updated` and `children_created`; a dry run the rest.
+      description: The real run reports `imported`, `updated`, `children_created` and `ids`; a dry run the rest.
       properties:
         dry_run: { type: boolean }
         tracks: { type: integer, description: records read }
@@ -2042,5 +2043,9 @@ components:
               id: { type: string }
               name: { type: string }
               nara_child_key: { type: string }
+        ids:
+          type: object
+          additionalProperties: { type: string }
+          description: source id (`_activityKey`) → id of the event it was imported into
         first_ms: { type: integer, format: int64, nullable: true }
         last_ms: { type: integer, format: int64, nullable: true }
