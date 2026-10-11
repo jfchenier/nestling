@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../models.dart';
 import '../state.dart';
 import '../l10n/l10n.dart';
 import '../theme.dart';
@@ -45,7 +46,11 @@ class _UsersScreenState extends State<UsersScreen> {
       builder: (_) => _NewUserDialog(familyName: family?.name),
     );
     if (res == null || !mounted) return;
-    if (res.remove('add_to_family') == true && family != null) res['family_id'] = family.id;
+    if (res.remove('add_to_family') == true && family != null) {
+      res['family_id'] = family.id;
+    } else {
+      res.remove('role');
+    }
     await _run(() => s.api!.post('/admin/users', res), l10n.usersCanSignIn('${res['name']}'));
   }
 
@@ -175,6 +180,9 @@ class _NewUserDialogState extends State<_NewUserDialog> {
   bool _admin = false;
   late bool _family = widget.familyName != null;
 
+  /// Their role in the family: caregiver, or book only (e.g. grandparents).
+  String _role = 'caregiver';
+
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: Text(l10n.usersAddTitle, style: serifStyle(22)),
@@ -210,9 +218,24 @@ class _NewUserDialogState extends State<_NewUserDialog> {
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: Text(l10n.usersAddTo(widget.familyName!)),
-                subtitle: Text(l10n.usersAsCaregiver),
+                subtitle: Text(_family ? roleHint(_role) : l10n.usersAsCaregiver),
                 value: _family,
                 onChanged: (v) => setState(() => _family = v),
+              ),
+            if (widget.familyName != null && _family)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<String>(
+                    segments: [
+                      for (final r in const ['caregiver', 'book_viewer']) ButtonSegment(value: r, label: Text(roleName(r))),
+                    ],
+                    selected: {_role},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (v) => setState(() => _role = v.first),
+                  ),
+                ),
               ),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
@@ -236,6 +259,7 @@ class _NewUserDialogState extends State<_NewUserDialog> {
             'password': _password.text,
             'is_admin': _admin,
             'add_to_family': _family,
+            'role': _role,
           });
         },
         child: Text(l10n.add),

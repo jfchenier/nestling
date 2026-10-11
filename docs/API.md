@@ -27,7 +27,7 @@ missing from it.
 | `POST /auth/login` | `{email, password}` | → `{token, user}`; a wrong email or password is `400`. After 5 failed attempts on an account, or 20 from one address (sign-ups count too), within 15 minutes: `429` until the oldest one is 15 minutes old. Behind a reverse proxy the address comes from `X-Real-IP` / `X-Forwarded-For` |
 | `POST /auth/logout` | | revokes the current token |
 | `GET /admin/users` | | admins: every account with `is_admin` and families |
-| `POST /admin/users` | `{email, name, password, is_admin?, family_id?}` | admins: create an account (optionally added to a family as caregiver) |
+| `POST /admin/users` | `{email, name, password, is_admin?, family_id?, role?}` | admins: create an account, optionally added to a family with `role` (`caregiver` by default, or `book_viewer` / `owner`) |
 | `PATCH /admin/users/{id}` | `{name?, is_admin?, password?}` | admins: a new password signs them out; the last admin can't be demoted |
 | `DELETE /admin/users/{id}` | | admins: not yourself; families and their data stay |
 | `GET /me` | | `{id, email, name, units, families: [{id, name, role}]}` |

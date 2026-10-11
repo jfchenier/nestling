@@ -516,6 +516,15 @@ async fn admin_creates_accounts() {
     assert_eq!(s, StatusCode::BAD_REQUEST, "last admin");
     let (s, _) = c.call(Method::DELETE, &format!("/admin/users/{uid}"), Some(&admin), None).await;
     assert_eq!(s, StatusCode::NO_CONTENT);
+
+    // Straight into the family as book-only (e.g. grandparents); unknown roles are refused.
+    let new_gran = |role: &str| json!({ "email": "gran@example.com", "name": "Gran", "password": "temporary1", "family_id": fid, "role": role });
+    let (s, _) = c.call(Method::POST, "/admin/users", Some(&admin), Some(new_gran("reader"))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let (s, u) = c.call(Method::POST, "/admin/users", Some(&admin), Some(new_gran("book_viewer"))).await;
+    assert_eq!(s, StatusCode::CREATED, "{u}");
+    let (_, fam) = c.call(Method::GET, &format!("/families/{fid}"), Some(&admin), None).await;
+    assert!(fam["members"].as_array().unwrap().iter().any(|m| m["name"] == "Gran" && m["role"] == "book_viewer"), "{fam}");
 }
 
 #[tokio::test]
