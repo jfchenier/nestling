@@ -68,14 +68,19 @@ pub struct CreateUserReq {
     password: String,
     #[serde(default)]
     is_admin: bool,
-    /// Add the new account to this family as a caregiver (saves an invite code).
+    /// Add the new account to this family (saves an invite code)...
     #[serde(default)]
     family_id: Option<String>,
+    /// ...with this role: `caregiver` (default), `book_viewer` or `owner`.
+    #[serde(default)]
+    role: Option<String>,
 }
 
 pub async fn create_user(State(state): State<AppState>, user: AuthUser, ApiJson(req): ApiJson<CreateUserReq>) -> AppResult<(StatusCode, Json<Value>)> {
     require_admin(&state, &user).await?;
     let email = check_new_account(&req.email, &req.password, &req.name)?;
+    let role = req.role.as_deref().unwrap_or("caregiver");
+    crate::routes::families::check_role(role)?;
     if let Some(fid) = &req.family_id {
         let exists: Option<(String,)> = sqlx::query_as("SELECT id FROM families WHERE id = ?").bind(fid).fetch_optional(&state.db).await?;
         if exists.is_none() {
@@ -84,9 +89,10 @@ pub async fn create_user(State(state): State<AppState>, user: AuthUser, ApiJson(
     }
     let id = insert_user(&state, &email, &req.name, &req.password, "metric", req.is_admin).await?;
     if let Some(fid) = &req.family_id {
-        sqlx::query("INSERT INTO memberships (family_id, user_id, role, created_at) VALUES (?, ?, 'caregiver', ?)")
+        sqlx::query("INSERT INTO memberships (family_id, user_id, role, created_at) VALUES (?, ?, ?, ?)")
             .bind(fid)
             .bind(&id)
+            .bind(role)
             .bind(now_ms())
             .execute(&state.db)
             .await?;

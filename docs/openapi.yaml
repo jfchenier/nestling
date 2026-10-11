@@ -319,7 +319,10 @@ paths:
                 name: { type: string }
                 password: { type: string, minLength: 8 }
                 is_admin: { type: boolean, default: false }
-                family_id: { type: string, description: also add the account to this family as a caregiver }
+                family_id: { type: string, description: also add the account to this family }
+                role:
+                  allOf: [{ $ref: "#/components/schemas/Role" }]
+                  description: its role in that family (default caregiver)
       responses:
         "201":
           description: Created

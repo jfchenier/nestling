@@ -182,7 +182,7 @@ pub async fn create_invite(State(state): State<AppState>, user: AuthUser, Path(i
 
 /// Roles a member can have: `owner` (manages the family), `caregiver` (logs everything) or
 /// `book_viewer` (reads the baby book only, e.g. grandparents).
-fn check_role(role: &str) -> AppResult<()> {
+pub(crate) fn check_role(role: &str) -> AppResult<()> {
     match role {
         "owner" | "caregiver" | BOOK_VIEWER => Ok(()),
         _ => bad("role must be 'owner', 'caregiver' or 'book_viewer'"),
