@@ -14,6 +14,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import 'child_form.dart';
 import 'day_hours.dart';
+import 'drive_restore.dart';
 import 'home.dart' show ChildAvatar;
 import 'pairing.dart';
 import 'users.dart';
@@ -136,7 +137,7 @@ class FamilyScreen extends StatelessWidget with _FamilyActions {
   }
 }
 
-/// Settings and the account (Home's gear button): units, appearance, language, day and night, time zone, Drive sync and backup, Nara import, export, API token.
+/// Settings and the account (Home's menu → Settings): units, appearance, language, day and night, time zone, Drive sync and backup, Nara import, export, API token.
 class SettingsScreen extends StatelessWidget with _FamilyActions {
   const SettingsScreen({super.key});
 
@@ -223,6 +224,9 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
                     ),
                   if (s.serverless) const DriveSyncTile(),
                   if (s.serverless) DriveBackupTile(drive: s.drive),
+                  // Server mode: a copy in case the server is lost.
+                  if (!s.serverless && full) DriveBackupTile(drive: s.serverBackup, hint: l10n.familyBackupServerHint),
+                  if (full) const DriveRestoreTile(),
                   if (full)
                     ListTile(
                       leading: const Icon(Icons.cloud_download_outlined),
@@ -767,10 +771,14 @@ Future<void> _export(BuildContext context, Family f) async {
   if (saved == true && context.mounted) showMessage(context, l10n.familyExported(name));
 }
 
-/// Serverless mode: back up to (and see the last backup in) the caregiver's Google Drive.
+/// Back up to (and see the last backup in) the caregiver's Google Drive: the phone's data in
+/// serverless mode, the server's in server mode.
 class DriveBackupTile extends StatefulWidget {
-  const DriveBackupTile({super.key, required this.drive});
-  final DriveBackup drive;
+  const DriveBackupTile({super.key, required this.drive, this.hint});
+  final Backup drive;
+
+  /// Shown until the first backup.
+  final String? hint;
 
   @override
   State<DriveBackupTile> createState() => _DriveBackupTileState();
@@ -789,7 +797,7 @@ class _DriveBackupTileState extends State<DriveBackupTile> {
         !DriveBackup.available
             ? l10n.familyAndroidOnly
             : last == null
-            ? l10n.familyBackupHint
+            ? widget.hint ?? l10n.familyBackupHint
             : l10n.familyLastBackup(d.account ?? '', '${DateFormat.MMMd().format(last)}, ${DateFormat.Hm().format(last)}'),
       ),
       trailing: _busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : null,

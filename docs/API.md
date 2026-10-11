@@ -127,9 +127,12 @@ Response shape:
   "method": "bottle", "amount_ml": 120.0, "milk": "formula",
   "start": "2026-10-08T14:30:00-04:00", "end": "2026-10-08T14:45:00-04:00", "duration_seconds": 900,
   "note": "took it all", "created_by": "<user id>", "updated_by": "<user id>",
-  "created_at": "…", "updated_at": "…", "source": "nara", "photo_version": null
+  "created_at": "…", "updated_at": "…", "source": "nara", "source_id": "t-…", "photo_version": null
 }
 ```
+
+`source` / `source_id` are only on imported entries (`source_id` is the record's id where it came
+from, which the CSV export writes as `_activityKey`).
 
 ### Types
 
@@ -292,10 +295,13 @@ or upload an export instead of credentials: `{"tracks": <trackz object | full sy
 - Credentials are used once to download your data and are never stored.
 - Children: with one child in the family (or none — one is created per exported child), mapping is automatic.
   Otherwise pass `"child_id": "<id>"` or `"children": {"<source child key>": "<child id>"}`; the error lists the keys found.
-- Re-running is safe: records are matched by their source id and updated, not duplicated.
+- Re-running is safe: records are matched by their source id (or, for Nestling's own CSV export,
+  the family's entry with that id) and updated, not duplicated.
 - The original record is kept on each event (`raw` column) so conversions can be redone later.
 - Skipped: running timers / unfinished sleeps, deleted records, unknown types (counted in `skipped`).
 
-Response: `{"tracks": 2140, "imported": 2131, "updated": 0, "by_type": {"feed": 1200, …}, "skipped": {"sleep still in progress": 1}, "children_created": […]}`.
+Response: `{"tracks": 2140, "imported": 2131, "updated": 0, "by_type": {"feed": 1200, …}, "skipped": {"sleep still in progress": 1}, "children_created": […], "ids": {"<source id>": "<event id>", …}}`.
+`ids` says which event each record went into (the app's Google Drive restore uses it to put the
+baby book's photos back).
 
 Quantities are converted from `Num/Exp/Unit` fields (value = Num ÷ 10^Exp): fl oz → mL, lb/oz → g, in → cm, °F → °C.

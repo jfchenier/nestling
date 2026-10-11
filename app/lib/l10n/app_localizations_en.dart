@@ -841,6 +841,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Keeps a copy in your Google account, once a day';
 
   @override
+  String get familyBackupServerHint =>
+      'A copy of the server\'s data in your Google account, once a day, in case the server is lost';
+
+  @override
   String get familyBookOnlyHint =>
       'You can see the baby book. Ask an owner of the family for more.';
 
@@ -2056,6 +2060,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get onboardingOrJoinPartner => 'Or join your partner\'s';
 
   @override
+  String get onboardingOrRestore => 'Or bring back a backup';
+
+  @override
   String get onboardingOurFamily => 'Our family';
 
   @override
@@ -2538,6 +2545,37 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get remove => 'Remove';
+
+  @override
+  String get restore => 'Restore';
+
+  @override
+  String restoreConfirmInto(Object date, Object family) {
+    return '$family, saved $date, goes into this family. Children are matched by name; entries already here are updated, not doubled.';
+  }
+
+  @override
+  String restoreConfirmNew(Object date, Object family) {
+    return '$family, saved $date, comes back as a new family with its entries, medicines, reminders and baby book photos.';
+  }
+
+  @override
+  String get restoreConfirmTitle => 'Restore this backup?';
+
+  @override
+  String restoreDone(Object entries, Object photos) {
+    return 'Backup restored: $entries entries, $photos photos';
+  }
+
+  @override
+  String get restoreFromDrive => 'Restore from Google Drive';
+
+  @override
+  String get restoreFromDriveHint =>
+      'Brings a family\'s backup back into this one';
+
+  @override
+  String get restoreWhich => 'Which backup?';
 
   @override
   String get right => 'Right';

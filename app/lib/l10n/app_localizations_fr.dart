@@ -841,6 +841,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Garde une copie dans votre compte Google, une fois par jour';
 
   @override
+  String get familyBackupServerHint =>
+      'Une copie des données du serveur dans votre compte Google, une fois par jour, au cas où le serveur serait perdu';
+
+  @override
   String get familyBookOnlyHint =>
       'Vous pouvez voir l\'album de bébé. Demandez plus d\'accès à un propriétaire de la famille.';
 
@@ -2066,6 +2070,9 @@ class AppLocalizationsFr extends AppLocalizations {
       'Ou rejoindre celle de votre partenaire';
 
   @override
+  String get onboardingOrRestore => 'Ou ramener une sauvegarde';
+
+  @override
   String get onboardingOurFamily => 'Notre famille';
 
   @override
@@ -2549,6 +2556,37 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get remove => 'Retirer';
+
+  @override
+  String get restore => 'Restaurer';
+
+  @override
+  String restoreConfirmInto(Object date, Object family) {
+    return '$family, sauvegardée le $date, est ajoutée à cette famille. Les enfants sont associés par leur nom ; les entrées déjà présentes sont mises à jour, pas doublées.';
+  }
+
+  @override
+  String restoreConfirmNew(Object date, Object family) {
+    return '$family, sauvegardée le $date, revient comme une nouvelle famille avec ses entrées, médicaments, rappels et photos du livre de bébé.';
+  }
+
+  @override
+  String get restoreConfirmTitle => 'Restaurer cette sauvegarde ?';
+
+  @override
+  String restoreDone(Object entries, Object photos) {
+    return 'Sauvegarde restaurée : $entries entrées, $photos photos';
+  }
+
+  @override
+  String get restoreFromDrive => 'Restaurer depuis Google Drive';
+
+  @override
+  String get restoreFromDriveHint =>
+      'Ramène la sauvegarde d\'une famille dans celle-ci';
+
+  @override
+  String get restoreWhich => 'Quelle sauvegarde ?';
 
   @override
   String get right => 'Droit';

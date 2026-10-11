@@ -11,13 +11,23 @@ import 'domain.dart';
 import 'merge.dart';
 import 'store.dart';
 
+/// A copy of the data in the caregiver's Google Drive, as Settings shows it.
+abstract interface class Backup {
+  /// The Google account backups go to, once set up.
+  String? get account;
+  DateTime? get lastBackup;
+
+  /// [interactive]: may ask to sign in.
+  Future<void> backUp({bool interactive = true});
+}
+
 /// Serverless mode: a copy of the family's data in the caregiver's own Google Drive, in the
 /// app's private folder there (not visible in Drive, only this app can read it). Restoring merges
 /// it into the phone like a sync from another phone, so nothing newer is lost.
 ///
 /// Needs a Google Cloud OAuth client for the Android app; its web client id is passed at build
 /// time with `--dart-define=GOOGLE_SERVER_CLIENT_ID=…` (see app/README.md).
-class DriveBackup {
+class DriveBackup implements Backup {
   DriveBackup(this.store);
   final LocalStore store;
 
@@ -32,8 +42,9 @@ class DriveBackup {
 
   Map<String, dynamic> get _cfg => (store.serverless['drive'] ??= <String, dynamic>{}) as Map<String, dynamic>;
 
-  /// The Google account backups go to, once set up.
+  @override
   String? get account => _cfg['account'];
+  @override
   DateTime? get lastBackup => _cfg['last'] is int ? DateTime.fromMillisecondsSinceEpoch(_cfg['last']) : null;
 
   Future<drive.DriveApi> _api({required bool interactive}) async {
@@ -62,6 +73,7 @@ class DriveBackup {
   }
 
   /// Saves every family on this phone to Drive. [interactive]: may ask to sign in.
+  @override
   Future<void> backUp({bool interactive = true}) async {
     final api = await _api(interactive: interactive);
     final bytes = utf8.encode(

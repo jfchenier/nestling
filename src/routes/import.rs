@@ -224,14 +224,21 @@ async fn apply(state: &AppState, user: &AuthUser, family_id: &str, plan: Plan) -
     }
 
     let (mut inserted, mut updated) = (0u32, 0u32);
+    // Where each imported record landed, so a restore can bring the photos back onto them.
+    let mut ids: BTreeMap<String, String> = BTreeMap::new();
     let now = now_ms();
     let mut tx = state.db.begin().await?;
     for (c, raw) in &converted {
         let child_id = &mapping[&c.child_key.clone().unwrap_or_default()];
-        let existing: Option<(String,)> = sqlx::query_as("SELECT id FROM events WHERE family_id = ? AND source = 'nara' AND source_id = ?")
-            .bind(family_id)
-            .bind(&c.source_id)
-            .fetch_optional(&mut *tx)
+        // Also the family's own entry with that id: Nestling's export writes its ids there, so
+        // restoring a backup into the family it came from updates instead of doubling.
+        let existing: Option<(String,)> =
+            sqlx::query_as("SELECT id FROM events WHERE family_id = ? AND ((source = 'nara' AND source_id = ?) OR id = ?) ORDER BY id = ? LIMIT 1")
+                .bind(family_id)
+                .bind(&c.source_id)
+                .bind(&c.source_id)
+                .bind(&c.source_id)
+                .fetch_optional(&mut *tx)
             .await?;
         let data = serde_json::to_string(&c.details)?;
         let raw = serde_json::to_string(raw)?;
@@ -253,14 +260,16 @@ async fn apply(state: &AppState, user: &AuthUser, family_id: &str, plan: Plan) -
                 .bind(&id)
                 .execute(&mut *tx)
                 .await?;
+                ids.insert(c.source_id.clone(), id);
                 updated += 1;
             }
             None => {
+                let id = new_id();
                 sqlx::query(
                     "INSERT INTO events (id, family_id, child_id, type, start_at, end_at, data, note, created_by, updated_by,
                      created_at, updated_at, source, source_id, raw) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'nara', ?, ?)",
                 )
-                .bind(new_id())
+                .bind(&id)
                 .bind(family_id)
                 .bind(child_id)
                 .bind(c.details.type_name())
@@ -276,6 +285,7 @@ async fn apply(state: &AppState, user: &AuthUser, family_id: &str, plan: Plan) -
                 .bind(&raw)
                 .execute(&mut *tx)
                 .await?;
+                ids.insert(c.source_id.clone(), id);
                 inserted += 1;
             }
         }
@@ -291,5 +301,6 @@ async fn apply(state: &AppState, user: &AuthUser, family_id: &str, plan: Plan) -
         "skipped": skipped,
         "nara_children": children_out(&mapping),
         "children_created": created_children,
+        "ids": ids,
     })))
 }

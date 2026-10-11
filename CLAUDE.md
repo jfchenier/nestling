@@ -144,7 +144,7 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       `app/lib/local/schedule.dart`): lists saved on the child; the summary says when the next dose
       is allowed; reminders ("no feed in 3 h", "dose due") show on the app's home strip when due
       (any mode) and are pushed only when Firebase is set up (`state.push`), checked every minute,
-      once per entry (`reminders_sent`). App: Home's bell button (Medicines and reminders); home strip
+      once per entry (`reminders_sent`). App: Home's menu → Medicines and reminders; home strip
       (`_ReminderStrip`, same due rule as `reminders.rs`); early-dose warning in the medicine form.
 - [x] **Baby book** (the Firsts card's Book button; tapping the card adds a memory; `app/lib/screens/baby_book.dart`): milestones as a
       scrapbook with one photo each (`/events/{id}/photo`, table `event_photos`; events carry
@@ -157,7 +157,13 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       without follows its idea, else Waiting for you before the birth date, else Firsts). The book's own pages
       are texts on the child (`book`, replaced whole by `PATCH /children/{id}`; CSV `[Profile] Book`).
       "Banana for scale": repeatable milestones shown as a monthly photo strip.
-      Bottom tabs: Home, Timeline, Calendar, Trends, Book; Medicines and reminders, Family and Settings open from Home's three top-right buttons.
+      Bottom tabs: Home, Timeline, Calendar, Trends, Book; Medicines and reminders, Family and Settings open from Home's menu button (top right; the baby's photo is top left).
+- [x] **Google Drive backup in server mode** (`app/lib/local/server_backup.dart`): the Android app
+      saves each family's CSV export, a JSON of what the CSV leaves out (time zone, day hours,
+      medicines, reminders, book pages, profile pictures) and the book's photos to the app's Drive
+      folder daily once turned on; Settings → Restore from Google Drive (or setup) brings it back on any
+      server or without one. Photos find their entries through the import's `ids` (source id →
+      event id; events carry `source_id`). Needs the same Google OAuth client as serverless Drive.
 - [ ] Optional: Home Assistant integration (`/children/{id}/summary` already works as a REST sensor).
 - Note: SSE behind a reverse proxy needs response buffering disabled (the stream sends `X-Accel-Buffering: no`,
   which covers nginx). The app reconnects after 40 s without the 15 s `ping`, on resume, and reloads on reconnect.

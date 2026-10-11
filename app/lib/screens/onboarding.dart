@@ -8,6 +8,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../local/drive_backup.dart';
 import 'child_form.dart';
+import 'drive_restore.dart';
 import 'pairing.dart';
 
 /// First run: create or join a family, then add a baby.
@@ -89,8 +90,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       onPressed: _busy
                           ? null
                           : () => _run(() async {
-                              if (!await s.drive.restore()) throw ApiException('drive', l10n.onboardingNoBackup);
-                              await s.load();
+                              // The phone's own backup, else a copy of a server's data.
+                              if (await s.drive.restore()) return s.load();
+                              if (!context.mounted) return;
+                              if (!await restoreServerBackup(context)) throw ApiException('drive', l10n.onboardingNoBackup);
                             }),
                       label: Text(l10n.onboardingRestoreDrive),
                     ),
@@ -109,6 +112,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       : () => _run(() => s.act((api) => api.post('/invites/${_code.text.trim().toUpperCase()}/accept'), families: true)),
                   child: Text(l10n.onboardingJoinFamily),
                 ),
+                // After losing a server: the daily copy in Google Drive, into a new family here.
+                if (DriveBackup.available) ...[
+                  SectionTitle(l10n.onboardingOrRestore),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.restore_rounded),
+                    onPressed: _busy
+                        ? null
+                        : () => _run(() async {
+                            if (!await restoreServerBackup(context)) throw ApiException('drive', l10n.onboardingNoBackup);
+                          }),
+                    label: Text(l10n.onboardingRestoreDrive),
+                  ),
+                ],
                 ],
               ] else ...[
                 Text(l10n.onboardingAddLittleOne(family.name), style: t.bodyLarge?.copyWith(color: context.pal.muted)),

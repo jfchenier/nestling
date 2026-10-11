@@ -435,6 +435,9 @@ async fn nara_csv_import() {
     // Re-import updates instead of duplicating.
     let (_, res2) = c.call_csv(&url, &t, csv).await;
     assert_eq!((res2["imported"].clone(), res2["updated"].clone()), (json!(0), json!(2)));
+    // Each record says where it went, the same event both times.
+    assert_eq!(res2["ids"], res["ids"]);
+    assert!(res["ids"]["t-1"].is_string() && res["ids"]["t-2"].is_string());
 
     let (_, list) = c.call(Method::GET, &format!("/children/{cid}/events"), Some(&t), None).await;
     let evs = list["events"].as_array().unwrap();
@@ -442,6 +445,7 @@ async fn nara_csv_import() {
     let feed = evs.iter().find(|e| e["type"] == "feed").unwrap();
     assert_eq!((feed["method"].as_str(), feed["left_seconds"].as_i64(), feed["start_side"].as_str()), (Some("breast"), Some(600), Some("left")));
     assert_eq!((feed["source"].as_str(), feed["note"].as_str()), (Some("nara"), Some("sleepy")));
+    assert_eq!((feed["source_id"].as_str(), feed["id"].clone()), (Some("t-1"), res["ids"]["t-1"].clone()));
 
     // Not a Nara export.
     let (s, _) = c.call_csv(&url, &t, "a,b\n1,2\n").await;
@@ -687,7 +691,7 @@ async fn csv_export_round_trip() {
     let (_, b) = c.call(Method::GET, &format!("/children/{cid2}/events?limit=100"), Some(&t), None).await;
     let strip = |v: &Value| {
         let mut v = v.clone();
-        for k in ["id", "child_id", "created_at", "updated_at", "source", "created_by", "updated_by"] {
+        for k in ["id", "child_id", "created_at", "updated_at", "source", "source_id", "created_by", "updated_by"] {
             v.as_object_mut().unwrap().remove(k);
         }
         v
@@ -696,7 +700,17 @@ async fn csv_export_round_trip() {
     assert_eq!(a.len(), b.len());
     for (x, y) in a.iter().zip(b) {
         assert_eq!(strip(x), strip(y));
+        // The copy remembers which entry it came from.
+        assert_eq!(y["source_id"], x["id"]);
     }
+
+    // Back into the family it came from (a restore on the same server): updated, not doubled.
+    let (s, res) = c.call_csv(&format!("/families/{fid}/import/nara-csv"), &t, &csv).await;
+    assert_eq!(s, StatusCode::OK, "{res}");
+    assert_eq!((res["imported"].as_u64(), res["updated"].as_u64()), (Some(0), Some(entries.len() as u64)), "{res}");
+    assert_eq!(res["ids"][a[0]["id"].as_str().unwrap()], a[0]["id"]);
+    let (_, again) = c.call(Method::GET, &format!("/children/{cid}/events?limit=100"), Some(&t), None).await;
+    assert_eq!(again["events"].as_array().unwrap().len(), a.len());
 }
 
 async fn e_total(c: &Client, t: &str, id: &str) -> i64 {
