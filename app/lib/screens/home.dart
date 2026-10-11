@@ -541,86 +541,103 @@ _Sync _syncStatus(AppState s) {
   );
 }
 
+/// Top line: today's date, sync state and the three buttons. Below it the baby's photo and name
+/// get the whole width, so a long name wraps onto a second line instead of being cut.
 class _Header extends StatelessWidget {
   const _Header({required this.child, required this.sync});
   final Child child;
   final _Sync sync;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      GestureDetector(
-        onTap: () => showChildSwitcher(context),
-        child: ChildAvatar(child: child, size: 66),
-      ),
-      const SizedBox(width: 14),
-      Expanded(
-        child: GestureDetector(
-          onTap: () => showChildSwitcher(context),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Tapping the name (or the photo) switches baby or adds one.
-              Row(
-                children: [
-                  Flexible(child: Text(child.name, style: serifStyle(34), overflow: TextOverflow.ellipsis)),
-                  Icon(Icons.expand_more_rounded, color: context.pal.muted, semanticLabel: l10n.homeSwitchBaby),
-                ],
+  Widget build(BuildContext context) {
+    final muted = context.pal.muted;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Flexible(
+              child: Text(
+                capFirst(DateFormat.MMMEd().format(DateTime.now())),
+                style: TextStyle(color: muted, fontSize: 14),
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 2),
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      capFirst(DateFormat.MMMEd().format(DateTime.now())),
-                      style: TextStyle(color: context.pal.muted, fontSize: 14),
-                      overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(width: 8),
+            Tooltip(
+              message: sync.tooltip,
+              child: sync.label == null
+                  ? Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(color: sync.live ? Color(0xFF7BC68F) : context.pal.line, shape: BoxShape.circle),
+                    )
+                  : Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(sync.icon, size: 14, color: muted),
+                        const SizedBox(width: 4),
+                        Text(sync.label!, style: TextStyle(color: muted, fontSize: 12)),
+                      ],
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Tooltip(
-                    message: sync.tooltip,
-                    child: sync.label == null
-                        ? Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(color: sync.live ? Color(0xFF7BC68F) : context.pal.line, shape: BoxShape.circle),
-                          )
-                        : Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(sync.icon, size: 14, color: context.pal.muted),
-                              const SizedBox(width: 4),
-                              Text(sync.label!, style: TextStyle(color: context.pal.muted, fontSize: 12)),
-                            ],
+            ),
+            const Spacer(),
+            _SquareButton(
+              icon: Icons.notifications_rounded,
+              tooltip: l10n.familyMedicines,
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SchedulesScreen())),
+            ),
+            const SizedBox(width: 8),
+            _SquareButton(
+              icon: Icons.people_rounded,
+              tooltip: l10n.familyTitle,
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FamilyScreen())),
+            ),
+            const SizedBox(width: 8),
+            _SquareButton(
+              icon: Icons.settings_rounded,
+              tooltip: l10n.familySettings,
+              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        // Tapping the photo or the name switches baby or adds one.
+        GestureDetector(
+          onTap: () => showChildSwitcher(context),
+          behavior: HitTestBehavior.opaque,
+          child: Row(
+            children: [
+              ChildAvatar(child: child, size: 66),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            child.name,
+                            // Long names: smaller, then onto a second line; cut only past that.
+                            style: serifStyle(child.name.length > 14 ? 28 : 34).copyWith(height: 1.1),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                  ),
-                ],
+                        ),
+                        Icon(Icons.expand_more_rounded, color: muted, semanticLabel: l10n.homeSwitchBaby),
+                      ],
+                    ),
+                    if (child.age != null) Text(child.age!, style: TextStyle(color: muted, fontSize: 13)),
+                  ],
+                ),
               ),
-              if (child.age != null) Text(child.age!, style: TextStyle(color: context.pal.muted, fontSize: 13)),
             ],
           ),
         ),
-      ),
-      _SquareButton(
-        icon: Icons.notifications_rounded,
-        tooltip: l10n.familyMedicines,
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SchedulesScreen())),
-      ),
-      const SizedBox(width: 8),
-      _SquareButton(
-        icon: Icons.people_rounded,
-        tooltip: l10n.familyTitle,
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FamilyScreen())),
-      ),
-      const SizedBox(width: 8),
-      _SquareButton(
-        icon: Icons.settings_rounded,
-        tooltip: l10n.familySettings,
-        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
-      ),
-    ],
-  );
+      ],
+    );
+  }
 }
 
 /// Picks the baby (of any family) the app shows; "Add a baby" for caregivers.
