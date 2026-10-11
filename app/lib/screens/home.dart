@@ -541,8 +541,9 @@ _Sync _syncStatus(AppState s) {
   );
 }
 
-/// Top line: today's date, sync state and the three buttons. Below it the baby's photo and name
-/// get the whole width, so a long name wraps onto a second line instead of being cut.
+/// The baby's photo and name on top, with the whole width (a long name gets a smaller font, see
+/// [_FittedName]). Under them: the sync state on the left, the three buttons on the right (their
+/// right edge lines up with the cards below).
 class _Header extends StatelessWidget {
   const _Header({required this.child, required this.sync});
   final Child child;
@@ -552,18 +553,36 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     final muted = context.pal.muted;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Tapping the photo or the name switches baby or adds one.
+        GestureDetector(
+          onTap: () => showChildSwitcher(context),
+          behavior: HitTestBehavior.opaque,
+          child: Row(
+            children: [
+              ChildAvatar(child: child, size: 66),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(child: _FittedName(child.name)),
+                        Icon(Icons.expand_more_rounded, color: muted, semanticLabel: l10n.homeSwitchBaby),
+                      ],
+                    ),
+                    if (child.age != null) Text(child.age!, style: TextStyle(color: muted, fontSize: 13)),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
         Row(
           children: [
-            Flexible(
-              child: Text(
-                capFirst(DateFormat.MMMEd().format(DateTime.now())),
-                style: TextStyle(color: muted, fontSize: 14),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 8),
             Tooltip(
               message: sync.tooltip,
               child: sync.label == null
@@ -601,43 +620,33 @@ class _Header extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        // Tapping the photo or the name switches baby or adds one.
-        GestureDetector(
-          onTap: () => showChildSwitcher(context),
-          behavior: HitTestBehavior.opaque,
-          child: Row(
-            children: [
-              ChildAvatar(child: child, size: 66),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            child.name,
-                            // Long names: smaller, then onto a second line; cut only past that.
-                            style: serifStyle(child.name.length > 14 ? 28 : 34).copyWith(height: 1.1),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                        Icon(Icons.expand_more_rounded, color: muted, semanticLabel: l10n.homeSwitchBaby),
-                      ],
-                    ),
-                    if (child.age != null) Text(child.age!, style: TextStyle(color: muted, fontSize: 13)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }
+}
+
+/// The name at 34 px, shrinking (down to 20 px) until it fits on one line; a name too long even
+/// then wraps onto a second line, and is cut only past that.
+class _FittedName extends StatelessWidget {
+  const _FittedName(this.name);
+  final String name;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      var size = 34.0;
+      for (; size > 20; size -= 1) {
+        final painter = TextPainter(
+          text: TextSpan(text: name, style: serifStyle(size)),
+          maxLines: 1,
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+        )..layout();
+        if (painter.width <= box.maxWidth) break;
+      }
+      return Text(name, style: serifStyle(size).copyWith(height: 1.1), maxLines: 2, overflow: TextOverflow.ellipsis);
+    },
+  );
 }
 
 /// Picks the baby (of any family) the app shows; "Add a baby" for caregivers.
