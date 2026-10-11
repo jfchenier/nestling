@@ -541,9 +541,9 @@ _Sync _syncStatus(AppState s) {
   );
 }
 
-/// The baby's photo and name on top, with the whole width (a long name gets a smaller font, see
-/// [_FittedName]). Under them: the sync state on the left, the three buttons on the right (their
-/// right edge lines up with the cards below).
+/// One row: the menu (Medicines and reminders, Family, Settings) on the left, the baby's name and
+/// age in the middle with most of the width (a long name gets a smaller font, see [_FittedName]),
+/// the photo on the right. The menu's left edge and the photo's right edge line up with the cards.
 class _Header extends StatelessWidget {
   const _Header({required this.child, required this.sync});
   final Child child;
@@ -552,77 +552,107 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final muted = context.pal.muted;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    void open(Widget screen) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    return Row(
       children: [
-        // Tapping the photo or the name switches baby or adds one.
-        GestureDetector(
-          onTap: () => showChildSwitcher(context),
-          behavior: HitTestBehavior.opaque,
-          child: Row(
-            children: [
-              ChildAvatar(child: child, size: 66),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(child: _FittedName(child.name)),
-                        Icon(Icons.expand_more_rounded, color: muted, semanticLabel: l10n.homeSwitchBaby),
-                      ],
-                    ),
-                    if (child.age != null) Text(child.age!, style: TextStyle(color: muted, fontSize: 13)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Tooltip(
-              message: sync.tooltip,
-              child: sync.label == null
-                  ? Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(color: sync.live ? Color(0xFF7BC68F) : context.pal.line, shape: BoxShape.circle),
-                    )
-                  : Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(sync.icon, size: 14, color: muted),
-                        const SizedBox(width: 4),
-                        Text(sync.label!, style: TextStyle(color: muted, fontSize: 12)),
-                      ],
-                    ),
-            ),
-            const Spacer(),
-            _SquareButton(
-              icon: Icons.notifications_rounded,
-              tooltip: l10n.familyMedicines,
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SchedulesScreen())),
-            ),
-            const SizedBox(width: 8),
-            _SquareButton(
-              icon: Icons.people_rounded,
-              tooltip: l10n.familyTitle,
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const FamilyScreen())),
-            ),
-            const SizedBox(width: 8),
-            _SquareButton(
-              icon: Icons.settings_rounded,
-              tooltip: l10n.familySettings,
-              onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
-            ),
+        _HeaderMenu(
+          items: [
+            (Icons.notifications_rounded, l10n.familyMedicines, () => open(const SchedulesScreen())),
+            (Icons.people_rounded, l10n.familyTitle, () => open(const FamilyScreen())),
+            (Icons.settings_rounded, l10n.familySettings, () => open(const SettingsScreen())),
           ],
+        ),
+        const SizedBox(width: 12),
+        // Tapping the name or the photo switches baby or adds one.
+        Expanded(
+          child: GestureDetector(
+            onTap: () => showChildSwitcher(context),
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(child: _FittedName(child.name)),
+                          Icon(Icons.expand_more_rounded, color: muted, semanticLabel: l10n.homeSwitchBaby),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          if (child.age != null)
+                            Flexible(
+                              child: Text(child.age!, style: TextStyle(color: muted, fontSize: 13), overflow: TextOverflow.ellipsis),
+                            ),
+                          const SizedBox(width: 8),
+                          Tooltip(
+                            message: sync.tooltip,
+                            child: sync.label == null
+                                ? Container(
+                                    width: 8,
+                                    height: 8,
+                                    decoration: BoxDecoration(color: sync.live ? Color(0xFF7BC68F) : context.pal.line, shape: BoxShape.circle),
+                                  )
+                                : Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(sync.icon, size: 14, color: muted),
+                                      const SizedBox(width: 4),
+                                      Text(sync.label!, style: TextStyle(color: muted, fontSize: 12)),
+                                    ],
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ChildAvatar(child: child, size: 60),
+              ],
+            ),
+          ),
         ),
       ],
     );
   }
+}
+
+/// Home's menu button: opens a list of [items] (icon, label, action).
+class _HeaderMenu extends StatelessWidget {
+  const _HeaderMenu({required this.items});
+  final List<(IconData, String, VoidCallback)> items;
+
+  @override
+  Widget build(BuildContext context) => PopupMenuButton<int>(
+    tooltip: MaterialLocalizations.of(context).showMenuTooltip,
+    position: PopupMenuPosition.under,
+    onSelected: (i) => items[i].$3(),
+    itemBuilder: (_) => [
+      for (final (i, (icon, label, _)) in items.indexed)
+        PopupMenuItem(
+          value: i,
+          child: Row(
+            children: [
+              Icon(icon, size: 20, color: context.pal.ink),
+              const SizedBox(width: 14),
+              Text(label),
+            ],
+          ),
+        ),
+    ],
+    child: Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: context.pal.muted.withValues(alpha: 0.6)),
+      ),
+      child: Icon(Icons.menu_rounded, size: 22, color: context.pal.ink),
+    ),
+  );
 }
 
 /// The name at 34 px, shrinking (down to 20 px) until it fits on one line; a name too long even
@@ -686,31 +716,6 @@ void showChildSwitcher(BuildContext context) {
             ),
           const SizedBox(height: 8),
         ],
-      ),
-    ),
-  );
-}
-
-class _SquareButton extends StatelessWidget {
-  const _SquareButton({required this.icon, required this.tooltip, required this.onTap});
-  final IconData icon;
-  final String tooltip;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) => Tooltip(
-    message: tooltip,
-    child: InkWell(
-      borderRadius: BorderRadius.circular(8),
-      onTap: onTap,
-      child: Container(
-        width: 46,
-        height: 34,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: context.pal.muted.withValues(alpha: 0.6)),
-        ),
-        child: Icon(icon, size: 20, color: context.pal.ink),
       ),
     ),
   );

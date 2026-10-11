@@ -137,7 +137,7 @@ class FamilyScreen extends StatelessWidget with _FamilyActions {
   }
 }
 
-/// Settings and the account (Home's gear button): units, appearance, language, day and night, time zone, Drive sync and backup, Nara import, export, API token.
+/// Settings and the account (Home's menu → Settings): units, appearance, language, day and night, time zone, Drive sync and backup, Nara import, export, API token.
 class SettingsScreen extends StatelessWidget with _FamilyActions {
   const SettingsScreen({super.key});
 
