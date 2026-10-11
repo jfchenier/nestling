@@ -397,10 +397,17 @@ class _ActivityCard extends StatelessWidget {
                           ),
                         )
                       else
+                        // One line that shrinks to fit. maxLines matters: without it the row's
+                        // IntrinsicHeight measures a long value (a memory title) wrapped over
+                        // several lines and makes the whole row that tall.
                         FittedBox(
                           fit: BoxFit.scaleDown,
                           alignment: Alignment.centerLeft,
-                          child: Text(data.value ?? '—', style: serifStyle(26, color: data.value == null ? c.muted : c.ink)),
+                          child: Text(
+                            data.value ?? '—',
+                            maxLines: 1,
+                            style: serifStyle(26, color: data.value == null ? c.muted : c.ink),
+                          ),
                         ),
                       if (data.caption.isNotEmpty)
                         Padding(
