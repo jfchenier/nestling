@@ -541,9 +541,9 @@ _Sync _syncStatus(AppState s) {
   );
 }
 
-/// One row: the menu (Medicines and reminders, Family, Settings) on the left, the baby's name and
-/// age in the middle with most of the width (a long name gets a smaller font, see [_FittedName]),
-/// the photo on the right. The menu's left edge and the photo's right edge line up with the cards.
+/// One row: the baby's photo on the left, the name and age in the middle with most of the width (a
+/// long name gets a smaller font, see [_FittedName]), the menu (Medicines and reminders, Family,
+/// Settings) on the right. The photo's left edge and the menu's right edge line up with the cards.
 class _Header extends StatelessWidget {
   const _Header({required this.child, required this.sync});
   final Child child;
@@ -555,14 +555,6 @@ class _Header extends StatelessWidget {
     void open(Widget screen) => Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
     return Row(
       children: [
-        _HeaderMenu(
-          items: [
-            (Icons.notifications_rounded, l10n.familyMedicines, () => open(const SchedulesScreen())),
-            (Icons.people_rounded, l10n.familyTitle, () => open(const FamilyScreen())),
-            (Icons.settings_rounded, l10n.familySettings, () => open(const SettingsScreen())),
-          ],
-        ),
-        const SizedBox(width: 12),
         // Tapping the name or the photo switches baby or adds one.
         Expanded(
           child: GestureDetector(
@@ -570,6 +562,8 @@ class _Header extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             child: Row(
               children: [
+                ChildAvatar(child: child, size: 60),
+                const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -609,11 +603,17 @@ class _Header extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
-                ChildAvatar(child: child, size: 60),
               ],
             ),
           ),
+        ),
+        const SizedBox(width: 12),
+        _HeaderMenu(
+          items: [
+            (Icons.notifications_rounded, l10n.familyMedicines, () => open(const SchedulesScreen())),
+            (Icons.people_rounded, l10n.familyTitle, () => open(const FamilyScreen())),
+            (Icons.settings_rounded, l10n.familySettings, () => open(const SettingsScreen())),
+          ],
         ),
       ],
     );

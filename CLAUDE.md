@@ -157,7 +157,7 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       without follows its idea, else Waiting for you before the birth date, else Firsts). The book's own pages
       are texts on the child (`book`, replaced whole by `PATCH /children/{id}`; CSV `[Profile] Book`).
       "Banana for scale": repeatable milestones shown as a monthly photo strip.
-      Bottom tabs: Home, Timeline, Calendar, Trends, Book; Medicines and reminders, Family and Settings open from Home's menu button (top left; the baby's photo is top right).
+      Bottom tabs: Home, Timeline, Calendar, Trends, Book; Medicines and reminders, Family and Settings open from Home's menu button (top right; the baby's photo is top left).
 - [x] **Google Drive backup in server mode** (`app/lib/local/server_backup.dart`): the Android app
       saves each family's CSV export, a JSON of what the CSV leaves out (time zone, day hours,
       medicines, reminders, book pages, profile pictures) and the book's photos to the app's Drive
