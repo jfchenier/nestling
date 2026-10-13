@@ -304,6 +304,37 @@ class AppState extends ChangeNotifier {
     return cached?.$2;
   }
 
+  // Photos on the book's own pages (the family tree's faces), by "<child id>/<key>".
+  final Map<String, (int, Uint8List)> _bookPhotos = {};
+  final Set<String> _bookPhotoLoads = {};
+
+  /// A book page's photo once loaded (null: none, or not loaded yet), like [photoFor].
+  Uint8List? bookPhoto(Child child, String key) {
+    final version = child.bookPhotos[key];
+    final id = '${child.id}/$key';
+    final cached = _bookPhotos[id];
+    if (version == null || api == null) return null;
+    if (cached?.$1 == version) return cached!.$2;
+    final load = '$id@$version';
+    if (_bookPhotoLoads.add(load)) {
+      () async {
+        final bytes = await _loadPhoto('b-${child.id}-$key', version, '/children/${child.id}/book-photos/$key');
+        if (bytes == null) {
+          _bookPhotoLoads.remove(load);
+          return;
+        }
+        _bookPhotos[id] = (version, bytes);
+        notifyListeners();
+      }();
+    }
+    return cached?.$2;
+  }
+
+  /// A book page photo this device just uploaded (the child as the server answered).
+  void rememberBookPhoto(Map<String, dynamic> child, String key, Uint8List bytes) {
+    if (Child(child).bookPhotos[key] case final v?) _bookPhotos['${child['id']}/$key'] = (v, bytes);
+  }
+
   /// A photo from the device's copy, else downloaded (and kept for offline). Null when neither
   /// has it right now.
   Future<Uint8List?> _loadPhoto(String name, int version, String path) async {
@@ -352,6 +383,11 @@ class AppState extends ChangeNotifier {
           for (final c in (f['children'] as List? ?? []))
             if (c is Map)
               if (toInt(c['photo_version']) case final v?) 'c-${c['id']}': (v, '/children/${c['id']}/photo'),
+        for (final f in store.families)
+          for (final c in (f['children'] as List? ?? []))
+            if (c is Map)
+              for (final MapEntry(:key, :value) in Child(Map<String, dynamic>.from(c)).bookPhotos.entries)
+                'b-${c['id']}-$key': (value, '/children/${c['id']}/book-photos/$key'),
         for (final e in store.events.values)
           if (e['deleted'] != true)
             if (toInt(e['photo_version']) case final v?) 'e-${e['id']}': (v, '/events/${e['id']}/photo'),

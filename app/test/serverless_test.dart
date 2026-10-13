@@ -298,6 +298,35 @@ void main() {
     expect(() => b.eventPhotoBytes(smile['id']), throwsA(isA<ApiException>()));
   });
 
+  test("the book pages' photos reach the other phone and survive an edit of the child", () async {
+    final (storeA, a) = await phone('Mom');
+    final (storeB, b) = await phone('Dad');
+    final fam = a.createFamily({'name': 'Home', 'timezone': 'UTC'});
+    final child = a.createChild(fam['id'], {'name': 'Léa', 'birth_date': '2026-06-01'});
+    final id = child['id'] as String;
+    mergeFamily(storeB, exportFamily(storeA, fam['id']));
+
+    // A puts a face on the tree, B renames the baby a moment later (B's child record is newer).
+    expect(a.putBookPhoto(id, 'tree_parent_1', [0xFF, 0xD8, 0xFF, 7], 'image/jpeg')['book_photos'], contains('tree_parent_1'));
+    expect(() => a.putBookPhoto(id, 'Bad Key', [0xFF, 0xD8, 0xFF], 'image/jpeg'), throwsA(isA<ApiException>()));
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    b.updateChild(id, {'name': 'Léa Rose'});
+    mergeFamily(storeA, exportFamily(storeB, fam['id']));
+    mergeFamily(storeB, exportFamily(storeA, fam['id']));
+    for (final (store, engine) in [(storeA, a), (storeB, b)]) {
+      final c = (store.families.single['children'] as List).single;
+      expect(c['name'], 'Léa Rose');
+      expect(c['book_photos'], contains('tree_parent_1'));
+      expect(engine.bookPhotoBytes(id, 'tree_parent_1'), [0xFF, 0xD8, 0xFF, 7]);
+    }
+
+    // Removed on one phone, removed on both.
+    b.deleteBookPhoto(id, 'tree_parent_1');
+    mergeFamily(storeA, exportFamily(storeB, fam['id']));
+    expect((storeA.families.single['children'] as List).single['book_photos'], isEmpty);
+    expect(() => a.bookPhotoBytes(id, 'tree_parent_1'), throwsA(isA<ApiException>()));
+  });
+
   test('merging the same snapshot twice changes nothing', () async {
     final (storeA, a) = await phone('Mom');
     final (storeB, _) = await phone('Dad');

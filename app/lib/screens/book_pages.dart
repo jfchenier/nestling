@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -10,6 +11,7 @@ import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/photo.dart';
 import 'growth_chart.dart';
 
 /// The baby book's own pages: the family tree, the day they were born and its story, their name,
@@ -609,8 +611,11 @@ class FamilyTreePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.pal;
     final book = child.book;
-    final readOnly = context.select<AppState, bool>((s) => s.bookOnly);
-    final great = [for (final k in ['tree_ggp_1a', 'tree_ggp_1b', 'tree_ggp_2a', 'tree_ggp_2b']) _names(book[k])];
+    final s = context.watch<AppState>();
+    final readOnly = s.bookOnly;
+    Uint8List? photo(String key) => s.bookPhoto(child, key);
+    const greatKeys = ['tree_ggp_1a', 'tree_ggp_1b', 'tree_ggp_2a', 'tree_ggp_2b'], grandKeys = ['tree_gp_1a', 'tree_gp_1b', 'tree_gp_2a', 'tree_gp_2b'];
+    final great = [for (final k in greatKeys) _names(book[k])];
     final grand = [book['tree_gp_1a'], book['tree_gp_1b'], book['tree_gp_2a'], book['tree_gp_2b']];
     final parents = [book['tree_parent_1'], book['tree_parent_2']];
     const sides = [Kind.sleep, Kind.activity];
@@ -628,15 +633,18 @@ class FamilyTreePage extends StatelessWidget {
         children: [
           _PageHead(l10n.pagesTreeTitle, Icons.account_tree_rounded),
           if (showGreat) ...[
-            _TreeLevel([for (final (i, g) in great.indexed) _Couple(g, sides[i ~/ 2], hidden: readOnly && g.isEmpty)]),
+            _TreeLevel([
+              for (final (i, g) in great.indexed)
+                _Couple(g, sides[i ~/ 2], photos: [photo('${greatKeys[i]}_1'), photo('${greatKeys[i]}_2')], hidden: readOnly && g.isEmpty),
+            ]),
             _Branches([for (final g in great) g.isNotEmpty || !readOnly], 4, width: 2),
           ],
           if (showGrand) ...[
-            _TreeLevel([for (final (i, n) in grand.indexed) _Person(n, sides[i ~/ 2], size: 40, hidden: readOnly && n == null)]),
+            _TreeLevel([for (final (i, n) in grand.indexed) _Person(n, sides[i ~/ 2], size: 40, photo: photo(grandKeys[i]), hidden: readOnly && n == null)]),
             _Branches([for (final n in grand) n != null || !readOnly], 2, width: 3),
           ],
           if (showParents) ...[
-            _TreeLevel([for (final (i, n) in parents.indexed) _Person(n, sides[i], size: 50, hidden: readOnly && n == null)]),
+            _TreeLevel([for (final (i, n) in parents.indexed) _Person(n, sides[i], size: 50, photo: photo('tree_parent_${i + 1}'), hidden: readOnly && n == null)]),
             _Branches([for (final n in parents) n != null || !readOnly], 1, width: 4.5),
           ],
           // The baby, where the tree grows from, on a bit of grass.
@@ -690,10 +698,11 @@ class _TreeLevel extends StatelessWidget {
 /// A round badge with the initials and the name under it (a "+" spot to fill in when empty, or
 /// nothing for a book viewer).
 class _Person extends StatelessWidget {
-  const _Person(this.name, this.side, {required this.size, this.hidden = false});
+  const _Person(this.name, this.side, {required this.size, this.photo, this.hidden = false});
   final String? name;
   final Kind side;
   final double size;
+  final Uint8List? photo;
   final bool hidden;
 
   @override
@@ -703,7 +712,7 @@ class _Person extends StatelessWidget {
     final n = name;
     return Column(
       children: [
-        _Badge(n == null ? null : initials(n), side, size: size),
+        _Badge(n == null ? null : initials(n), side, size: size, photo: photo),
         const SizedBox(height: 4),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -722,9 +731,10 @@ class _Person extends StatelessWidget {
 
 /// A grandparent's parents: two small badges side by side and their names under them.
 class _Couple extends StatelessWidget {
-  const _Couple(this.names, this.side, {this.hidden = false});
+  const _Couple(this.names, this.side, {this.photos = const [null, null], this.hidden = false});
   final List<String> names;
   final Kind side;
+  final List<Uint8List?> photos;
   final bool hidden;
 
   @override
@@ -736,9 +746,9 @@ class _Couple extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _Badge(names.isEmpty ? null : initials(names.first), side, size: 28, small: true),
+            _Badge(names.isEmpty ? null : initials(names.first), side, size: 28, small: true, photo: photos[0]),
             const SizedBox(width: 2),
-            _Badge(names.length < 2 ? null : initials(names[1]), side, size: 28, small: true),
+            _Badge(names.length < 2 ? null : initials(names[1]), side, size: 28, small: true, photo: photos[1]),
           ],
         ),
         const SizedBox(height: 3),
@@ -755,18 +765,20 @@ class _Couple extends StatelessWidget {
   }
 }
 
-/// A circle in the side's color with initials, or an outlined "+" when nobody is named yet.
+/// A circle with the person's photo, else their initials in the side's color, or an outlined "+"
+/// when nobody is named yet.
 class _Badge extends StatelessWidget {
-  const _Badge(this.initials, this.side, {required this.size, this.small = false});
+  const _Badge(this.initials, this.side, {required this.size, this.small = false, this.photo});
   final String? initials;
   final Kind side;
   final double size;
   final bool small;
+  final Uint8List? photo;
 
   @override
   Widget build(BuildContext context) {
     final c = context.pal;
-    final empty = initials == null;
+    final empty = initials == null && photo == null;
     return Container(
       width: size,
       height: size,
@@ -774,9 +786,12 @@ class _Badge extends StatelessWidget {
       decoration: BoxDecoration(
         color: empty ? c.surface : side.fill(c),
         shape: BoxShape.circle,
-        border: Border.all(color: empty ? c.line : c.surface, width: small ? 1.5 : 2.5),
+        border: Border.all(color: empty ? c.line : (photo != null ? side.fill(c) : c.surface), width: small ? 1.5 : 2.5),
+        image: photo == null ? null : DecorationImage(image: MemoryImage(photo!), fit: BoxFit.cover),
       ),
-      child: empty
+      child: photo != null
+          ? null
+          : empty
           ? Icon(Icons.add_rounded, size: size * 0.5, color: c.muted)
           : Text(
               initials!,
@@ -1017,11 +1032,24 @@ Future<void> editStoryPage(BuildContext context, Child child) => _editPage(
   ],
 );
 
+/// The family tree's photos: each name field's photo key(s), the same as the field's key (two for
+/// a couple: `<key>_1`, `<key>_2`). Saved with `/children/{id}/book-photos/{key}`.
+Map<String, List<String>> get _treePhotos => {
+  for (final n in const [1, 2]) ...{
+    'tree_parent_$n': ['tree_parent_$n'],
+    for (final g in const ['a', 'b']) ...{
+      'tree_gp_$n$g': ['tree_gp_$n$g'],
+      'tree_ggp_$n$g': ['tree_ggp_$n${g}_1', 'tree_ggp_$n${g}_2'],
+    },
+  },
+};
+
 Future<void> editTreePage(BuildContext context, Child child) => _editPage(
   context,
   child,
   title: l10n.pagesTreeTitle,
   icon: Icons.account_tree_rounded,
+  photos: _treePhotos,
   fields: [
     for (final n in const [1, 2]) ...[
       (key: 'tree_parent_$n', label: l10n.pagesTreeParent(n), hint: l10n.pagesHintName, long: false),
@@ -1055,12 +1083,13 @@ Future<void> _editPage(
   required IconData icon,
   required List<_Field> fields,
   bool time = false,
+  Map<String, List<String>> photos = const {},
 }) => showModalBottomSheet(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
   backgroundColor: context.pal.background,
-  builder: (_) => _PageForm(child: child, title: title, icon: icon, fields: fields, time: time),
+  builder: (_) => _PageForm(child: child, title: title, icon: icon, fields: fields, time: time, photos: photos),
 );
 
 class _PageForm extends StatefulWidget {
@@ -1070,12 +1099,16 @@ class _PageForm extends StatefulWidget {
     required this.icon,
     required this.fields,
     required this.time,
+    this.photos = const {},
   });
   final Child child;
   final String title;
   final IconData icon;
   final List<_Field> fields;
   final bool time;
+
+  /// Fields with photos next to them: field key → the photos' keys (`book_photos`).
+  final Map<String, List<String>> photos;
 
   @override
   State<_PageForm> createState() => _PageFormState();
@@ -1087,6 +1120,31 @@ class _PageFormState extends State<_PageForm> {
   };
   late String? _time = widget.child.book['birth_time'];
   bool _busy = false;
+
+  /// Photos picked (bytes) or removed (null) here, saved with the page.
+  final Map<String, Uint8List?> _photos = {};
+
+  Future<void> _pickPhoto(String key) async {
+    final had = _photos.containsKey(key) ? _photos[key] != null : widget.child.bookPhotos.containsKey(key);
+    if (had) {
+      final choice = await showModalBottomSheet<String>(
+        context: context,
+        builder: (sheet) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(leading: const Icon(Icons.photo_library_rounded), title: Text(l10n.bookChangePhoto), onTap: () => Navigator.pop(sheet, 'change')),
+              ListTile(leading: const Icon(Icons.delete_outline_rounded), title: Text(l10n.remove), onTap: () => Navigator.pop(sheet, 'remove')),
+            ],
+          ),
+        ),
+      );
+      if (choice == null || !mounted) return;
+      if (choice == 'remove') return setState(() => _photos[key] = null);
+    }
+    final photo = await guard(context, () => pickSquarePhoto(size: 400, jpeg: true));
+    if (photo != null && mounted) setState(() => _photos[key] = photo);
+  }
 
   Future<void> _pickTime() async {
     final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(_time ?? '');
@@ -1111,10 +1169,27 @@ class _PageFormState extends State<_PageForm> {
     }
     if (widget.time) book['birth_time'] = _time;
     book.removeWhere((_, v) => v == null || (v is String && v.isEmpty));
-    final ok = await guard(
+    var ok = await guard(
       context,
       () => s.act((api) => api.patch('/children/${widget.child.id}', {'book': book}), families: true).then((_) => true),
     );
+    final id = widget.child.id;
+    for (final MapEntry(:key, value: bytes) in _photos.entries) {
+      if (ok != true || !mounted) break;
+      final path = '/children/$id/book-photos/$key';
+      if (bytes == null) {
+        if (!widget.child.bookPhotos.containsKey(key)) continue;
+        ok = await guard(context, () => s.act((api) => api.delete(path), families: true).then((_) => true));
+      } else {
+        ok = await guard(
+          context,
+          () => s.act((api) => api.putBytes(path, bytes, contentType: 'image/jpeg'), families: true).then((res) {
+            if (res is Map<String, dynamic>) s.rememberBookPhoto(res, key, bytes);
+            return true;
+          }),
+        );
+      }
+    }
     if (!mounted) return;
     if (ok == true) {
       Navigator.pop(context);
@@ -1162,12 +1237,26 @@ class _PageFormState extends State<_PageForm> {
                   for (final f in widget.fields)
                     FormRow(
                       label: f.label,
-                      below: TextField(
-                        controller: _text[f.key],
-                        maxLines: f.long ? null : 1,
-                        minLines: 1,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: InputDecoration(hintText: f.hint),
+                      below: Row(
+                        children: [
+                          for (final key in widget.photos[f.key] ?? const <String>[]) ...[
+                            _PhotoSpot(
+                              photo: _photos.containsKey(key) ? _photos[key] : context.watch<AppState>().bookPhoto(widget.child, key),
+                              has: _photos.containsKey(key) ? _photos[key] != null : widget.child.bookPhotos.containsKey(key),
+                              onTap: () => _pickPhoto(key),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          Expanded(
+                            child: TextField(
+                              controller: _text[f.key],
+                              maxLines: f.long ? null : 1,
+                              minLines: 1,
+                              textCapitalization: TextCapitalization.sentences,
+                              decoration: InputDecoration(hintText: f.hint),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 ],
@@ -1199,5 +1288,40 @@ class _PageFormState extends State<_PageForm> {
       t.dispose();
     }
     super.dispose();
+  }
+}
+
+/// A round photo spot next to a name in a page's form: the photo, or a camera to add one.
+class _PhotoSpot extends StatelessWidget {
+  const _PhotoSpot({required this.photo, required this.has, required this.onTap});
+  final Uint8List? photo;
+
+  /// A photo is set (it may still be loading).
+  final bool has;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.pal;
+    final k = Kind.milestone;
+    return Semantics(
+      button: true,
+      label: has ? l10n.bookChangePhoto : l10n.bookAddPhoto,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: k.fill(c).withValues(alpha: 0.35),
+            border: Border.all(color: k.on(c).withValues(alpha: 0.45), width: 1.5),
+            image: photo == null ? null : DecorationImage(image: MemoryImage(photo!), fit: BoxFit.cover),
+          ),
+          child: photo != null ? null : Icon(has ? Icons.photo_rounded : Icons.add_a_photo_rounded, size: 20, color: k.on(c)),
+        ),
+      ),
+    );
   }
 }

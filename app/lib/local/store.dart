@@ -111,6 +111,7 @@ class LocalStore {
 
   static const _key = 'store';
   static const _photosKey = 'event_photos';
+  static const _bookPhotosKey = 'book_photos';
   final Persist _persist;
 
   /// The server this copy came from, and the account (`me`) it belongs to.
@@ -161,6 +162,18 @@ class LocalStore {
     save();
   }
 
+  /// Photos on the book's own pages in serverless mode: "child id/key" → `{version, type, data
+  /// (base64)}`; `{version: null}` once removed. Clocks and stamps are keyed `bp:` + the same.
+  /// Saved apart from the rest, like [eventPhotos].
+  final Map<String, Map<String, dynamic>> bookPhotos = {};
+  bool _bookPhotosDirty = false;
+
+  /// [bookPhotos] changed: saved with the next [save].
+  void bookPhotosChanged() {
+    _bookPhotosDirty = true;
+    save();
+  }
+
   /// Serverless mode: settings of this device (pairing key, peers…), see `local/peer_sync.dart`.
   Map<String, dynamic> serverless = {};
   int _seq = 0;
@@ -195,6 +208,10 @@ class LocalStore {
       final photos = await store._persist.read(_photosKey);
       if (photos != null) {
         (jsonDecode(photos) as Map).forEach((k, v) => store.eventPhotos[k] = Map<String, dynamic>.from(v));
+      }
+      final pages = await store._persist.read(_bookPhotosKey);
+      if (pages != null) {
+        (jsonDecode(pages) as Map).forEach((k, v) => store.bookPhotos[k] = Map<String, dynamic>.from(v));
       }
     } catch (_) {
       // Unreadable: start over; the next sync fills it again.
@@ -319,6 +336,7 @@ class LocalStore {
     deletedChildren.clear();
     photos.clear();
     eventPhotos.clear();
+    bookPhotos.clear();
     photoUploads.clear();
     serverless = {};
     stamps.clear();
@@ -327,6 +345,7 @@ class LocalStore {
     _saveTimer?.cancel();
     await _persist.delete(_key);
     await _persist.delete(_photosKey);
+    await _persist.delete(_bookPhotosKey);
     try {
       await photoCache.clear();
     } catch (_) {
@@ -349,6 +368,10 @@ class LocalStore {
       if (_eventPhotosDirty) {
         _eventPhotosDirty = false;
         await _persist.write(_photosKey, jsonEncode(eventPhotos));
+      }
+      if (_bookPhotosDirty) {
+        _bookPhotosDirty = false;
+        await _persist.write(_bookPhotosKey, jsonEncode(bookPhotos));
       }
       await _persist.write(_key, jsonEncode(_toJson()));
     } catch (_) {

@@ -564,6 +564,41 @@ async fn child_photo() {
 }
 
 #[tokio::test]
+async fn book_photos() {
+    let c = Client::new().await;
+    let t = c.register("a@example.com", "A").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&t), Some(json!({ "name": "F" }))).await;
+    let fid = fam["id"].as_str().unwrap();
+    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&t), Some(json!({ "name": "B", "birth_date": "2026-06-01" }))).await;
+    let cid = child["id"].as_str().unwrap();
+    assert_eq!(child["book_photos"], json!({}));
+
+    let jpeg = b"\xFF\xD8\xFF\xE0 a face".to_vec();
+    let (s, _, body) = c.call_raw(Method::PUT, &format!("/children/{cid}/book-photos/tree_parent_1"), &t, jpeg.clone()).await;
+    assert_eq!(s, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let (_, child) = c.call(Method::GET, &format!("/children/{cid}"), Some(&t), None).await;
+    assert!(child["book_photos"]["tree_parent_1"].is_i64(), "{child}");
+    let (s, ct, body) = c.call_raw(Method::GET, &format!("/children/{cid}/book-photos/tree_parent_1"), &t, vec![]).await;
+    assert_eq!((s, ct.as_str(), body), (StatusCode::OK, "image/jpeg", jpeg.clone()));
+
+    // Keys like the book's texts; images only; nobody outside the family.
+    let (s, _, _) = c.call_raw(Method::PUT, &format!("/children/{cid}/book-photos/Bad%20Key"), &t, jpeg.clone()).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let (s, _, _) = c.call_raw(Method::PUT, &format!("/children/{cid}/book-photos/nursery"), &t, b"<svg/>".to_vec()).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let other = c.register("b@example.com", "B").await;
+    let (s, _, _) = c.call_raw(Method::GET, &format!("/children/{cid}/book-photos/tree_parent_1"), &other, vec![]).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+
+    let (s, _, _) = c.call_raw(Method::DELETE, &format!("/children/{cid}/book-photos/tree_parent_1"), &t, vec![]).await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    let (_, child) = c.call(Method::GET, &format!("/children/{cid}"), Some(&t), None).await;
+    assert_eq!(child["book_photos"], json!({}));
+    let (s, _, _) = c.call_raw(Method::GET, &format!("/children/{cid}/book-photos/tree_parent_1"), &t, vec![]).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+}
+
+#[tokio::test]
 async fn event_photo() {
     let c = Client::new().await;
     let t = c.register("a@example.com", "A").await;
@@ -1110,6 +1145,7 @@ async fn book_viewer_reads_the_book_only() {
         .await;
     let feed_id = feed["id"].as_str().unwrap().to_string();
     c.call_raw(Method::PUT, &format!("/events/{mid}/photo"), &mom, b"\xFF\xD8\xFF\xE0 jpeg".to_vec()).await;
+    c.call_raw(Method::PUT, &format!("/children/{cid}/book-photos/tree_parent_1"), &mom, b"\xFF\xD8\xFF\xE0 jpeg".to_vec()).await;
 
     // Unknown roles are refused; any caregiver may invite a book viewer.
     let (s, _) = c.call(Method::POST, &format!("/families/{fid}/invites"), Some(&mom), Some(json!({ "role": "reader" }))).await;
@@ -1132,6 +1168,11 @@ async fn book_viewer_reads_the_book_only() {
     let (s, _) = c.call(Method::GET, &format!("/children/{cid}/events?type=milestone"), Some(&gran), None).await;
     assert_eq!(s, StatusCode::OK);
     let (s, _) = c.call(Method::GET, &format!("/children/{cid}/events?type=feed"), Some(&gran), None).await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    // The book pages' photos: read, not changed.
+    let (s, _, _) = c.call_raw(Method::GET, &format!("/children/{cid}/book-photos/tree_parent_1"), &gran, vec![]).await;
+    assert_eq!(s, StatusCode::OK);
+    let (s, _, _) = c.call_raw(Method::PUT, &format!("/children/{cid}/book-photos/tree_parent_1"), &gran, b"\xFF\xD8\xFF\xE0 x".to_vec()).await;
     assert_eq!(s, StatusCode::FORBIDDEN);
     let (s, _) = c.call(Method::GET, &format!("/events/{mid}"), Some(&gran), None).await;
     assert_eq!(s, StatusCode::OK);

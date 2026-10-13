@@ -12,7 +12,7 @@ class WebPersist implements Persist {
   static const _prefix = 'nestling.';
 
   /// Documents too large for local storage.
-  static const _large = {'event_photos'};
+  static const _large = {'event_photos', 'book_photos'};
   final web.IDBDatabase? _db;
 
   web.IDBObjectStore? _docs(String key, String mode) =>

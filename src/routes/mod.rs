@@ -63,6 +63,13 @@ pub fn api() -> Router<AppState> {
             "/children/{id}/photo",
             get(children::get_photo).put(children::put_photo).delete(children::delete_photo).layer(DefaultBodyLimit::max(children::PHOTO_LIMIT)),
         )
+        .route(
+            "/children/{id}/book-photos/{key}",
+            get(children::get_book_photo)
+                .put(children::put_book_photo)
+                .delete(children::delete_book_photo)
+                .layer(DefaultBodyLimit::max(children::PHOTO_LIMIT)),
+        )
         .route("/children/{id}/events", get(events::list).post(events::create))
         .route("/children/{id}/timers", get(timers::list).post(timers::start))
         .route("/children/{id}/summary", get(insights::summary))

@@ -37,6 +37,9 @@ class LocalApi extends SyncApi {
     if (RegExp(r'^/events/([^/]+)/photo$').firstMatch(path) case final m?) {
       return Uint8List.fromList(engine.eventPhotoBytes(m.group(1)!));
     }
+    if (RegExp(r'^/children/([^/]+)/book-photos/([a-z0-9_]+)$').firstMatch(path) case final m?) {
+      return Uint8List.fromList(engine.bookPhotoBytes(m.group(1)!, m.group(2)!));
+    }
     final m = RegExp(r'^/children/([^/]+)/photo$').firstMatch(path);
     if (m == null) throw ApiException('server_only', l10n.localNeedsServer, 404);
     return Uint8List.fromList(engine.photoBytes(m.group(1)!));

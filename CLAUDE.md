@@ -163,6 +163,10 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       Book pages (`book_pages.dart`): family tree, the day you were born (moon, zodiac), birth story,
       name, the world, growth by month, a letter for later. "Diary" milestones (Growing up) start
       with the past week's schedule (`scheduleLines`); "Our home" shows how long you lived there.
+      Book pages' photos (family tree faces): `PUT/GET/DELETE /children/{id}/book-photos/{key}` (table
+      `book_photos`, any key like the `book` texts, 60 per child; children carry `book_photos` key → version).
+      Serverless: `LocalStore.bookPhotos` ("child/key", clocks `bp:`), sent with the snapshot; the
+      child's `book_photos` follows the records (`syncBookPhotos`). Server-mode Drive backup keeps them.
       Bottom tabs: Home, Timeline, Calendar, Trends, Book; Medicines and reminders, Family and Settings open from Home's menu button (top right; the baby's photo is top left).
 - [x] **Google Drive backup in server mode** (`app/lib/local/server_backup.dart`): the Android app
       saves each family's CSV export, a JSON of what the CSV leaves out (time zone, day hours,

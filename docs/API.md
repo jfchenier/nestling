@@ -71,6 +71,8 @@ can still leave the family. Their phones get no timer or reminder notifications.
 | `GET / PATCH / DELETE /children/{id}` | | `null` clears `birth_date`/`sex` |
 | `PUT /children/{id}/photo` | raw JPEG, PNG or WebP (≤ 5 MB) | profile picture; the child's `photo_version` changes (null: no photo) |
 | `GET / DELETE /children/{id}/photo` | | the image (`404` without one) / remove it |
+| `PUT /children/{id}/book-photos/{key}` | raw JPEG, PNG or WebP (≤ 5 MB) | a photo on one of the baby book's pages under a key of the app's (1-40 lowercase letters, digits or `_`, e.g. `tree_parent_1`; 60 per child); the child's `book_photos` (key → version) changes |
+| `GET / DELETE /children/{id}/book-photos/{key}` | | the image (book viewers too; `404` without one) / remove it |
 
 ### Medicine schedules and reminders
 
