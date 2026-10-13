@@ -1712,9 +1712,6 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get homeLogFeed => 'Registrar una toma';
-
-  @override
   String homeNaps(num count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -3804,13 +3801,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get formVolumeUnit => 'Unidad de esta cantidad';
 
   @override
-  String get homeLogPump => 'Registrar extracción';
-
-  @override
   String get homePumpTimer => 'Temporizador';
-
-  @override
-  String get homePumpAmount => 'Solo cantidad';
 
   @override
   String get settingsUnits => 'Unidades';
@@ -3823,4 +3814,10 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get growthUnits => 'Unidades de estas curvas';
+
+  @override
+  String get logBreast => 'Pecho';
+
+  @override
+  String get logAmount => 'Cantidad';
 }

@@ -463,7 +463,6 @@
   "homeLiveTooltip": "En direct — les changements des autres membres de la famille apparaissent aussitôt",
   "homeLog": "Noter",
   "homeLogCard": "Noter : {title}",
-  "homeLogFeed": "Noter un repas",
   "homeNaps": "{count, plural, =0{0 sieste} =1{1 sieste} other{{count} siestes}}",
   "homeNavBook": "Album",
   "homeNavCalendar": "Calendrier",
@@ -1020,11 +1019,11 @@
   "settingsClock24": "24 h",
   "settingsClock12": "12 h",
   "formVolumeUnit": "Unité de cette quantité",
-  "homeLogPump": "Noter un tirage",
   "homePumpTimer": "Minuteur",
-  "homePumpAmount": "Quantité seulement",
   "settingsUnits": "Unités",
   "settingsMetric": "Métrique",
   "settingsImperial": "Impérial",
-  "growthUnits": "Unités de ces courbes"
+  "growthUnits": "Unités de ces courbes",
+  "logBreast": "Sein",
+  "logAmount": "Quantité"
 }

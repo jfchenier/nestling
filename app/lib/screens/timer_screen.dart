@@ -10,12 +10,17 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/date_time.dart';
 import 'event_form.dart';
-import 'home.dart' show showFeedPicker;
+import 'log_screen.dart';
 
 /// Live timer for `breastfeed`, `sleep` or `pump`, shared with every caregiver.
 class TimerScreen extends StatefulWidget {
-  const TimerScreen({super.key, required this.kind, this.continued});
+  const TimerScreen({super.key, required this.kind, this.continued, this.switcher, this.title});
   final String kind;
+
+  /// On the Feed and Pump pages ([LogScreen]): the switch to another kind of entry, shown until
+  /// the timer starts, and the page's title.
+  final Widget? switcher;
+  final String? title;
 
   /// The saved entry this timer continues (Continue on its edit sheet): its note, sleep location
   /// and pump amounts are kept here, since a timer doesn't store them.
@@ -274,7 +279,7 @@ class _TimerScreenState extends State<TimerScreen> {
     if (running == null) {
       Navigator.pop(context);
     } else if (widget.kind == 'breastfeed') {
-      showFeedPicker(context, pastBreast: true);
+      LogScreen.open(context, 'feed', pastBreast: true);
       return;
     }
     showEventForm(context, type: widget.kind == 'breastfeed' ? 'feed' : widget.kind, method: 'breast');
@@ -302,10 +307,11 @@ class _TimerScreenState extends State<TimerScreen> {
         // Closing never stops the timer: it keeps running (for every caregiver) until saved or deleted.
         leading: IconButton(icon: const Icon(Icons.close_rounded), tooltip: l10n.close, onPressed: () => Navigator.pop(context)),
         // Scaled down rather than cut off when Save leaves little room (French).
-        title: FittedBox(fit: BoxFit.scaleDown, child: Text(title)),
+        title: FittedBox(fit: BoxFit.scaleDown, child: Text(widget.title ?? title)),
         centerTitle: true,
         actions: [
-          if (t == null) ...[logPast, const SizedBox(width: 8)],
+          // The Pump page's Amount tab is its Log past.
+          if (t == null && !(widget.switcher != null && widget.kind == 'pump')) ...[logPast, const SizedBox(width: 8)],
           if (t != null) ...[
             // Capped so a long label ("Enregistrer") shrinks instead of pushing the title off center.
             ConstrainedBox(
@@ -332,6 +338,8 @@ class _TimerScreenState extends State<TimerScreen> {
             builder: (context) => ListView(
               children: [
                 const SizedBox(height: 4),
+                if (t == null && widget.switcher != null)
+                  Padding(padding: const EdgeInsets.fromLTRB(16, 4, 16, 8), child: widget.switcher),
                 _hint(s, t, logPast),
                 const SizedBox(height: 12),
                 Text(

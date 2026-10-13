@@ -720,7 +720,6 @@
   "@homeLogCard": {
     "description": "Screen-reader label of a home card."
   },
-  "homeLogFeed": "Log a feed",
   "homeNaps": "{count, plural, =1{1 nap} other{{count} naps}}",
   "homeNavBook": "Book",
   "homeNavCalendar": "Calendar",
@@ -1410,11 +1409,17 @@
   "settingsClock24": "24-hour",
   "settingsClock12": "12-hour",
   "formVolumeUnit": "Unit for this amount",
-  "homeLogPump": "Log pumping",
   "homePumpTimer": "Timer",
-  "homePumpAmount": "Amount only",
   "settingsUnits": "Units",
   "settingsMetric": "Metric",
   "settingsImperial": "Imperial",
-  "growthUnits": "Units for these charts"
+  "growthUnits": "Units for these charts",
+  "logBreast": "Breast",
+  "@logBreast": {
+    "description": "Feed page switch: breastfeeding (the timer)."
+  },
+  "logAmount": "Amount",
+  "@logAmount": {
+    "description": "Pump page switch: note the amounts without the timer."
+  }
 }

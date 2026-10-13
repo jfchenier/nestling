@@ -1713,9 +1713,6 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get homeLogFeed => 'Noter un repas';
-
-  @override
   String homeNaps(num count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -3813,13 +3810,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get formVolumeUnit => 'Unité de cette quantité';
 
   @override
-  String get homeLogPump => 'Noter un tirage';
-
-  @override
   String get homePumpTimer => 'Minuteur';
-
-  @override
-  String get homePumpAmount => 'Quantité seulement';
 
   @override
   String get settingsUnits => 'Unités';
@@ -3832,4 +3823,10 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get growthUnits => 'Unités de ces courbes';
+
+  @override
+  String get logBreast => 'Sein';
+
+  @override
+  String get logAmount => 'Quantité';
 }

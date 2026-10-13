@@ -2878,12 +2878,6 @@ abstract class AppLocalizations {
   /// **'Log {title}'**
   String homeLogCard(Object title);
 
-  /// No description provided for @homeLogFeed.
-  ///
-  /// In en, this message translates to:
-  /// **'Log a feed'**
-  String get homeLogFeed;
-
   /// No description provided for @homeNaps.
   ///
   /// In en, this message translates to:
@@ -6220,23 +6214,11 @@ abstract class AppLocalizations {
   /// **'Unit for this amount'**
   String get formVolumeUnit;
 
-  /// No description provided for @homeLogPump.
-  ///
-  /// In en, this message translates to:
-  /// **'Log pumping'**
-  String get homeLogPump;
-
   /// No description provided for @homePumpTimer.
   ///
   /// In en, this message translates to:
   /// **'Timer'**
   String get homePumpTimer;
-
-  /// No description provided for @homePumpAmount.
-  ///
-  /// In en, this message translates to:
-  /// **'Amount only'**
-  String get homePumpAmount;
 
   /// No description provided for @settingsUnits.
   ///
@@ -6261,6 +6243,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Units for these charts'**
   String get growthUnits;
+
+  /// Feed page switch: breastfeeding (the timer).
+  ///
+  /// In en, this message translates to:
+  /// **'Breast'**
+  String get logBreast;
+
+  /// Pump page switch: note the amounts without the timer.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get logAmount;
 }
 
 class _AppLocalizationsDelegate
