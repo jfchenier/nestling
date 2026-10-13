@@ -256,10 +256,10 @@ mixin _Memories<T extends StatefulWidget> on State<T> {
 /// with the memories as taped-in prints, the book's own pages (birth day, name, the world, growth),
 /// the teeth chart and ideas still to come. Tabs under the title jump between chapters.
 class BabyBookScreen extends StatefulWidget {
-  const BabyBookScreen({super.key, this.addMemory = false, this.asTab = false});
+  const BabyBookScreen({super.key, this.showMemory, this.asTab = false});
 
-  /// Opens "New memory" over the book right away (the Firsts card), so closing it shows the book.
-  final bool addMemory;
+  /// Id of a memory to scroll to once the book is loaded (one just added from the Firsts card).
+  final String? showMemory;
 
   /// Shown as a tab of the main screen (no back button).
   final bool asTab;
@@ -279,7 +279,6 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
   @override
   void initState() {
     super.initState();
-    if (widget.addMemory) WidgetsBinding.instance.addPostFrameCallback((_) => showMemoryForm(context));
     _scroll.addListener(_track);
   }
 
@@ -337,6 +336,45 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
     if (mounted) setState(() => _current = c);
   }
 
+  /// The memory [BabyBookScreen.showMemory] names, once found in the book.
+  final _shown = GlobalKey();
+  bool _revealed = false;
+
+  /// Scrolls to the memory [BabyBookScreen.showMemory] in [chapter]: to the chapter first (building
+  /// the rows on the way), then down until its print is built, then to it.
+  Future<void> _reveal(BookChapter chapter) async {
+    final step = MediaQuery.sizeOf(context).height * 0.75;
+    await _jump(chapter);
+    for (var i = 0; mounted && i < 40 && _shown.currentContext == null; i++) {
+      if (_scroll.offset >= _scroll.position.maxScrollExtent) break;
+      _scroll.jumpTo((_scroll.offset + step).clamp(0.0, _scroll.position.maxScrollExtent));
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    // A little above its tape, under the pinned tabs.
+    double? at() {
+      final box = _shown.currentContext?.findRenderObject();
+      if (box == null || !box.attached) return null;
+      return RenderAbstractViewport.of(box).getOffsetToReveal(box, 0).offset - 8;
+    }
+
+    final to = mounted ? at() : null;
+    if (to == null) return;
+    await _scroll.animateTo(to.clamp(0.0, _scroll.position.maxScrollExtent), duration: const Duration(milliseconds: 380), curve: Curves.easeOutCubic);
+    // The rows below are built as it gets there (the end of the list grows) and photos arrive:
+    // settle on it.
+    for (var i = 0; i < 12 && mounted; i++) {
+      await WidgetsBinding.instance.endOfFrame;
+      final now = mounted ? at() : null;
+      if (now == null) break;
+      final max = _scroll.position.maxScrollExtent;
+      if ((now.clamp(0.0, max) - _scroll.offset).abs() >= 2) {
+        _scroll.jumpTo(now.clamp(0.0, max));
+      } else if (now <= max) {
+        break;
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = context.watch<AppState>();
@@ -353,6 +391,16 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
     final homes = homeSpans(list ?? const []);
     final cameHome = list?.where((e) => ideaFor(e['name'] as String?)?.id == 'Came home').firstOrNull?.start;
     final logged = loggedIdeas;
+    // The memory to show: scroll to it once it is in the book (bananas and diary pages are in
+    // Growing up).
+    final shown = list?.where((e) => e.id == widget.showMemory).firstOrNull;
+    if (shown != null && !_revealed) {
+      _revealed = true;
+      final chapter = isBanana(shown) || isDiary(shown) ? BookChapter.growing : chapterOf(shown, birth: child.birthDate);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _reveal(chapter);
+      });
+    }
     // Book viewers (e.g. grandparents) read it: no ideas, nothing to add or edit.
     final readOnly = s.bookOnly;
     var printIndex = 0;
@@ -368,7 +416,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
             out.add(_ChapterTitle(a));
           }
         }
-        out.add(_MemoryCard(event: e, child: child, index: printIndex++, extra: homes[e.id]));
+        out.add(_MemoryCard(key: e == shown ? _shown : null, event: e, child: child, index: printIndex++, extra: homes[e.id]));
       }
       return out;
     }
@@ -455,7 +503,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
       TeethChart(child: child, milestones: memories ?? const []),
       if (!readOnly || bananas.isNotEmpty) ...[
         SectionTitle('${l10n.bookBananaName} 🍌', trailing: Text(l10n.bookPhotoAMonth, style: TextStyle(color: context.pal.muted, fontSize: 13))),
-        _BananaStrip(child: child, photos: bananas),
+        _BananaStrip(key: shown != null && isBanana(shown) ? _shown : null, child: child, photos: bananas),
       ],
       ...prints(byChapter[BookChapter.growing]!),
       if (!readOnly || growth.isNotEmpty) GrowthPage(child: child, growth: growth),
@@ -633,7 +681,7 @@ class _DueDate extends StatelessWidget {
 /// The "banana for scale" photos side by side, oldest first, each with the age it was taken at,
 /// after the button that adds this month's.
 class _BananaStrip extends StatelessWidget {
-  const _BananaStrip({required this.child, required this.photos});
+  const _BananaStrip({super.key, required this.child, required this.photos});
   final Child child;
   final List<Event> photos;
 
@@ -1124,7 +1172,7 @@ class _EmptyBook extends StatelessWidget {
 /// A memory as a scrapbook page: a photo print taped in (slightly tilted, alternating sides),
 /// the title, the day with the baby's age, and the story.
 class _MemoryCard extends StatelessWidget {
-  const _MemoryCard({required this.event, required this.child, required this.index, this.extra});
+  const _MemoryCard({super.key, required this.event, required this.child, required this.index, this.extra});
   final Event event;
   final Child child;
   final int index;
@@ -1258,7 +1306,8 @@ void _showPhoto(BuildContext context, Uint8List bytes, String name) => Navigator
 );
 
 /// Add a memory (optionally starting from an idea's [name], or in a [chapter]) or edit [event].
-Future<void> showMemoryForm(BuildContext context, {Event? event, String? name, BookChapter? chapter}) => showModalBottomSheet(
+/// Completes with the saved memory's id (null when closed without saving).
+Future<String?> showMemoryForm(BuildContext context, {Event? event, String? name, BookChapter? chapter}) => showModalBottomSheet<String>(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
@@ -1364,7 +1413,7 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
       problem = l10n.bookPhotoNotSaved(err is ApiException ? err.message : '$err');
     }
     if (!mounted) return;
-    Navigator.pop(context);
+    Navigator.pop(context, id);
     if (problem != null) messenger.showSnackBar(SnackBar(content: Text(problem)));
   }
 
