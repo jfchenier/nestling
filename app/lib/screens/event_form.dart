@@ -750,10 +750,32 @@ class _EventFormState extends State<EventForm> {
 
   /// Optional small / medium / large for each part that's checked.
   List<Widget> _sizeRows() {
-    final options = {'small': l10n.sizeSmall, 'medium': l10n.sizeMedium, 'large': l10n.sizeLarge};
+    // The same segmented bar as Diaper / Potty; tapping the picked size again clears it.
+    Widget row(String label, String? value, ValueChanged<String?> onChanged) => FormRow(
+      label: label,
+      below: SizedBox(
+        width: double.infinity,
+        child: SegmentedButton<String>(
+          segments: [
+            ButtonSegment(value: 'small', label: Text(l10n.sizeSmall)),
+            ButtonSegment(value: 'medium', label: Text(l10n.sizeMedium)),
+            ButtonSegment(value: 'large', label: Text(l10n.sizeLarge)),
+          ],
+          selected: {?value},
+          emptySelectionAllowed: true,
+          showSelectedIcon: false,
+          style: SegmentedButton.styleFrom(
+            selectedBackgroundColor: kind.fill(context.pal),
+            selectedForegroundColor: context.pal.bandInk,
+            side: BorderSide(color: context.pal.line),
+          ),
+          onSelectionChanged: (v) => setState(() => onChanged(v.firstOrNull)),
+        ),
+      ),
+    );
     return [
-      if (_wet) _chipsRow<String>(l10n.formWetSize, options, _wetSize, (v) => setState(() => _wetSize = v)),
-      if (_dirty) _chipsRow<String>(l10n.formDirtySize, options, _dirtySize, (v) => setState(() => _dirtySize = v)),
+      if (_wet) row(l10n.formWetSize, _wetSize, (v) => _wetSize = v),
+      if (_dirty) row(l10n.formDirtySize, _dirtySize, (v) => _dirtySize = v),
     ];
   }
 
