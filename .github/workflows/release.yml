@@ -95,13 +95,14 @@ jobs:
           flutter build apk --release \
             --build-name="${{ steps.version.outputs.version }}" \
             --build-number="${GITHUB_RUN_NUMBER}" \
+            --dart-define=NESTLING_VERSION="${{ steps.version.outputs.version }}" \
             --dart-define=GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID}"
           mkdir -p ../dist
           cp build/app/outputs/flutter-apk/app-release.apk "../dist/nestling-${{ steps.version.outputs.version }}.apk"
 
       - name: Build web app
         run: |
-          flutter build web --release --no-web-resources-cdn
+          flutter build web --release --no-web-resources-cdn --dart-define=NESTLING_VERSION="${{ steps.version.outputs.version }}"
           sh tool/finish_web_build.sh
           (cd build/web && zip -qr "../../../dist/nestling-web-${{ steps.version.outputs.version }}.zip" .)
 

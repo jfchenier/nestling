@@ -1041,5 +1041,17 @@
   "unitKg": "кг",
   "unitLb": "фнт",
   "unitCm": "см",
-  "unitIn": "дюйм"
+  "unitIn": "дюйм",
+  "aboutTitle": "О приложении Nestling",
+  "aboutVersion": "Версия {version}",
+  "aboutTagline": "Открытый дневник малыша на своём сервере.",
+  "aboutAppVersion": "Версия приложения",
+  "aboutServerVersion": "Версия сервера",
+  "aboutDevBuild": "Сборка для разработки",
+  "aboutUnavailable": "Недоступно",
+  "aboutSourceCode": "Исходный код",
+  "aboutLicense": "Лицензия",
+  "aboutLicenseValue": "MIT: свободная и открытая",
+  "aboutOpenSource": "Лицензии открытого ПО",
+  "aboutOpenSourceHint": "Библиотеки, из которых собран Nestling"
 }

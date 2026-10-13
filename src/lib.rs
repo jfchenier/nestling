@@ -30,6 +30,13 @@ use tower_http::{
 
 pub use state::{AppState, Config, NaraConfig};
 
+/// The server's version: `NESTLING_VERSION` at build time (the Docker image's tag, or `main-<commit>`),
+/// else Cargo's.
+pub const VERSION: &str = match option_env!("NESTLING_VERSION") {
+    Some(v) if !v.is_empty() => v,
+    _ => env!("CARGO_PKG_VERSION"),
+};
+
 pub async fn connect(url: &str, max_connections: u32) -> anyhow::Result<SqlitePool> {
     let opts = SqliteConnectOptions::from_str(url)?
         .create_if_missing(true)
@@ -44,7 +51,7 @@ pub async fn connect(url: &str, max_connections: u32) -> anyhow::Result<SqlitePo
 /// Build the HTTP app. `web_dir`, if set, is served at `/` (for the web app).
 pub fn app(state: AppState, web_dir: Option<PathBuf>) -> Router {
     let mut router = Router::new()
-        .route("/health", get(|| async { Json(json!({ "status": "ok", "version": env!("CARGO_PKG_VERSION") })) }))
+        .route("/health", get(|| async { Json(json!({ "status": "ok", "version": VERSION })) }))
         .nest("/api/v1", routes::api())
         .with_state(state);
     if let Some(dir) = web_dir {

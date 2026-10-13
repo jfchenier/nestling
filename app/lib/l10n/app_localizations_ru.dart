@@ -3935,4 +3935,42 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get unitIn => 'дюйм';
+
+  @override
+  String get aboutTitle => 'О приложении Nestling';
+
+  @override
+  String aboutVersion(String version) {
+    return 'Версия $version';
+  }
+
+  @override
+  String get aboutTagline => 'Открытый дневник малыша на своём сервере.';
+
+  @override
+  String get aboutAppVersion => 'Версия приложения';
+
+  @override
+  String get aboutServerVersion => 'Версия сервера';
+
+  @override
+  String get aboutDevBuild => 'Сборка для разработки';
+
+  @override
+  String get aboutUnavailable => 'Недоступно';
+
+  @override
+  String get aboutSourceCode => 'Исходный код';
+
+  @override
+  String get aboutLicense => 'Лицензия';
+
+  @override
+  String get aboutLicenseValue => 'MIT: свободная и открытая';
+
+  @override
+  String get aboutOpenSource => 'Лицензии открытого ПО';
+
+  @override
+  String get aboutOpenSourceHint => 'Библиотеки, из которых собран Nestling';
 }

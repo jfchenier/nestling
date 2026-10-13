@@ -194,6 +194,9 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
 - [x] GitHub Actions: CI (`ci.yml`), Docker image (`docker.yml`) and tag-triggered APK release
       (`release.yml`), all running.
 - [x] On GitHub; releases v0.1.0 to v0.2.1.
+- [x] Settings → About (`app/lib/screens/about.dart`): app version from `--dart-define=NESTLING_VERSION`
+      (set by `release.yml` and the Docker image; empty = development build), the server's from
+      `GET /auth/setup` (`NESTLING_VERSION` at build time, else Cargo's), source link, licenses.
 - [ ] Check the Android signing-key secrets are set (they were lost when the repo was recreated;
       without them release APKs are debug-signed and can't update an installed copy).
 - [ ] Pick the final application id (now `org.nestling.nestling`) before the first public release.
