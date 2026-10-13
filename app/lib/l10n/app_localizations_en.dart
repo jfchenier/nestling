@@ -3483,4 +3483,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get yesterday => 'Yesterday';
+
+  @override
+  String get settingsTemperature => 'Temperature';
+
+  @override
+  String get settingsTimeFormat => 'Time format';
+
+  @override
+  String get settingsClock24 => '24-hour';
+
+  @override
+  String get settingsClock12 => '12-hour';
+
+  @override
+  String get formVolumeUnit => 'Unit for this amount';
 }

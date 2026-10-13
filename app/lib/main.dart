@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'format.dart' show use24h;
 import 'l10n/l10n.dart';
 import 'local/store.dart';
 import 'screens/baby_book.dart';
@@ -39,9 +40,26 @@ class NestlingApp extends StatelessWidget {
     },
     supportedLocales: AppLocalizations.supportedLocales,
     localizationsDelegates: const [AppLocalizations.delegate, GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
-    builder: (context, child) => LocaleWatcher(child: child!),
+    builder: (context, child) => LocaleWatcher(child: _ClockFormat(child: child!)),
     home: const Root(),
   );
+}
+
+/// Keeps [use24h] (time labels) and the time pickers in step with Settings → Time format, and
+/// repaints every screen when it changes.
+class _ClockFormat extends StatelessWidget {
+  const _ClockFormat({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final h24 = context.select<AppState, bool>((s) => s.use24h);
+    if (h24 != use24h) {
+      use24h = h24;
+      WidgetsBinding.instance.addPostFrameCallback((_) => rebuildAll(context));
+    }
+    return MediaQuery(data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: h24), child: child);
+  }
 }
 
 /// Picks sign-in, onboarding or the main app.

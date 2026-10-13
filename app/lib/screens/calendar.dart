@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:provider/provider.dart';
 
-import '../format.dart' show capFirst;
+import '../format.dart' show capFirst, hourMark, timeOfDay, use24h;
 import '../l10n/l10n.dart';
 import '../models.dart';
 import '../state.dart';
@@ -296,7 +296,7 @@ class _DayColumn extends StatelessWidget {
         height: math.max(7.0, y(to) - top),
         child: Semantics(
           button: true,
-          label: '${kind.label} ${DateFormat.Hm().format(e.start)}',
+          label: '${kind.label} ${timeOfDay(e.start)}',
           child: GestureDetector(
             onTap: () => showEventForm(context, type: e.type, event: e),
             child: Container(
@@ -407,11 +407,12 @@ class _ColumnPainter extends CustomPainter {
   bool shouldRepaint(_ColumnPainter old) => old.hour != hour || old.pal != pal || old.now != now;
 }
 
-/// 00, 03 … 24 down the left edge, lined up with the day columns.
+/// 00, 03 … 24 (or 12a, 3a … 12a) down the left edge, lined up with the day columns.
 class _HourLabels extends CustomPainter {
   _HourLabels({required this.pal, required this.hour});
   final AppColors pal;
   final double hour;
+  final bool h24 = use24h;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -419,7 +420,7 @@ class _HourLabels extends CustomPainter {
     for (var h = 0; h <= 24; h += 3) {
       final tp = TextPainter(
         text: TextSpan(
-          text: h.toString().padLeft(2, '0'),
+          text: hourMark(h),
           style: TextStyle(fontSize: 11, color: pal.muted),
         ),
         textDirection: TextDirection.ltr,
@@ -429,5 +430,5 @@ class _HourLabels extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_HourLabels old) => old.hour != hour || old.pal != pal;
+  bool shouldRepaint(_HourLabels old) => old.hour != hour || old.pal != pal || old.h24 != h24;
 }

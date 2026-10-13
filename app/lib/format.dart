@@ -5,8 +5,10 @@ import 'models.dart';
 
 /// Display helpers. The API is metric-only; [Units] converts for imperial users.
 class Units {
-  const Units(this.imperial);
+  /// [fahrenheit] defaults to [imperial]; Settings → Temperature sets it apart.
+  const Units(this.imperial, {bool? fahrenheit}) : fahrenheit = fahrenheit ?? imperial;
   final bool imperial;
+  final bool fahrenheit;
 
   static const _mlPerOz = 29.5735;
   static const _gPerLb = 453.592;
@@ -14,19 +16,19 @@ class Units {
 
   String get volumeUnit => imperial ? 'oz' : 'mL';
   String get lengthUnit => imperial ? 'in' : 'cm';
-  String get tempUnit => imperial ? '°F' : '°C';
+  String get tempUnit => fahrenheit ? '°F' : '°C';
   String get weightUnit => imperial ? 'lb' : 'kg';
 
   // Display value from metric (for form fields).
   double volumeIn(double ml) => imperial ? ml / _mlPerOz : ml;
   double lengthIn(double cm) => imperial ? cm / _cmPerIn : cm;
-  double tempIn(double c) => imperial ? c * 9 / 5 + 32 : c;
+  double tempIn(double c) => fahrenheit ? c * 9 / 5 + 32 : c;
   double weightIn(double g) => imperial ? g / _gPerLb : g / 1000;
 
   // Back to metric (for the API).
   double volumeOut(double v) => imperial ? v * _mlPerOz : v;
   double lengthOut(double v) => imperial ? v * _cmPerIn : v;
-  double tempOut(double v) => imperial ? (v - 32) * 5 / 9 : v;
+  double tempOut(double v) => fahrenheit ? (v - 32) * 5 / 9 : v;
   double weightOut(double v) => imperial ? v * _gPerLb : v * 1000;
 
   String volume(num? ml) => ml == null ? '' : '${_n(volumeIn(ml.toDouble()), imperial ? 1 : 0)} $volumeUnit';
@@ -73,8 +75,23 @@ String ago(int? seconds) {
   return l10n.agoDuration(duration(seconds));
 }
 
-/// 24-hour clock: "07:05", "23:40".
-String timeOfDay(DateTime t) => DateFormat.Hm().format(t);
+/// 24-hour clock ("07:05", "23:40") unless Settings → Time format picks 12-hour ("7:05 AM").
+/// Kept in step with [AppState.use24h] by the app's root widget.
+bool use24h = true;
+
+String timeOfDay(DateTime t) => (use24h ? DateFormat.Hm() : DateFormat('h:mm a')).format(t);
+
+/// A time of day given in minutes since midnight ("06:00" / "6:00 AM"); 1440 is midnight.
+String minutesOfDay(int minutes) => timeOfDay(DateTime(2000, 1, 1, minutes ~/ 60 % 24, minutes % 60));
+
+/// A saved "HH:MM" (day hours, birth time) shown in the chosen time format.
+String hhmmLabel(String hhmm) {
+  final m = RegExp(r'^(\d{1,2}):(\d{2})').firstMatch(hhmm);
+  return m == null ? hhmm : minutesOfDay(int.parse(m.group(1)!) * 60 + int.parse(m.group(2)!));
+}
+
+/// Hour marks on narrow axes: "06" or "6a" / "12p".
+String hourMark(int h) => use24h ? h.toString().padLeft(2, '0') : '${h % 12 == 0 ? 12 : h % 12}${h % 24 < 12 ? 'a' : 'p'}';
 
 String dayLabel(DateTime t) {
   final now = DateTime.now();

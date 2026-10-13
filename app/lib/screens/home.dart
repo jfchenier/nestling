@@ -796,7 +796,7 @@ class _ReminderStripState extends State<_ReminderStrip> {
     final next = DateTime.tryParse('${m['next_at']}')?.toLocal();
     if (next == null) return l10n.homeNoDoseYet;
     if (!next.isAfter(now)) return l10n.homeDoseNow;
-    final at = DateFormat.Hm().format(next);
+    final at = timeOfDay(next);
     final day = DateTime(next.year, next.month, next.day).difference(DateTime(now.year, now.month, now.day)).inDays;
     final when = day == 0
         ? l10n.homeNextDoseToday(at)

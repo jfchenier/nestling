@@ -23,7 +23,7 @@ Future<DateTime?> pickTime(BuildContext context, DateTime initial) async {
     context: context,
     initialTime: TimeOfDay.fromDateTime(initial),
     initialEntryMode: TimePickerEntryMode.dial,
-    builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true), child: child!),
+    builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: use24h), child: child!),
   );
   if (time == null) return null;
   return DateTime(initial.year, initial.month, initial.day, time.hour, time.minute);

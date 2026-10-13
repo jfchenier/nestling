@@ -86,7 +86,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 14, 4, 0),
                   child: Text(
-                    '${_days == 1 ? l10n.trendsIntroToday(s.family?.dayEnd ?? '18:00', s.family?.dayStart ?? '06:00') : l10n.trendsIntro(toInt(avg['days']) ?? 0, s.family?.dayEnd ?? '18:00', s.family?.dayStart ?? '06:00')} '
+                    '${_days == 1 ? l10n.trendsIntroToday(hhmmLabel(s.family?.dayEnd ?? '18:00'), hhmmLabel(s.family?.dayStart ?? '06:00')) : l10n.trendsIntro(toInt(avg['days']) ?? 0, hhmmLabel(s.family?.dayEnd ?? '18:00'), hhmmLabel(s.family?.dayStart ?? '06:00'))} '
                     '${prev == null ? l10n.trendsCompareNone(_days) : l10n.trendsCompareArrows(_days)}',
                     style: TextStyle(color: context.pal.muted, fontSize: 12),
                   ),

@@ -5781,6 +5781,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Yesterday'**
   String get yesterday;
+
+  /// No description provided for @settingsTemperature.
+  ///
+  /// In en, this message translates to:
+  /// **'Temperature'**
+  String get settingsTemperature;
+
+  /// No description provided for @settingsTimeFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Time format'**
+  String get settingsTimeFormat;
+
+  /// No description provided for @settingsClock24.
+  ///
+  /// In en, this message translates to:
+  /// **'24-hour'**
+  String get settingsClock24;
+
+  /// No description provided for @settingsClock12.
+  ///
+  /// In en, this message translates to:
+  /// **'12-hour'**
+  String get settingsClock12;
+
+  /// No description provided for @formVolumeUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'Unit for this amount'**
+  String get formVolumeUnit;
 }
 
 class _AppLocalizationsDelegate

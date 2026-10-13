@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../format.dart';
@@ -55,6 +54,10 @@ class _EventFormState extends State<EventForm> {
   late final _right = _minutes(e?['right_seconds']);
   late String? _startSide = e?['start_side'];
   late final _amount = _num(e?['amount_ml'], u.volumeIn);
+  // Bottle and pump amounts can be typed in mL or oz whatever the units setting (the toggle by the field).
+  late bool _oz = u.imperial;
+  Units get _vol => Units(_oz);
+  final _exactMl = <TextEditingController, (String, double)>{};
   late String? _milk = e?['milk'] ?? (widget.method == 'bottle' || widget.method == 'combo' ? 'formula' : null);
   late final _formula = TextEditingController(text: e?['formula_name'] ?? '');
   late final _foods = TextEditingController(text: e?['foods'] ?? '');
@@ -97,6 +100,28 @@ class _EventFormState extends State<EventForm> {
     if (v == null) return TextEditingController();
     final s = conv(v).toStringAsFixed(digits);
     return TextEditingController(text: s.contains('.') ? s.replaceFirst(RegExp(r'\.?0+$'), '') : s);
+  }
+
+  /// A volume field in mL for the API: the value it was switched from when untouched since a toggle.
+  double? _ml(TextEditingController c) {
+    if (_exactMl[c] case (final text, final ml) when text == c.text) return double.parse(ml.toStringAsFixed(2));
+    final v = _read(c);
+    return v == null ? null : double.parse(_vol.volumeOut(v).toStringAsFixed(2));
+  }
+
+  /// Switches the volume fields between mL and oz, converting what is typed.
+  void _setOz(bool oz) {
+    if (oz == _oz) return;
+    final exact = {for (final c in [_amount, _leftMl, _rightMl]) c: _ml(c)};
+    setState(() {
+      _oz = oz;
+      for (final MapEntry(key: c, value: ml) in exact.entries) {
+        if (ml == null) continue;
+        final s = _vol.volumeIn(ml).toStringAsFixed(oz ? 1 : 0);
+        c.text = s.contains('.') ? s.replaceFirst(RegExp(r'\.?0+$'), '') : s;
+        _exactMl[c] = (c.text, ml);
+      }
+    });
   }
 
   static double? _read(TextEditingController c) => double.tryParse(c.text.trim().replaceAll(',', '.'));
@@ -144,7 +169,7 @@ class _EventFormState extends State<EventForm> {
                       : null))
             : null;
         final bottle = _method == 'bottle' || _method == 'combo';
-        body['amount_ml'] = bottle ? out(_amount, u.volumeOut) : null;
+        body['amount_ml'] = bottle ? _ml(_amount) : null;
         body['milk'] = bottle ? _milk : null;
         body['formula_name'] = bottle && _milk != 'breast_milk' ? _text(_formula) : null;
         body['foods'] = _method == 'solids' ? _text(_foods) : null;
@@ -170,8 +195,8 @@ class _EventFormState extends State<EventForm> {
         body['color'] = _dirty ? _color : null;
         body['consistency'] = _dirty ? _consistency : null;
       case 'pump':
-        body['left_ml'] = out(_leftMl, u.volumeOut);
-        body['right_ml'] = out(_rightMl, u.volumeOut);
+        body['left_ml'] = _ml(_leftMl);
+        body['right_ml'] = _ml(_rightMl);
         final s = secs(_pumpMinutes);
         body['end'] = s == null ? null : formatTime(_start.add(Duration(seconds: s)));
       case 'growth':
@@ -408,9 +433,9 @@ class _EventFormState extends State<EventForm> {
     if (m == null || m['due'] == true) return null;
     final next = DateTime.tryParse('${m['next_at']}')?.toLocal(), last = DateTime.tryParse('${m['last_at']}')?.toLocal();
     if (next == null || !_start.isBefore(next)) return null;
-    final at = DateFormat.Hm().format(next);
+    final at = timeOfDay(next);
     if (m['limited'] == true) return l10n.formMedLimited(toInt(m['doses_24h']) ?? 0, at);
-    return l10n.formMedTooSoon(last == null ? '?' : DateFormat.Hm().format(last), at);
+    return l10n.formMedTooSoon(last == null ? '?' : timeOfDay(last), at);
   }
 
   Widget _warningRow(String text) => Container(
@@ -447,6 +472,37 @@ class _EventFormState extends State<EventForm> {
   Widget _numRow(String label, TextEditingController c, String? unit) => FormRow(
     label: label,
     child: InlineNumber(controller: c, unit: unit),
+  );
+
+  /// A bottle or pump amount with its mL / oz toggle.
+  Widget _volumeRow(String label, TextEditingController c) => FormRow(
+    label: label,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InlineNumber(controller: c, width: 80),
+        const SizedBox(width: 10),
+        Semantics(
+          label: l10n.formVolumeUnit,
+          child: SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: false, label: Text('mL')),
+              ButtonSegment(value: true, label: Text('oz')),
+            ],
+            selected: {_oz},
+            showSelectedIcon: false,
+            style: SegmentedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              selectedBackgroundColor: kind.fill(context.pal),
+              selectedForegroundColor: context.pal.bandInk,
+              side: BorderSide(color: context.pal.line),
+            ),
+            onSelectionChanged: (v) => _setOz(v.first),
+          ),
+        ),
+      ],
+    ),
   );
 
   Widget _textRow(String label, TextEditingController c, {String hint = ''}) => FormRow(
@@ -499,7 +555,7 @@ class _EventFormState extends State<EventForm> {
             ),
           ],
           if (_method == 'bottle' || _method == 'combo') ...[
-            _numRow(l10n.formAmount, _amount, u.volumeUnit),
+            _volumeRow(l10n.formAmount, _amount),
             _chipsRow<String>(
               l10n.formMilk,
               {'formula': l10n.milkFormula, 'breast_milk': l10n.milkBreastMilk, 'mixed': l10n.milkMixed},
@@ -560,8 +616,8 @@ class _EventFormState extends State<EventForm> {
       case 'pump':
         return [
           _timeRow(l10n.formStartTime, _start, (v) => setState(() => _start = v)),
-          _numRow(l10n.left, _leftMl, u.volumeUnit),
-          _numRow(l10n.right, _rightMl, u.volumeUnit),
+          _volumeRow(l10n.left, _leftMl),
+          _volumeRow(l10n.right, _rightMl),
           _numRow(l10n.formDuration, _pumpMinutes, 'min'),
         ];
       case 'growth':

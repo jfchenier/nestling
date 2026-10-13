@@ -92,7 +92,7 @@ activity color. Colors live in
 - **Forms** — a sheet with the activity's icon and title, label/value rows and a big Save button
   (medicines, activities and solid foods are picked from the child's past entries, then a common
   list, or typed in: `widgets/medicine_picker.dart`):
-  breastfeeding (manual), bottle, solids, sleep, diaper (wet/dirty/dry, color, consistency, rash,
+  breastfeeding (manual), bottle (mL or oz, picked by the field; pump too), solids, sleep, diaper (wet/dirty/dry, color, consistency, rash,
   blowout) or potty trip (sat, pee/poo in the potty, accident; on the same page), pump, growth,
   health (medicine, temperature, vaccine, symptom, appointment), activity, milestone, note. Tap any
   entry to edit or delete it.
@@ -141,7 +141,7 @@ activity color. Colors live in
   add buttons or edit pencils, empty pages hidden; the top bar has Switch baby (when there are
   several) and a short Settings (units, appearance, join another family, leave this one, account).
   The server enforces it (`book_viewer` role, see `docs/API.md`).
-- **Settings** (Home's menu → Settings) — units (metric/imperial), appearance, daytime hours for the day/night split (Day and night), time zone, Google Drive sync
+- **Settings** (Home's menu → Settings) — units (metric/imperial; the account's), temperature (°C/°F) and time format (24/12-hour), both saved on the device, appearance, daytime hours for the day/night split (Day and night), time zone, Google Drive sync
   (serverless) and backup and restore, history import from a previous tracker's CSV export (preview first),
   CSV export of everything, API token for Home Assistant; account: change password, users
   (admins), sign out.
@@ -247,7 +247,7 @@ lib/
                        validation, timer math, daily stats) and requests answered locally (engine.dart)
   api/stream*.dart     live updates (EventSource on web, streamed HTTP elsewhere)
   models.dart          Me, Family, Child, Event, TimerModel
-  format.dart          units (metric/imperial), durations, event descriptions
+  format.dart          units (metric/imperial, °C/°F), 24/12-hour times, durations, event descriptions
   theme.dart           colors, per-activity look (Kind), Material theme
   api/local_api.dart   serverless mode: the same requests answered from the device's copy
   local/peer_sync.dart, pairing.dart, relay.dart, drive_*.dart   phone-to-phone sync, Drive relay and backup

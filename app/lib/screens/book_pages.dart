@@ -249,7 +249,7 @@ class BornPage extends StatelessWidget {
         children: [
           _PageHead(l10n.pagesBornTitle, Icons.child_friendly_rounded, subtitle: born == null ? null : capFirst(DateFormat.EEEE().format(born))),
           if (born != null) _Line(l10n.pagesBorn, DateFormat.yMMMMd().format(born)),
-          if (book['birth_time'] case final t?) _Line(l10n.pagesAt, t),
+          if (book['birth_time'] case final String t) _Line(l10n.pagesAt, hhmmLabel(t)),
           if (book['birth_place'] case final p?) _Line(l10n.pagesWhere, p),
           if (first?.$2 case final w?) _Line(l10n.pagesWeighed, units.weight(w)),
           if (first?.$3 case final l?) _Line(l10n.pagesMeasured, units.length(l)),
@@ -566,6 +566,7 @@ class _PageFormState extends State<_PageForm> {
       initialTime: m == null
           ? const TimeOfDay(hour: 12, minute: 0)
           : TimeOfDay(hour: int.parse(m.group(1)!), minute: int.parse(m.group(2)!)),
+      builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: use24h), child: child!),
     );
     if (t != null) {
       setState(() => _time = '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}');
@@ -626,7 +627,7 @@ class _PageFormState extends State<_PageForm> {
                       label: l10n.pagesTimeOfBirth,
                       onTap: _pickTime,
                       child: Text(
-                        _time ?? l10n.pagesSetTime,
+                        _time == null ? l10n.pagesSetTime : hhmmLabel(_time!),
                         style: TextStyle(fontWeight: FontWeight.w600, color: _time == null ? c.accent : c.ink),
                       ),
                     ),

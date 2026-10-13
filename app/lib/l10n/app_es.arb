@@ -946,5 +946,10 @@
   "usersTitle": "Usuarios",
   "wet": "Pipí",
   "wetAndDirty": "Pipí + caca",
-  "yesterday": "Ayer"
+  "yesterday": "Ayer",
+  "settingsTemperature": "Temperatura",
+  "settingsTimeFormat": "Formato de hora",
+  "settingsClock24": "24 h",
+  "settingsClock12": "12 h",
+  "formVolumeUnit": "Unidad de esta cantidad"
 }

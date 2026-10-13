@@ -946,5 +946,10 @@
   "usersTitle": "Utilisateurs",
   "wet": "Urine",
   "wetAndDirty": "Mixte",
-  "yesterday": "Hier"
+  "yesterday": "Hier",
+  "settingsTemperature": "Température",
+  "settingsTimeFormat": "Format de l'heure",
+  "settingsClock24": "24 h",
+  "settingsClock12": "12 h",
+  "formVolumeUnit": "Unité de cette quantité"
 }

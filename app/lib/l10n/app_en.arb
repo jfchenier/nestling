@@ -1273,5 +1273,10 @@
   "usersTitle": "Users",
   "wet": "Wet",
   "wetAndDirty": "Wet + dirty",
-  "yesterday": "Yesterday"
+  "yesterday": "Yesterday",
+  "settingsTemperature": "Temperature",
+  "settingsTimeFormat": "Time format",
+  "settingsClock24": "24-hour",
+  "settingsClock12": "12-hour",
+  "formVolumeUnit": "Unit for this amount"
 }

@@ -137,7 +137,7 @@ class FamilyScreen extends StatelessWidget with _FamilyActions {
   }
 }
 
-/// Settings and the account (Home's menu → Settings): units, appearance, language, day and night, time zone, Drive sync and backup, Nara import, export, API token.
+/// Settings and the account (Home's menu → Settings): units, temperature, time format, appearance, language, day and night, time zone, Drive sync and backup, Nara import, export, API token.
 class SettingsScreen extends StatelessWidget with _FamilyActions {
   const SettingsScreen({super.key});
 
@@ -159,9 +159,33 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
                 children: [
                   SwitchListTile(
                     title: Text(l10n.familyImperialUnits),
-                    subtitle: Text(s.units.imperial ? 'oz, lb, in, °F' : 'mL, kg, cm, °C'),
+                    subtitle: Text(s.units.imperial ? 'oz, lb, in' : 'mL, kg, cm'),
                     value: s.units.imperial,
                     onChanged: (v) => guard(context, () => s.setUnits(v)),
+                  ),
+                  ListTile(
+                    title: Text(l10n.settingsTemperature),
+                    trailing: SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment(value: false, label: Text('°C')),
+                        ButtonSegment(value: true, label: Text('°F')),
+                      ],
+                      selected: {s.fahrenheit},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (v) => s.setFahrenheit(v.first),
+                    ),
+                  ),
+                  ListTile(
+                    title: Text(l10n.settingsTimeFormat),
+                    trailing: SegmentedButton<bool>(
+                      segments: [
+                        ButtonSegment(value: true, label: Text(l10n.settingsClock24)),
+                        ButtonSegment(value: false, label: Text(l10n.settingsClock12)),
+                      ],
+                      selected: {s.use24h},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (v) => s.setUse24h(v.first),
+                    ),
                   ),
                   ListTile(
                     title: Text(l10n.familyAppearance),
@@ -211,7 +235,7 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
                     ListTile(
                       leading: const Icon(Icons.wb_twilight_rounded),
                       title: Text(l10n.familyDayNight),
-                      subtitle: Text(l10n.familyDaytime(f.dayEnd, f.dayStart)),
+                      subtitle: Text(l10n.familyDaytime(hhmmLabel(f.dayEnd), hhmmLabel(f.dayStart))),
                       trailing: const Icon(Icons.chevron_right_rounded),
                       onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const DayHoursScreen())),
                     ),
@@ -798,7 +822,7 @@ class _DriveBackupTileState extends State<DriveBackupTile> {
             ? l10n.familyAndroidOnly
             : last == null
             ? widget.hint ?? l10n.familyBackupHint
-            : l10n.familyLastBackup(d.account ?? '', '${DateFormat.MMMd().format(last)}, ${DateFormat.Hm().format(last)}'),
+            : l10n.familyLastBackup(d.account ?? '', '${DateFormat.MMMd().format(last)}, ${timeOfDay(last)}'),
       ),
       trailing: _busy ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : null,
       enabled: DriveBackup.available && !_busy,

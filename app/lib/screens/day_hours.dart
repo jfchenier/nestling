@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../format.dart' show hourMark, minutesOfDay, use24h;
 import '../local/domain.dart' show dayWindowOf, hhmm;
 import '../l10n/l10n.dart';
 import '../state.dart';
@@ -33,7 +34,7 @@ class _DayHoursScreenState extends State<DayHoursScreen> {
     final t = await showTimePicker(
       context: context,
       initialTime: TimeOfDay(hour: minutes ~/ 60 % 24, minute: minutes % 60),
-      builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true), child: child!),
+      builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: use24h), child: child!),
     );
     if (t == null || !mounted) return;
     final v = t.hour * 60 + t.minute;
@@ -120,7 +121,7 @@ class _TimeBox extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(hhmm(minutes), style: serifStyle(26)),
+                    Text(minutesOfDay(minutes), style: serifStyle(26)),
                     const SizedBox(height: 2),
                     Text(label, style: TextStyle(color: pal.muted, fontSize: 13)),
                   ],
@@ -262,7 +263,7 @@ class _DayBarState extends State<_DayBar> {
                       left: h == 0 ? 0 : (h == 24 ? w - 40 : x(h * 60) - 20),
                       width: 40,
                       child: Text(
-                        hhmm(h * 60),
+                        hourMark(h),
                         textAlign: h == 0 ? TextAlign.left : (h == 24 ? TextAlign.right : TextAlign.center),
                         style: TextStyle(fontSize: 11, color: pal.muted),
                       ),
