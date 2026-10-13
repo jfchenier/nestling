@@ -163,8 +163,14 @@ class HomeScreen extends StatelessWidget {
           }();
 
     void open(String timerKind) => TimerScreen.open(context, timerKind);
-    void openBook({bool addMemory = false}) =>
-        Navigator.of(context).push(MaterialPageRoute(builder: (_) => BabyBookScreen(addMemory: addMemory)));
+    void openBook({String? showMemory}) =>
+        Navigator.of(context).push(MaterialPageRoute(builder: (_) => BabyBookScreen(showMemory: showMemory)));
+    // The Firsts card: "New memory" over Home; the book opens on the memory only once it's saved.
+    Future<void> addMemory() async {
+      final id = await showMemoryForm(context);
+      if (id != null && context.mounted) openBook(showMemory: id);
+    }
+
     // Tapping a card logs one (or opens its running timer); the clock icon opens its history.
     _ActivityCard card(Kind kind, String title, _CardData data, VoidCallback log, String filter, [TimerModel? running]) => _ActivityCard(
       kind: kind,
@@ -212,8 +218,8 @@ class HomeScreen extends StatelessWidget {
         Kind.milestone,
         l10n.homeCardFirsts,
         simple(latest('milestone'), (e) => (e['name'] as String?) ?? l10n.kindMilestone),
-        // "New memory" over the baby book, which shows once it's saved or closed.
-        () => openBook(addMemory: true),
+        // "New memory" over Home; the book opens on it once saved.
+        addMemory,
         'milestone',
       ),
     ];
