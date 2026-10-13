@@ -30,7 +30,8 @@ class _TimelineScreenState extends State<TimelineScreen> {
     'pump': l10n.kindPump,
     'growth': l10n.kindGrowth,
     'health': l10n.kindHealth,
-    'activity,milestone,note': l10n.timelineOther,
+    'activity,note': l10n.homeCardRoutine,
+    'milestone': l10n.homeCardFirsts,
   };
 
   final _scroll = ScrollController();

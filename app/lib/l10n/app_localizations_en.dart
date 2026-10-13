@@ -3040,9 +3040,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get timelineOther => 'Other';
-
-  @override
   String get timelineSummary => 'Summary';
 
   @override
@@ -3252,13 +3249,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get trendsBreastfeeding => 'Breastfeeding';
 
   @override
-  String trendsCompareArrows(Object count) {
-    return 'Arrows compare with the $count days before.';
+  String trendsCompareArrows(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Arrows compare with the $count days before.',
+      one: 'Arrows compare with yesterday.',
+    );
+    return '$_temp0';
   }
 
   @override
-  String trendsCompareNone(Object count) {
-    return 'Nothing logged in the $count days before to compare with.';
+  String trendsCompareNone(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Nothing logged in the $count days before to compare with.',
+      one: 'Nothing logged yesterday to compare with.',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -3274,8 +3283,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get trendsDaySleep => 'Daytime sleep';
 
   @override
-  String trendsDays(Object count) {
-    return '$count days';
+  String trendsDays(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days',
+      one: '1 day',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -3303,6 +3318,11 @@ class AppLocalizationsEn extends AppLocalizations {
       one: 'Daily averages over 1 full day; daytime is $start–$end.',
     );
     return '$_temp0';
+  }
+
+  @override
+  String trendsIntroToday(Object end, Object start) {
+    return 'Today so far; daytime is $start–$end.';
   }
 
   @override
