@@ -463,7 +463,6 @@
   "homeLiveTooltip": "En directo: los cambios de otros cuidadores aparecen al instante",
   "homeLog": "Registrar",
   "homeLogCard": "Registrar: {title}",
-  "homeLogFeed": "Registrar una toma",
   "homeNaps": "{count, plural, =1{1 siesta} other{{count} siestas}}",
   "homeNavBook": "Álbum",
   "homeNavCalendar": "Calendario",
@@ -1020,11 +1019,11 @@
   "settingsClock24": "24 h",
   "settingsClock12": "12 h",
   "formVolumeUnit": "Unidad de esta cantidad",
-  "homeLogPump": "Registrar extracción",
   "homePumpTimer": "Temporizador",
-  "homePumpAmount": "Solo cantidad",
   "settingsUnits": "Unidades",
   "settingsMetric": "Métrico",
   "settingsImperial": "Imperial",
-  "growthUnits": "Unidades de estas curvas"
+  "growthUnits": "Unidades de estas curvas",
+  "logBreast": "Pecho",
+  "logAmount": "Cantidad"
 }

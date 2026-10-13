@@ -90,6 +90,12 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The kind of feed (breast, bottle, solids, combo) or pump entry (timer, amount) last picked
+  /// on this phone; the Feed and Pump pages open on it.
+  String? logChoice(String group) => _prefs.getString('log_choice_$group');
+
+  void setLogChoice(String group, String choice) => _prefs.setString('log_choice_$group', choice);
+
   SyncApi? api;
 
   /// The server can't be reached right now: changes are saved here and synced later.

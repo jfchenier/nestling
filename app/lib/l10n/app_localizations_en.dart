@@ -1709,9 +1709,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get homeLogFeed => 'Log a feed';
-
-  @override
   String homeNaps(num count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -3789,13 +3786,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get formVolumeUnit => 'Unit for this amount';
 
   @override
-  String get homeLogPump => 'Log pumping';
-
-  @override
   String get homePumpTimer => 'Timer';
-
-  @override
-  String get homePumpAmount => 'Amount only';
 
   @override
   String get settingsUnits => 'Units';
@@ -3808,4 +3799,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get growthUnits => 'Units for these charts';
+
+  @override
+  String get logBreast => 'Breast';
+
+  @override
+  String get logAmount => 'Amount';
 }

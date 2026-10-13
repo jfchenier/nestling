@@ -28,11 +28,14 @@ Future<void> showEventForm(BuildContext context, {String? type, String? method, 
     );
 
 class EventForm extends StatefulWidget {
-  const EventForm({super.key, required this.type, this.method, this.event, this.prefill});
+  const EventForm({super.key, required this.type, this.method, this.event, this.prefill, this.embedded = false});
   final String type;
   final String? method;
   final Event? event;
   final Map<String, dynamic>? prefill;
+
+  /// Inside the Feed or Pump page ([LogScreen]), which has its own title: no handle or header.
+  final bool embedded;
 
   @override
   State<EventForm> createState() => _EventFormState();
@@ -330,26 +333,28 @@ class _EventFormState extends State<EventForm> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Center(
-                child: Container(
-                  margin: const EdgeInsets.only(top: 10),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(color: c.line, borderRadius: BorderRadius.circular(2)),
+              if (!widget.embedded) ...[
+                Center(
+                  child: Container(
+                    margin: const EdgeInsets.only(top: 10),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(color: c.line, borderRadius: BorderRadius.circular(2)),
+                  ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
-                child: Row(
-                  children: [
-                    BlobIcon(k, size: 46),
-                    const SizedBox(width: 14),
-                    Expanded(child: Text(e == null ? _title : l10n.formEditTitle(_title.toLowerCase()), style: serifStyle(24))),
-                    if (e != null)
-                      IconButton(onPressed: _delete, tooltip: l10n.delete, icon: const Icon(Icons.delete_outline_rounded), color: c.danger),
-                  ],
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 12, 10),
+                  child: Row(
+                    children: [
+                      BlobIcon(k, size: 46),
+                      const SizedBox(width: 14),
+                      Expanded(child: Text(e == null ? _title : l10n.formEditTitle(_title.toLowerCase()), style: serifStyle(24))),
+                      if (e != null)
+                        IconButton(onPressed: _delete, tooltip: l10n.delete, icon: const Icon(Icons.delete_outline_rounded), color: c.danger),
+                    ],
+                  ),
                 ),
-              ),
+              ],
               Divider(height: 1, color: c.line),
               Flexible(
                 child: ListView(
