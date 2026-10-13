@@ -2473,6 +2473,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get pagesTimeOfBirth => 'Heure de naissance';
 
   @override
+  String get pagesTreeBabyPhoto =>
+      'Sa photo au pied de l\'arbre, autre que la photo de profil.';
+
+  @override
   String pagesTreeGrandparent(int n) {
     return 'Son parent (côté $n)';
   }

@@ -672,6 +672,7 @@
   "pagesStoryTitle": "L'histoire de ta naissance",
   "pagesTapToEdit": "{title}. Touchez pour modifier.",
   "pagesTimeOfBirth": "Heure de naissance",
+  "pagesTreeBabyPhoto": "Sa photo au pied de l'arbre, autre que la photo de profil.",
   "pagesTreeGrandparent": "Son parent (côté {n})",
   "pagesTreeOthers": "Oncles, tantes et cousins",
   "pagesTreeParent": "Parent {n}",
