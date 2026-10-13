@@ -7,7 +7,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::{
-    auth::{family_tz, member_role, require_member, require_owner, AuthUser, BOOK_VIEWER},
+    auth::{family_tz, member_role, require_member, require_owner, AuthUser, BOOK_VIEWER, INTEGRATION},
     error::{bad, ApiJson, AppError, AppResult},
     routes::children::{book_view, children_json},
     state::AppState,
@@ -26,7 +26,7 @@ pub async fn family_json(state: &AppState, family_id: &str, user_id: &str) -> Ap
             .await?;
     let members: Vec<(String, String, String, String)> = sqlx::query_as(
         "SELECT u.id, u.name, u.email, m.role FROM memberships m JOIN users u ON u.id = m.user_id
-         WHERE m.family_id = ? ORDER BY m.created_at",
+         WHERE m.family_id = ? AND u.kind = 'person' ORDER BY m.created_at",
     )
     .bind(family_id)
     .fetch_all(&state.db)
@@ -189,6 +189,14 @@ pub(crate) fn check_role(role: &str) -> AppResult<()> {
     }
 }
 
+/// A member's role; connected apps aren't members here (they have `/families/{id}/integrations`).
+async fn person_role(state: &AppState, family_id: &str, member_id: &str) -> AppResult<String> {
+    match member_role(&state.db, family_id, member_id).await {
+        Ok(role) if role != INTEGRATION => Ok(role),
+        _ => Err(AppError::NotFound("member")),
+    }
+}
+
 /// How many owners the family has.
 async fn owner_count(state: &AppState, family_id: &str) -> AppResult<i64> {
     let (owners,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM memberships WHERE family_id = ? AND role = 'owner'")
@@ -212,7 +220,7 @@ pub async fn update_member(
 ) -> AppResult<Json<Value>> {
     require_owner(&state.db, &family_id, &user.id).await?;
     check_role(&req.role)?;
-    let current = member_role(&state.db, &family_id, &member_id).await.map_err(|_| AppError::NotFound("member"))?;
+    let current = person_role(&state, &family_id, &member_id).await?;
     if current == "owner" && req.role != "owner" && owner_count(&state, &family_id).await? <= 1 {
         return Err(AppError::Conflict("a family needs at least one owner".into()));
     }
@@ -257,9 +265,7 @@ pub async fn remove_member(State(state): State<AppState>, user: AuthUser, Path((
     if member_id != user.id && my_role != "owner" {
         return Err(AppError::Forbidden("only an owner can remove other members".into()));
     }
-    let target_role = member_role(&state.db, &family_id, &member_id)
-        .await
-        .map_err(|_| AppError::NotFound("member"))?;
+    let target_role = person_role(&state, &family_id, &member_id).await?;
     if target_role == "owner" && owner_count(&state, &family_id).await? <= 1 {
         return Err(AppError::Conflict("a family needs at least one owner; delete the family instead".into()));
     }

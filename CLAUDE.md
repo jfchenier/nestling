@@ -50,7 +50,11 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
   Roles: `owner`, `caregiver`, `book_viewer` (book only, read-only, e.g. grandparents: milestone and
   growth entries, children without medicines/reminders; `auth::require_member` / `child_access`
   refuse them, `member_role` / `child_book_access` let them read). Owners change roles
-  (`PATCH /families/{id}/members/{user_id}`).
+  (`PATCH /families/{id}/members/{user_id}`). Connected apps (role and user `kind` `integration`,
+  e.g. Home Assistant): non-person members an owner adds under Family → Connected apps
+  (`/families/{id}/integrations`, `src/routes/integrations.rs`); a token only, no sign-in, only the
+  routes in `auth::integration_may`; their entries carry their name. Not in `members` or `/admin/users`.
+  The integration itself lives in the separate `jfchenier/nestling-homeassistant` repository.
 - Accounts: the first account on a server is the **admin**; sign-up is then closed
   (`NESTLING_OPEN_REGISTRATION` default false) and admins create accounts (`/admin/users`, app:
   Settings → Users). Recovery CLI: `nestling set-password <email> <pw>`, `nestling make-admin <email>`.
@@ -175,7 +179,7 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       folder daily once turned on; Settings → Restore from Google Drive (or setup) brings it back on any
       server or without one. Photos find their entries through the import's `ids` (source id →
       event id; events carry `source_id`). Needs the same Google OAuth client as serverless Drive.
-- [ ] Optional: Home Assistant integration (`/children/{id}/summary` already works as a REST sensor).
+- [ ] Home Assistant integration (HACS, `jfchenier/nestling-homeassistant`): logging actions, timers, sensors; in progress.
 - Note: SSE behind a reverse proxy needs response buffering disabled (the stream sends `X-Accel-Buffering: no`,
   which covers nginx). The app reconnects after 40 s without the 15 s `ping`, on resume, and reloads on reconnect.
 

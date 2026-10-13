@@ -546,6 +546,75 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "409": { $ref: "#/components/responses/Conflict" }
 
+  /families/{id}/integrations:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [families]
+      operationId: listIntegrations
+      summary: The family's connected apps (owners only)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [integrations]
+                properties:
+                  integrations:
+                    type: array
+                    items: { $ref: "#/components/schemas/Integration" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      tags: [families]
+      operationId: createIntegration
+      summary: Add a connected app such as Home Assistant (owners only)
+      description: |
+        A family member that is not a person: entries it logs show its `name` as the caregiver.
+        It can't sign in; it uses the API token returned here, shown only this once, and can only
+        do what the `integration` role allows.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, maxLength: 60, example: Home Assistant }
+      responses:
+        "201":
+          description: The connected app and its token
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Integration"
+                  - type: object
+                    required: [token]
+                    properties:
+                      token: { type: string }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /families/{id}/integrations/{integration_id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+      - name: integration_id
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      tags: [families]
+      operationId: deleteIntegration
+      summary: Remove a connected app (owners only); its token stops working, its entries stay
+      responses:
+        "204": { description: Removed }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   # ---------------------------------------------------------------- children
   /families/{id}/children:
     parameters:
@@ -1437,7 +1506,11 @@ components:
         only reads the baby book: its children (without medicines and reminders), their photos,
         milestone and growth entries and their photos, the family sync (those entries only, no
         timers) and the live stream (those changes only). Everything else answers 403.
-      enum: [owner, caregiver, book_viewer]
+        `integration` is a connected app such as Home Assistant (see `/families/{id}/integrations`):
+        it reads the family, its children, summaries, trends, the sync and the live stream, and
+        logs, edits and deletes entries and runs timers; everything else answers 403. It is never
+        given to a person and doesn't show in `members`.
+      enum: [owner, caregiver, book_viewer, integration]
     Sex:
       type: string
       enum: [female, male, other]
@@ -1467,6 +1540,14 @@ components:
             families:
               type: array
               items: { $ref: "#/components/schemas/FamilyRef" }
+    Integration:
+      type: object
+      required: [id, name, created_at, last_used_at]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        created_at: { type: string, format: date-time }
+        last_used_at: { type: string, format: date-time, nullable: true }
     FamilyRef:
       type: object
       required: [id, name, role]

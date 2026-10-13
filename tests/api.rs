@@ -1306,3 +1306,88 @@ async fn reads_work_while_the_database_is_locked_for_writing() {
     drop(other);
     let _ = std::fs::remove_file(&path);
 }
+
+#[tokio::test]
+async fn connected_app_logs_under_its_own_name() {
+    let c = Client::new().await;
+    let mom = c.register("mom@example.com", "Mom").await;
+    let dad = c.register("dad@example.com", "Dad").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&mom), Some(json!({ "name": "Home" }))).await;
+    let fid = fam["id"].as_str().unwrap().to_string();
+    let (_, child) = c
+        .call(Method::POST, &format!("/families/{fid}/children"), Some(&mom), Some(json!({ "name": "Léa", "birth_date": "2026-06-01" })))
+        .await;
+    let cid = child["id"].as_str().unwrap().to_string();
+    let (_, inv) = c.call(Method::POST, &format!("/families/{fid}/invites"), Some(&mom), None).await;
+    c.call(Method::POST, &format!("/invites/{}/accept", inv["code"].as_str().unwrap()), Some(&dad), None).await;
+
+    // Only owners add one; the token comes once.
+    let (s, _) = c.call(Method::POST, &format!("/families/{fid}/integrations"), Some(&dad), Some(json!({ "name": "Home Assistant" }))).await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    let (s, _) = c.call(Method::POST, &format!("/families/{fid}/integrations"), Some(&mom), Some(json!({ "name": " " }))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let (s, ha) = c.call(Method::POST, &format!("/families/{fid}/integrations"), Some(&mom), Some(json!({ "name": "Home Assistant" }))).await;
+    assert_eq!(s, StatusCode::CREATED, "{ha}");
+    let ha_id = ha["id"].as_str().unwrap().to_string();
+    let token = ha["token"].as_str().unwrap().to_string();
+    let (_, list) = c.call(Method::GET, &format!("/families/{fid}/integrations"), Some(&mom), None).await;
+    assert_eq!(list["integrations"].as_array().unwrap().len(), 1, "{list}");
+    assert!(list["integrations"][0].get("token").is_none(), "{list}");
+
+    // It isn't a member people see or manage.
+    let (_, f) = c.call(Method::GET, &format!("/families/{fid}"), Some(&mom), None).await;
+    assert_eq!(f["members"].as_array().unwrap().len(), 2, "{f}");
+    let (s, _) = c.call(Method::PATCH, &format!("/families/{fid}/members/{ha_id}"), Some(&mom), Some(json!({ "role": "owner" }))).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    let (_, users) = c.call(Method::GET, "/admin/users", Some(&mom), None).await;
+    assert_eq!(users["users"].as_array().unwrap().len(), 2, "{users}");
+    let (s, _) = c.call(Method::POST, "/auth/login", None, Some(json!({ "email": format!("{ha_id}@integration.invalid"), "password": "" }))).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+
+    // It finds its family, logs entries and runs timers, under its own name.
+    let (s, me) = c.call(Method::GET, "/me", Some(&token), None).await;
+    assert_eq!(s, StatusCode::OK, "{me}");
+    assert_eq!(me["families"][0]["role"], "integration", "{me}");
+    let (s, e) = c.call(Method::POST, &format!("/children/{cid}/events"), Some(&token), Some(json!({ "type": "diaper", "wet": true }))).await;
+    assert_eq!(s, StatusCode::CREATED, "{e}");
+    assert_eq!(e["created_by"], ha_id.as_str());
+    let (s, t) = c.call(Method::POST, &format!("/children/{cid}/timers"), Some(&token), Some(json!({ "kind": "sleep" }))).await;
+    assert_eq!(s, StatusCode::CREATED, "{t}");
+    let (s, saved) = c.call(Method::POST, &format!("/timers/{}/stop", t["id"].as_str().unwrap()), Some(&token), None).await;
+    assert_eq!(s, StatusCode::CREATED, "{saved}");
+    for path in [format!("/children/{cid}/summary"), format!("/families/{fid}"), format!("/families/{fid}/sync")] {
+        let (s, b) = c.call(Method::GET, &path, Some(&token), None).await;
+        assert_eq!(s, StatusCode::OK, "{path}: {b}");
+    }
+
+    // Nothing else.
+    let forbidden = [
+        (Method::POST, format!("/families/{fid}/invites"), None),
+        (Method::PATCH, format!("/families/{fid}"), Some(json!({ "name": "Mine" }))),
+        (Method::PATCH, format!("/children/{cid}"), Some(json!({ "name": "X" }))),
+        (Method::POST, "/families".to_string(), Some(json!({ "name": "Other" }))),
+        (Method::PATCH, "/me".to_string(), Some(json!({ "name": "X" }))),
+        (Method::POST, "/me/tokens".to_string(), Some(json!({ "name": "X" }))),
+        (Method::GET, format!("/families/{fid}/integrations"), None),
+        (Method::GET, format!("/families/{fid}/export.csv"), None),
+        (Method::GET, "/admin/users".to_string(), None),
+    ];
+    for (m, path, body) in forbidden {
+        let (s, b) = c.call(m.clone(), &path, Some(&token), body).await;
+        assert_eq!(s, StatusCode::FORBIDDEN, "{m} {path}: {b}");
+    }
+
+    // The export names it; removing it revokes the token and keeps the name on its entries.
+    let csv_names: Vec<(String,)> = sqlx::query_as("SELECT name FROM users WHERE id = ?").bind(&ha_id).fetch_all(&c.db()).await.unwrap();
+    assert_eq!(csv_names[0].0, "Home Assistant");
+    let (s, _) = c.call(Method::DELETE, &format!("/families/{fid}/integrations/{ha_id}"), Some(&dad), None).await;
+    assert_eq!(s, StatusCode::FORBIDDEN);
+    let (s, _) = c.call(Method::DELETE, &format!("/families/{fid}/integrations/{ha_id}"), Some(&mom), None).await;
+    assert_eq!(s, StatusCode::NO_CONTENT);
+    let (s, _) = c.call(Method::GET, "/me", Some(&token), None).await;
+    assert_eq!(s, StatusCode::UNAUTHORIZED);
+    let (s, _) = c.call(Method::DELETE, &format!("/families/{fid}/integrations/{ha_id}"), Some(&mom), None).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    let (s, _) = c.call(Method::GET, &format!("/events/{}", e["id"].as_str().unwrap()), Some(&mom), None).await;
+    assert_eq!(s, StatusCode::OK);
+}

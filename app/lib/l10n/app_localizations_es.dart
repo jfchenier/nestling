@@ -930,7 +930,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get familyApiToken => 'Token de API';
 
   @override
-  String get familyApiTokenHint => 'Para Home Assistant o scripts';
+  String get familyApiTokenHint => 'Para tus propios scripts';
 
   @override
   String get familyAppearance => 'Apariencia';
@@ -992,6 +992,46 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get familyContinue => 'Continuar';
+
+  @override
+  String get familyConnectedApps => 'Aplicaciones conectadas';
+
+  @override
+  String get familyConnectedAppAdd => 'Conectar una aplicación';
+
+  @override
+  String get familyConnectedAppAddHint =>
+      'Home Assistant u otra aplicación, que registra con su propio nombre';
+
+  @override
+  String get familyConnectedAppName => 'Nombre';
+
+  @override
+  String familyConnectedAppTokenTitle(Object name) {
+    return 'Token para $name';
+  }
+
+  @override
+  String familyConnectedAppTokenBody(Object name) {
+    return 'Cópialo ahora: no se volverá a mostrar. Pégalo en Home Assistant al añadir la integración de Nestling. Lo que registre aparecerá con el nombre «$name».';
+  }
+
+  @override
+  String familyConnectedAppUsed(Object when) {
+    return 'Usada $when';
+  }
+
+  @override
+  String get familyConnectedAppNeverUsed => 'Aún sin usar';
+
+  @override
+  String familyConnectedAppRemoveTitle(Object name) {
+    return '¿Quitar $name?';
+  }
+
+  @override
+  String get familyConnectedAppRemoveBody =>
+      'Su token deja de funcionar al instante. Lo que registró se queda.';
 
   @override
   String get familyCopy => 'Copiar';

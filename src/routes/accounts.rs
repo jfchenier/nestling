@@ -129,7 +129,7 @@ pub async fn login(
     let now = now_ms();
     state.limiter.check(&account_key, PER_ACCOUNT, now)?;
     state.limiter.check(&addr_key, PER_ADDRESS, now)?;
-    let row: Option<(String, String)> = sqlx::query_as("SELECT id, password_hash FROM users WHERE email = ?")
+    let row: Option<(String, String)> = sqlx::query_as("SELECT id, password_hash FROM users WHERE email = ? AND kind = 'person'")
         .bind(&email)
         .fetch_optional(&state.db)
         .await?;

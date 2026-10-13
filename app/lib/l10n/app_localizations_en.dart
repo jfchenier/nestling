@@ -928,7 +928,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get familyApiToken => 'API token';
 
   @override
-  String get familyApiTokenHint => 'For Home Assistant or scripts';
+  String get familyApiTokenHint => 'For your own scripts';
 
   @override
   String get familyAppearance => 'Appearance';
@@ -990,6 +990,46 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get familyContinue => 'Continue';
+
+  @override
+  String get familyConnectedApps => 'Connected apps';
+
+  @override
+  String get familyConnectedAppAdd => 'Connect an app';
+
+  @override
+  String get familyConnectedAppAddHint =>
+      'Home Assistant or another app, logging under its own name';
+
+  @override
+  String get familyConnectedAppName => 'Name';
+
+  @override
+  String familyConnectedAppTokenTitle(Object name) {
+    return 'Token for $name';
+  }
+
+  @override
+  String familyConnectedAppTokenBody(Object name) {
+    return 'Copy it now, it won’t be shown again. Paste it in Home Assistant when you add the Nestling integration. Entries it logs show “$name” as the caregiver.';
+  }
+
+  @override
+  String familyConnectedAppUsed(Object when) {
+    return 'Last used $when';
+  }
+
+  @override
+  String get familyConnectedAppNeverUsed => 'Not used yet';
+
+  @override
+  String familyConnectedAppRemoveTitle(Object name) {
+    return 'Remove $name?';
+  }
+
+  @override
+  String get familyConnectedAppRemoveBody =>
+      'Its token stops working at once. The entries it logged stay.';
 
   @override
   String get familyCopy => 'Copy';

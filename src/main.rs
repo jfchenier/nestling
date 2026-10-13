@@ -63,12 +63,12 @@ async fn main() -> anyhow::Result<()> {
 
 async fn admin_command(db: &sqlx::SqlitePool, args: &[String]) -> anyhow::Result<()> {
     let (query, value, done) = match args {
-        [cmd, email] if cmd == "make-admin" => ("UPDATE users SET is_admin = 1 WHERE email = ?", None, "is now an admin"),
+        [cmd, email] if cmd == "make-admin" => ("UPDATE users SET is_admin = 1 WHERE email = ? AND kind = 'person'", None, "is now an admin"),
         [cmd, email, password] if cmd == "set-password" => {
             if password.chars().count() < 8 {
                 anyhow::bail!("password must be at least 8 characters");
             }
-            ("UPDATE users SET password_hash = ? WHERE email = ?", Some(nestling::auth::hash_password(password)?), "has a new password")
+            ("UPDATE users SET password_hash = ? WHERE email = ? AND kind = 'person'", Some(nestling::auth::hash_password(password)?), "has a new password")
         }
         _ => anyhow::bail!("usage: nestling [make-admin <email> | set-password <email> <password>]"),
     };

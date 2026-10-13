@@ -8,6 +8,7 @@ pub mod sync;
 pub mod timers;
 pub mod admin;
 pub mod export;
+pub mod integrations;
 
 use axum::{
     extract::DefaultBodyLimit,
@@ -49,6 +50,8 @@ pub fn api() -> Router<AppState> {
         .route("/families/{id}", get(families::get).patch(families::update).delete(families::delete))
         .route("/families/{id}/invites", post(families::create_invite))
         .route("/families/{id}/members/{user_id}", patch(families::update_member).delete(families::remove_member))
+        .route("/families/{id}/integrations", get(integrations::list).post(integrations::create))
+        .route("/families/{id}/integrations/{integration_id}", delete(integrations::delete))
         .route("/invites/{code}/accept", post(families::accept_invite))
         .route("/families/{id}/children", get(children::list).post(children::create))
         .route("/families/{id}/sync", get(events::sync).post(sync::push))

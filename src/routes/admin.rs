@@ -38,7 +38,7 @@ async fn admin_count(state: &AppState) -> AppResult<i64> {
 pub async fn list_users(State(state): State<AppState>, user: AuthUser) -> AppResult<Json<Value>> {
     require_admin(&state, &user).await?;
     let rows: Vec<(String, String, String, bool, i64)> =
-        sqlx::query_as("SELECT id, email, name, is_admin, created_at FROM users ORDER BY created_at, rowid")
+        sqlx::query_as("SELECT id, email, name, is_admin, created_at FROM users WHERE kind = 'person' ORDER BY created_at, rowid")
             .fetch_all(&state.db)
             .await?;
     let families: Vec<(String, String, String, String)> = sqlx::query_as(
@@ -115,7 +115,7 @@ pub async fn update_user(
     ApiJson(req): ApiJson<UpdateUserReq>,
 ) -> AppResult<Json<Value>> {
     require_admin(&state, &user).await?;
-    let target: Option<(bool,)> = sqlx::query_as("SELECT is_admin FROM users WHERE id = ?").bind(&id).fetch_optional(&state.db).await?;
+    let target: Option<(bool,)> = sqlx::query_as("SELECT is_admin FROM users WHERE id = ? AND kind = 'person'").bind(&id).fetch_optional(&state.db).await?;
     let Some((was_admin,)) = target else {
         return Err(AppError::NotFound("user"));
     };
@@ -153,7 +153,7 @@ pub async fn delete_user(State(state): State<AppState>, user: AuthUser, Path(id)
     if id == user.id {
         return bad("you can't delete your own account");
     }
-    let res = sqlx::query("DELETE FROM users WHERE id = ?").bind(&id).execute(&state.db).await?;
+    let res = sqlx::query("DELETE FROM users WHERE id = ? AND kind = 'person'").bind(&id).execute(&state.db).await?;
     if res.rows_affected() == 0 {
         return Err(AppError::NotFound("user"));
     }

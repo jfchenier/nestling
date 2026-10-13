@@ -929,7 +929,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get familyApiToken => 'Jeton d\'API';
 
   @override
-  String get familyApiTokenHint => 'Pour Home Assistant ou des scripts';
+  String get familyApiTokenHint => 'Pour vos propres scripts';
 
   @override
   String get familyAppearance => 'Apparence';
@@ -991,6 +991,46 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get familyContinue => 'Continuer';
+
+  @override
+  String get familyConnectedApps => 'Applications connectées';
+
+  @override
+  String get familyConnectedAppAdd => 'Connecter une application';
+
+  @override
+  String get familyConnectedAppAddHint =>
+      'Home Assistant ou une autre application, qui note sous son propre nom';
+
+  @override
+  String get familyConnectedAppName => 'Nom';
+
+  @override
+  String familyConnectedAppTokenTitle(Object name) {
+    return 'Jeton pour $name';
+  }
+
+  @override
+  String familyConnectedAppTokenBody(Object name) {
+    return 'Copiez-le maintenant : il ne sera plus affiché. Collez-le dans Home Assistant en ajoutant l’intégration Nestling. Ce qu’elle note apparaît sous le nom « $name ».';
+  }
+
+  @override
+  String familyConnectedAppUsed(Object when) {
+    return 'Utilisée $when';
+  }
+
+  @override
+  String get familyConnectedAppNeverUsed => 'Pas encore utilisée';
+
+  @override
+  String familyConnectedAppRemoveTitle(Object name) {
+    return 'Retirer $name ?';
+  }
+
+  @override
+  String get familyConnectedAppRemoveBody =>
+      'Son jeton cesse de fonctionner aussitôt. Ce qu’elle a noté reste.';
 
   @override
   String get familyCopy => 'Copier';
