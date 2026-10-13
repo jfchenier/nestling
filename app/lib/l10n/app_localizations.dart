@@ -3094,12 +3094,6 @@ abstract class AppLocalizations {
   /// **'This needs a Nestling server. In serverless mode everything stays on your phones.'**
   String get localNeedsServer;
 
-  /// No description provided for @localPhotosNeedServer.
-  ///
-  /// In en, this message translates to:
-  /// **'Photos on memories need the Android app or a Nestling server.'**
-  String get localPhotosNeedServer;
-
   /// No description provided for @locationArms.
   ///
   /// In en, this message translates to:

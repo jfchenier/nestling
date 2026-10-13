@@ -499,7 +499,6 @@
   "leftShort": "I",
   "lengthShort": "T {value}",
   "localNeedsServer": "Esto necesita un servidor Nestling. Sin servidor, todo se queda en tus teléfonos.",
-  "localPhotosNeedServer": "Las fotos de los recuerdos necesitan la app de Android o un servidor Nestling.",
   "locationArms": "En brazos",
   "locationBassinet": "Moisés",
   "locationBed": "Cama",

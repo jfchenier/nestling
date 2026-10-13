@@ -1863,10 +1863,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Il faut un serveur Nestling pour ceci. Sans serveur, tout reste sur vos téléphones.';
 
   @override
-  String get localPhotosNeedServer =>
-      'Les photos des souvenirs demandent l\'app Android ou un serveur Nestling.';
-
-  @override
   String get locationArms => 'Dans les bras';
 
   @override

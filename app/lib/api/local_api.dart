@@ -1,7 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
-
 import '../l10n/l10n.dart';
 import '../local/engine.dart';
 import 'api.dart';
@@ -29,10 +27,6 @@ class LocalApi extends SyncApi {
     Duration timeout = const Duration(seconds: 30),
   }) async {
     if (!LocalEngine.handles(method, path, serverless: true)) throw ApiException('server_only', l10n.localNeedsServer, 404);
-    // The browser keeps a few MB at most: photos of memories need the Android app or a server.
-    if (kIsWeb && method == 'PUT' && path.startsWith('/events/')) {
-      throw ApiException('server_only', l10n.localPhotosNeedServer, 400);
-    }
     final res = engine.handle(method, path, query: {...?query, 'content_type': ?contentType}, body: raw ?? body);
     if (method != 'GET') onChanged?.call(path);
     return res;

@@ -150,6 +150,9 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       scrapbook with one photo each (`/events/{id}/photo`, table `event_photos`; events carry
       `photo_version`), built-in ideas of firsts plus custom ones. Serverless: `LocalStore.eventPhotos`
       (saved apart, clocks `ep:<id>`), Drive sync sends each photo once as `photo-<id>-<version>.bin`.
+      Server mode keeps every photo on the device for offline viewing (`LocalStore.photoCache`: files on
+      Android, IndexedDB on the web; filled by `AppState.keepPhotos` after each sync) and queues photos
+      set or removed offline in `LocalStore.photoUploads` (`SyncApi._pushPhotos`, after the entries).
       Teeth chart (`app/lib/screens/teeth_chart.dart`): milestones with `tooth` = A–T (A–J upper, the
       baby's right to left; K–T lower, left to right); only "First tooth" shows as a memory card.
       Chapters (Waiting for you, Hello world, Firsts, Growing up, Celebrations) live in the app

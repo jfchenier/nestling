@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import '../models.dart';
 import 'domain.dart';
 import 'persist.dart';
+import 'photo_cache.dart';
 
 /// A change made on this device that the sync target hasn't confirmed yet.
 class Pending {
@@ -106,7 +107,7 @@ class StoredTimer {
 /// children, every event and running timer, and the changes not synced yet. Saved as one
 /// document (a year of entries is a few hundred KB).
 class LocalStore {
-  LocalStore._(this._persist);
+  LocalStore._(this._persist, this.photoCache);
 
   static const _key = 'store';
   static const _photosKey = 'event_photos';
@@ -124,6 +125,14 @@ class LocalStore {
 
   /// Changes waiting to be synced, keyed `e:<id>` (events) or `t:<id>` (timers).
   final Map<String, Pending> pending = {};
+
+  /// Server mode: photos set or removed on this device that the server hasn't received yet
+  /// (offline, or their entry isn't there yet): event id → the version shown here (the bytes are
+  /// in [photoCache] as `e-<id>`), or null for a removed photo. Sent by `SyncApi.sync`.
+  final Map<String, int?> photoUploads = {};
+
+  /// Server mode: downloaded photos, kept so they show offline, and the ones in [photoUploads].
+  final PhotoCache photoCache;
 
   /// Sync cursor per family (`GET /families/{id}/sync?since=`).
   final Map<String, int> cursors = {};
@@ -174,8 +183,12 @@ class LocalStore {
 
   Timer? _saveTimer;
 
-  static Future<LocalStore> open([Persist? persist]) async {
-    final store = LocalStore._(persist ?? await openPersist());
+  /// The device's copy; [persist] (tests) keeps photos in memory unless [photos] is given.
+  static Future<LocalStore> open([Persist? persist, PhotoCache? photos]) async {
+    final store = LocalStore._(
+      persist ?? await openPersist(),
+      photos ?? (persist == null ? await openPhotoCache() : MemoryPhotoCache()),
+    );
     try {
       final text = await store._persist.read(_key);
       if (text != null) store._fromJson(jsonDecode(text));
@@ -190,7 +203,7 @@ class LocalStore {
   }
 
   bool get hasData => me != null;
-  int get pendingCount => pending.length;
+  int get pendingCount => pending.length + photoUploads.length;
 
   // ---- lookups ----
 
@@ -242,7 +255,8 @@ class LocalStore {
     if (json['deleted'] == true) {
       events.remove(id);
     } else {
-      events[id] = json;
+      // A photo set here that is still on its way shows meanwhile.
+      events[id] = photoUploads.containsKey(id) ? {...json, 'photo_version': photoUploads[id]} : json;
     }
   }
 
@@ -305,6 +319,7 @@ class LocalStore {
     deletedChildren.clear();
     photos.clear();
     eventPhotos.clear();
+    photoUploads.clear();
     serverless = {};
     stamps.clear();
     stamp = 0;
@@ -312,6 +327,11 @@ class LocalStore {
     _saveTimer?.cancel();
     await _persist.delete(_key);
     await _persist.delete(_photosKey);
+    try {
+      await photoCache.clear();
+    } catch (_) {
+      // Unavailable storage: nothing kept anyway.
+    }
   }
 
   // ---- saving ----
@@ -349,6 +369,7 @@ class LocalStore {
     'clocks': clocks,
     'deleted_children': deletedChildren,
     'photos': photos,
+    'photo_uploads': photoUploads,
     'serverless': serverless,
     'stamps': stamps,
     'stamp': stamp,
@@ -373,6 +394,7 @@ class LocalStore {
     (j['clocks'] as Map? ?? {}).forEach((k, v) => clocks[k] = v);
     (j['deleted_children'] as Map? ?? {}).forEach((k, v) => deletedChildren[k] = v);
     (j['photos'] as Map? ?? {}).forEach((k, v) => photos[k] = v);
+    (j['photo_uploads'] as Map? ?? {}).forEach((k, v) => photoUploads[k] = v);
     serverless = j['serverless'] ?? {};
     (j['stamps'] as Map? ?? {}).forEach((k, v) => stamps[k] = v);
     stamp = j['stamp'] ?? 0;

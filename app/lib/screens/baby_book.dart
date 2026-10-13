@@ -1,7 +1,6 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderAbstractViewport;
 import 'package:intl/intl.dart';
@@ -1213,10 +1212,6 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
 
   bool get _hadPhoto => e?['photo_version'] != null;
 
-
-  /// The browser in serverless mode keeps a few MB at most: no photos there.
-  bool _photosAllowed(AppState s) => !(kIsWeb && s.serverless);
-
   @override
   void initState() {
     super.initState();
@@ -1336,8 +1331,7 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
                 child: ListView(
                   shrinkWrap: true,
                   children: [
-                    if (_photosAllowed(s))
-                      Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 16), child: showsPhoto ? _photoPreview(picture) : _addPhoto()),
+                    Padding(padding: const EdgeInsets.fromLTRB(20, 16, 20, 16), child: showsPhoto ? _photoPreview(picture) : _addPhoto()),
                     Divider(height: 1, color: c.line),
                     FormRow(
                       label: l10n.bookChapter,

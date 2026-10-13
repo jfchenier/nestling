@@ -49,6 +49,10 @@ activity color. Colors live in
   the data: log, edit and delete entries, run timers, see the home cards, timeline, calendar and
   trends. The header shows "offline · N to sync"; changes are sent when the server answers again
   (checked every 10 s), and the server settles conflicts (newest change wins, deletions are final).
+  The baby book works offline too: after each sync every photo (memories and profile pictures) is
+  downloaded once and kept on the device (`LocalStore.photoCache`, `lib/local/photo_cache*.dart`:
+  files in the app's data folder on Android, IndexedDB in the browser), and a photo added or
+  removed offline waits there (`LocalStore.photoUploads`) and goes up after its entry.
   Online with nothing queued, every request goes to the server as before. Family settings,
   invites, imports and accounts need the server. The web app can't reload without the server.
 - **Without a server** ("Use without a server" on the sign-in screen) — for families with no home
@@ -108,8 +112,8 @@ activity color. Colors live in
   per memory (`PUT /events/{id}/photo`), scaled to at most 1600 px and saved as a JPEG on the
   device first (`pickMemoryPhoto` in `lib/widgets/photo.dart`). Without a server, photos are kept
   on the phone apart from the other data, travel with Wi-Fi sync, and go through Google Drive sync
-  once each as files of their own; the web app without a server doesn't take photos (browser
-  storage is too small). The **teeth chart** (`lib/screens/teeth_chart.dart`) shows the 20 baby
+  once each as files of their own; the web app without a server keeps them in IndexedDB (the
+  rest stays in local storage, `lib/local/persist_web.dart`). The **teeth chart** (`lib/screens/teeth_chart.dart`) shows the 20 baby
   teeth as seen facing the child; tap one when it comes in. Each tooth is a milestone with a
   `tooth` letter (A–T, the usual dental lettering); the first one is the "First tooth" memory (or
   gets attached to an existing one), later ones only show on the chart.

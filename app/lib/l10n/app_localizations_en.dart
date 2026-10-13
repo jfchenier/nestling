@@ -1855,10 +1855,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'This needs a Nestling server. In serverless mode everything stays on your phones.';
 
   @override
-  String get localPhotosNeedServer =>
-      'Photos on memories need the Android app or a Nestling server.';
-
-  @override
   String get locationArms => 'Arms';
 
   @override
