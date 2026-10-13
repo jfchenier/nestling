@@ -160,37 +160,34 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
                   ListTile(
                     title: Text(l10n.settingsUnits),
                     subtitle: Text(s.units.imperial ? 'oz, lb, in' : 'mL, kg, cm'),
-                    trailing: SegmentedButton<bool>(
+                    trailing: _SettingChoice(
                       segments: [
                         ButtonSegment(value: false, label: Text(l10n.settingsMetric)),
                         ButtonSegment(value: true, label: Text(l10n.settingsImperial)),
                       ],
                       selected: {s.units.imperial},
-                      showSelectedIcon: false,
                       onSelectionChanged: (v) => guard(context, () => s.setUnits(v.first)),
                     ),
                   ),
                   ListTile(
                     title: Text(l10n.settingsTemperature),
-                    trailing: SegmentedButton<bool>(
+                    trailing: _SettingChoice(
                       segments: const [
                         ButtonSegment(value: false, label: Text('°C')),
                         ButtonSegment(value: true, label: Text('°F')),
                       ],
                       selected: {s.fahrenheit},
-                      showSelectedIcon: false,
                       onSelectionChanged: (v) => s.setFahrenheit(v.first),
                     ),
                   ),
                   ListTile(
                     title: Text(l10n.settingsTimeFormat),
-                    trailing: SegmentedButton<bool>(
+                    trailing: _SettingChoice(
                       segments: [
                         ButtonSegment(value: true, label: Text(l10n.settingsClock24)),
                         ButtonSegment(value: false, label: Text(l10n.settingsClock12)),
                       ],
                       selected: {s.use24h},
-                      showSelectedIcon: false,
                       onSelectionChanged: (v) => s.setUse24h(v.first),
                     ),
                   ),
@@ -914,4 +911,24 @@ class _DriveSyncTileState extends State<DriveSyncTile> {
             ),
     );
   }
+}
+
+/// A two-way choice at the end of a settings row (units, temperature, time format), all the same width.
+class _SettingChoice extends StatelessWidget {
+  const _SettingChoice({required this.segments, required this.selected, required this.onSelectionChanged});
+  final List<ButtonSegment<bool>> segments;
+  final Set<bool> selected;
+  final ValueChanged<Set<bool>> onSelectionChanged;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: 200,
+    child: SegmentedButton<bool>(
+      segments: segments,
+      selected: selected,
+      showSelectedIcon: false,
+      style: SegmentedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8)),
+      onSelectionChanged: onSelectionChanged,
+    ),
+  );
 }
