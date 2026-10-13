@@ -3267,13 +3267,25 @@ class AppLocalizationsFr extends AppLocalizations {
   String get trendsBreastfeeding => 'Allaitement';
 
   @override
-  String trendsCompareArrows(Object count) {
-    return 'Les flèches comparent avec les $count jours précédents.';
+  String trendsCompareArrows(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Les flèches comparent avec les $count jours précédents.',
+      one: 'Les flèches comparent avec hier.',
+    );
+    return '$_temp0';
   }
 
   @override
-  String trendsCompareNone(Object count) {
-    return 'Rien de noté dans les $count jours précédents pour comparer.';
+  String trendsCompareNone(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Rien de noté dans les $count jours précédents pour comparer.',
+      one: 'Rien de noté hier pour comparer.',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -3289,8 +3301,14 @@ class AppLocalizationsFr extends AppLocalizations {
   String get trendsDaySleep => 'Sommeil de jour';
 
   @override
-  String trendsDays(Object count) {
-    return '$count jours';
+  String trendsDays(num count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count jours',
+      one: '1 jour',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -3322,6 +3340,11 @@ class AppLocalizationsFr extends AppLocalizations {
           'Moyennes par jour sur 0 jour complet ; la journée va de $start à $end.',
     );
     return '$_temp0';
+  }
+
+  @override
+  String trendsIntroToday(Object end, Object start) {
+    return 'Aujourd’hui jusqu’ici ; la journée va de $start à $end.';
   }
 
   @override

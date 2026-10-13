@@ -61,7 +61,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
             children: [
               SegmentedButton<int>(
                 segments: [
-                  for (final n in const [7, 14, 30]) ButtonSegment(value: n, label: Text(l10n.trendsDays(n))),
+                  for (final n in const [1, 7, 14, 30]) ButtonSegment(value: n, label: Text(l10n.trendsDays(n))),
                 ],
                 selected: {_days},
                 showSelectedIcon: false,
@@ -86,7 +86,7 @@ class _TrendsScreenState extends State<TrendsScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(4, 14, 4, 0),
                   child: Text(
-                    '${l10n.trendsIntro(toInt(avg['days']) ?? 0, s.family?.dayEnd ?? '18:00', s.family?.dayStart ?? '06:00')} '
+                    '${_days == 1 ? l10n.trendsIntroToday(s.family?.dayEnd ?? '18:00', s.family?.dayStart ?? '06:00') : l10n.trendsIntro(toInt(avg['days']) ?? 0, s.family?.dayEnd ?? '18:00', s.family?.dayStart ?? '06:00')} '
                     '${prev == null ? l10n.trendsCompareNone(_days) : l10n.trendsCompareArrows(_days)}',
                     style: TextStyle(color: context.pal.muted, fontSize: 12),
                   ),

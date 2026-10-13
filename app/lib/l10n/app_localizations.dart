@@ -5425,14 +5425,14 @@ abstract class AppLocalizations {
   /// No description provided for @trendsCompareArrows.
   ///
   /// In en, this message translates to:
-  /// **'Arrows compare with the {count} days before.'**
-  String trendsCompareArrows(Object count);
+  /// **'{count, plural, =1{Arrows compare with yesterday.} other{Arrows compare with the {count} days before.}}'**
+  String trendsCompareArrows(num count);
 
   /// No description provided for @trendsCompareNone.
   ///
   /// In en, this message translates to:
-  /// **'Nothing logged in the {count} days before to compare with.'**
-  String trendsCompareNone(Object count);
+  /// **'{count, plural, =1{Nothing logged yesterday to compare with.} other{Nothing logged in the {count} days before to compare with.}}'**
+  String trendsCompareNone(num count);
 
   /// No description provided for @trendsDay.
   ///
@@ -5461,8 +5461,8 @@ abstract class AppLocalizations {
   /// No description provided for @trendsDays.
   ///
   /// In en, this message translates to:
-  /// **'{count} days'**
-  String trendsDays(Object count);
+  /// **'{count, plural, =1{1 day} other{{count} days}}'**
+  String trendsDays(num count);
 
   /// No description provided for @trendsDiapers.
   ///
@@ -5499,6 +5499,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{days, plural, =1{Daily averages over 1 full day; daytime is {start}–{end}.} other{Daily averages over {days} full days; daytime is {start}–{end}.}}'**
   String trendsIntro(num days, Object end, Object start);
+
+  /// Trends intro for the 1-day option (today only). start and end are times like 06:00 (when daytime starts and ends).
+  ///
+  /// In en, this message translates to:
+  /// **'Today so far; daytime is {start}–{end}.'**
+  String trendsIntroToday(Object end, Object start);
 
   /// No description provided for @trendsLongestSleep.
   ///

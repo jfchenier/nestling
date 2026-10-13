@@ -1208,13 +1208,13 @@
   "trendsBottleUnit": "Bottle ({unit})",
   "trendsBreastfeedLength": "Breastfeed length",
   "trendsBreastfeeding": "Breastfeeding",
-  "trendsCompareArrows": "Arrows compare with the {count} days before.",
-  "trendsCompareNone": "Nothing logged in the {count} days before to compare with.",
+  "trendsCompareArrows": "{count, plural, =1{Arrows compare with yesterday.} other{Arrows compare with the {count} days before.}}",
+  "trendsCompareNone": "{count, plural, =1{Nothing logged yesterday to compare with.} other{Nothing logged in the {count} days before to compare with.}}",
   "trendsDay": "Day",
   "trendsDayBreastfeeding": "Daytime breastfeeding",
   "trendsDayDiapers": "Daytime diapers",
   "trendsDaySleep": "Daytime sleep",
-  "trendsDays": "{count} days",
+  "trendsDays": "{count, plural, =1{1 day} other{{count} days}}",
   "trendsDiapers": "Diapers",
   "trendsFeed": "Feed",
   "trendsFeedInterval": "Time between feeds",
@@ -1223,6 +1223,10 @@
   "trendsIntro": "{days, plural, =1{Daily averages over 1 full day; daytime is {start}–{end}.} other{Daily averages over {days} full days; daytime is {start}–{end}.}}",
   "@trendsIntro": {
     "description": "start and end are times like 06:00 (when daytime starts and ends)."
+  },
+  "trendsIntroToday": "Today so far; daytime is {start}–{end}.",
+  "@trendsIntroToday": {
+    "description": "Trends intro for the 1-day option (today only). start and end are times like 06:00 (when daytime starts and ends)."
   },
   "trendsLongestSleep": "Longest sleep",
   "trendsNapLength": "Nap length",
