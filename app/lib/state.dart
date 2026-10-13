@@ -58,7 +58,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// The app's language ('en', 'fr', 'es'), or null to follow the phone; stored on this device.
+  /// The app's language ('en', 'fr', 'es', 'ru'), or null to follow the phone; stored on this device.
   String? language;
 
   void setLanguage(String? code) {

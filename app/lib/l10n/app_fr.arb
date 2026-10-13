@@ -1025,5 +1025,11 @@
   "settingsImperial": "Impérial",
   "growthUnits": "Unités de ces courbes",
   "logBreast": "Sein",
-  "logAmount": "Quantité"
+  "logAmount": "Quantité",
+  "unitMl": "mL",
+  "unitOz": "oz",
+  "unitKg": "kg",
+  "unitLb": "lb",
+  "unitCm": "cm",
+  "unitIn": "in"
 }

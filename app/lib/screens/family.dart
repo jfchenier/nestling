@@ -159,7 +159,7 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
                 children: [
                   ListTile(
                     title: Text(l10n.settingsUnits),
-                    subtitle: Text(s.units.imperial ? 'oz, lb, in' : 'mL, kg, cm'),
+                    subtitle: Text(s.units.imperial ? '${l10n.unitOz}, ${l10n.unitLb}, ${l10n.unitIn}' : '${l10n.unitMl}, ${l10n.unitKg}, ${l10n.unitCm}'),
                     trailing: _SettingChoice(
                       segments: [
                         ButtonSegment(value: false, label: Text(l10n.settingsMetric)),

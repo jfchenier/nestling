@@ -5,7 +5,7 @@ import 'app_localizations.dart';
 
 export 'app_localizations.dart';
 
-/// The app's texts in the current language (English, French or Spanish; strings are in
+/// The app's texts in the current language (English, French, Spanish or Russian; strings are in
 /// `lib/l10n/app_*.arb`). A global so plain helpers (formatting, labels) can use it too;
 /// [LocaleWatcher] keeps it in step with the app's locale and rebuilds every screen when it changes.
 AppLocalizations get l10n => _current;
@@ -15,7 +15,7 @@ AppLocalizations _current = lookupAppLocalizations(const Locale('en'));
 void useLanguage(String code) => _current = lookupAppLocalizations(Locale(code));
 
 /// Languages offered in Settings, by their own names (null = follow the phone).
-const languages = {'en': 'English', 'fr': 'Français', 'es': 'Español'};
+const languages = {'en': 'English', 'fr': 'Français', 'es': 'Español', 'ru': 'Русский'};
 
 /// Sits under the app's `Localizations`: picks up the resolved language, sets [l10n] and
 /// intl's default locale (dates), and repaints the whole app when the language changes.

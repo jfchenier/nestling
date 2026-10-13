@@ -8,6 +8,7 @@ import 'package:intl/intl.dart' as intl;
 import 'app_localizations_en.dart';
 import 'app_localizations_es.dart';
 import 'app_localizations_fr.dart';
+import 'app_localizations_ru.dart';
 
 // ignore_for_file: type=lint
 
@@ -98,6 +99,7 @@ abstract class AppLocalizations {
     Locale('en'),
     Locale('es'),
     Locale('fr'),
+    Locale('ru'),
   ];
 
   /// No description provided for @activityBath.
@@ -6255,6 +6257,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Amount'**
   String get logAmount;
+
+  /// Unit symbol: millilitres
+  ///
+  /// In en, this message translates to:
+  /// **'mL'**
+  String get unitMl;
+
+  /// Unit symbol: fluid ounces (and ounces in a weight such as 12 lb 3 oz)
+  ///
+  /// In en, this message translates to:
+  /// **'oz'**
+  String get unitOz;
+
+  /// Unit symbol: kilograms
+  ///
+  /// In en, this message translates to:
+  /// **'kg'**
+  String get unitKg;
+
+  /// Unit symbol: pounds
+  ///
+  /// In en, this message translates to:
+  /// **'lb'**
+  String get unitLb;
+
+  /// Unit symbol: centimetres
+  ///
+  /// In en, this message translates to:
+  /// **'cm'**
+  String get unitCm;
+
+  /// Unit symbol: inches
+  ///
+  /// In en, this message translates to:
+  /// **'in'**
+  String get unitIn;
 }
 
 class _AppLocalizationsDelegate
@@ -6268,7 +6306,7 @@ class _AppLocalizationsDelegate
 
   @override
   bool isSupported(Locale locale) =>
-      <String>['en', 'es', 'fr'].contains(locale.languageCode);
+      <String>['en', 'es', 'fr', 'ru'].contains(locale.languageCode);
 
   @override
   bool shouldReload(_AppLocalizationsDelegate old) => false;
@@ -6283,6 +6321,8 @@ AppLocalizations lookupAppLocalizations(Locale locale) {
       return AppLocalizationsEs();
     case 'fr':
       return AppLocalizationsFr();
+    case 'ru':
+      return AppLocalizationsRu();
   }
 
   throw FlutterError(

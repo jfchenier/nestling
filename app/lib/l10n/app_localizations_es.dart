@@ -3820,4 +3820,22 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get logAmount => 'Cantidad';
+
+  @override
+  String get unitMl => 'mL';
+
+  @override
+  String get unitOz => 'oz';
+
+  @override
+  String get unitKg => 'kg';
+
+  @override
+  String get unitLb => 'lb';
+
+  @override
+  String get unitCm => 'cm';
+
+  @override
+  String get unitIn => 'in';
 }

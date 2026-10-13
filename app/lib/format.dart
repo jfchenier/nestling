@@ -14,10 +14,10 @@ class Units {
   static const _gPerLb = 453.592;
   static const _cmPerIn = 2.54;
 
-  String get volumeUnit => imperial ? 'oz' : 'mL';
-  String get lengthUnit => imperial ? 'in' : 'cm';
+  String get volumeUnit => imperial ? l10n.unitOz : l10n.unitMl;
+  String get lengthUnit => imperial ? l10n.unitIn : l10n.unitCm;
   String get tempUnit => fahrenheit ? '°F' : '°C';
-  String get weightUnit => imperial ? 'lb' : 'kg';
+  String get weightUnit => imperial ? l10n.unitLb : l10n.unitKg;
 
   // Display value from metric (for form fields).
   double volumeIn(double ml) => imperial ? ml / _mlPerOz : ml;
@@ -36,11 +36,11 @@ class Units {
   String temp(num? c) => c == null ? '' : '${_n(tempIn(c.toDouble()), 1)} $tempUnit';
   String weight(num? g) {
     if (g == null) return '';
-    if (!imperial) return '${_n(g / 1000, 2)} kg';
+    if (!imperial) return '${_n(g / 1000, 2)} ${l10n.unitKg}';
     final totalOz = g / (_gPerLb / 16);
     final lb = totalOz ~/ 16;
     final oz = totalOz - lb * 16;
-    return '$lb lb ${_n(oz, 1)} oz';
+    return '$lb ${l10n.unitLb} ${_n(oz, 1)} ${l10n.unitOz}';
   }
 
   static String _n(double v, int digits) {
