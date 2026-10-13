@@ -93,6 +93,15 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Diaper and potty entries ask for a size (small, medium, large) of wet and dirty; stored on
+  /// this device, off until turned on.
+  bool get diaperSizes => _prefs.getBool('diaper_sizes') ?? false;
+
+  void setDiaperSizes(bool value) {
+    _prefs.setBool('diaper_sizes', value);
+    notifyListeners();
+  }
+
   /// The kind of feed (breast, bottle, solids, combo) or pump entry (timer, amount) last picked
   /// on this phone; the Feed and Pump pages open on it.
   String? logChoice(String group) => _prefs.getString('log_choice_$group');

@@ -1053,5 +1053,13 @@
   "aboutLicense": "Licencia",
   "aboutLicenseValue": "MIT: libre y de código abierto",
   "aboutOpenSource": "Licencias de código abierto",
-  "aboutOpenSourceHint": "Las bibliotecas con las que se hizo Nestling"
+  "aboutOpenSourceHint": "Las bibliotecas con las que se hizo Nestling",
+  "sizeSmall": "Pequeña",
+  "sizeMedium": "Mediana",
+  "sizeLarge": "Grande",
+  "formWetSize": "Cantidad de pipí",
+  "formDirtySize": "Cantidad de caca",
+  "partSize": "{part} ({size})",
+  "settingsDiaperSizes": "Cantidades de pipí y caca",
+  "settingsDiaperSizesHint": "Pequeña, mediana o grande, en pañales y orinal"
 }

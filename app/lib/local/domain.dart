@@ -21,6 +21,7 @@ const _sides = ['left', 'right', 'both'];
 const _poopColors = ['yellow', 'green', 'brown', 'black', 'red', 'gray'];
 const _poopConsistencies = ['runny', 'mushy', 'mucousy', 'pebbles', 'solid'];
 const _potty = ['sat_dry', 'success', 'accident'];
+const _sizes = ['small', 'medium', 'large'];
 const _healthKinds = ['medicine', 'temperature', 'vaccine', 'appointment', 'symptom'];
 
 /// A baby book chapter id (`valid_chapter` in src/model.rs): the chapters are the app's.
@@ -47,6 +48,8 @@ const _fields = <String, Map<String, String>>{
     'blowout': 'bool',
     'color': 'color',
     'consistency': 'consistency',
+    'wet_size': 'size',
+    'dirty_size': 'size',
     'potty': 'potty',
   },
   'pump': {'left_ml': 'num', 'right_ml': 'num', 'left_seconds': 'secs', 'right_seconds': 'secs'},
@@ -88,6 +91,7 @@ Map<String, dynamic> normalizeDetails(Map<String, dynamic> input) {
       'consistency' => enumOf(_poopConsistencies),
       'health' => enumOf(_healthKinds),
       'potty' => enumOf(_potty),
+      'size' => enumOf(_sizes),
       'tooth' => v is String && RegExp(r'^[A-T]$').hasMatch(v) ? v : throw badRequest("tooth must be a letter from A to T, not '$v'"),
       'chapter' => validChapter(v) ? v : throw badRequest("chapter must be a short lowercase id like 'firsts', not '$v'"),
       _ => v,
@@ -144,6 +148,8 @@ void validateEvent(Map<String, dynamic> d, int start, int? end, String? note) {
       if ((d['color'] != null || d['consistency'] != null) && d['dirty'] != true) {
         throw badRequest('color and consistency only apply to dirty diapers');
       }
+      if (d['wet_size'] != null && d['wet'] != true) throw badRequest('wet_size only applies to wet diapers');
+      if (d['dirty_size'] != null && d['dirty'] != true) throw badRequest('dirty_size only applies to dirty diapers');
       final pee = d['wet'] == true || d['dirty'] == true;
       switch (d['potty']) {
         case 'sat_dry' when pee:

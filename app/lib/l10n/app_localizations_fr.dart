@@ -3925,4 +3925,31 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get aboutOpenSourceHint => 'Les bibliothèques utilisées par Nestling';
+
+  @override
+  String get sizeSmall => 'Petite';
+
+  @override
+  String get sizeMedium => 'Moyenne';
+
+  @override
+  String get sizeLarge => 'Grande';
+
+  @override
+  String get formWetSize => 'Quantité d\'urine';
+
+  @override
+  String get formDirtySize => 'Quantité de selles';
+
+  @override
+  String partSize(Object part, Object size) {
+    return '$part ($size)';
+  }
+
+  @override
+  String get settingsDiaperSizes => 'Quantités d\'urine et de selles';
+
+  @override
+  String get settingsDiaperSizesHint =>
+      'Petite, moyenne ou grande, pour les couches et le pot';
 }

@@ -57,6 +57,8 @@ pub const COLUMNS: &[&str] = &[
     // Nestling's own columns.
     "[Solids] Food",
     "[Diaper] Potty",
+    "[Diaper] Wet Size",
+    "[Diaper] Dirty Size",
     "[Sleep] Location",
     "[Pump] Left Volume",
     "[Pump] Left Volume Unit",
@@ -260,6 +262,9 @@ pub fn write(family_id: &str, tz: Tz, children: &[ExportChild], events: &[Export
                         Potty::Accident => "Accident",
                     }),
                 );
+                let size = |s: Size| format!("{s:?}");
+                r.opt("[Diaper] Wet Size", d.wet_size.map(size));
+                r.opt("[Diaper] Dirty Size", d.dirty_size.map(size));
             }
             Details::Pump(p) => {
                 r.set("Type", "Pump");

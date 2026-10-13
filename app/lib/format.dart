@@ -175,6 +175,24 @@ String wetDirty(Event e) => switch ((e['wet'] == true, e['dirty'] == true)) {
   _ => '',
 };
 
+/// "Small" / "Medium" / "Large" for a saved diaper size.
+String? sizeLabel(Object? size) => switch (size) {
+  'small' => l10n.sizeSmall,
+  'medium' => l10n.sizeMedium,
+  'large' => l10n.sizeLarge,
+  _ => null,
+};
+
+/// [wetDirty], or "Wet (large) · Dirty (small)" when the entry has sizes.
+String wetDirtySized(Event e) {
+  final ws = sizeLabel(e['wet_size']), ds = sizeLabel(e['dirty_size']);
+  if (ws == null && ds == null) return wetDirty(e);
+  return [
+    if (e['wet'] == true) ws == null ? l10n.wet : l10n.partSize(l10n.wet, ws.toLowerCase()),
+    if (e['dirty'] == true) ds == null ? l10n.dirty : l10n.partSize(l10n.dirty, ds.toLowerCase()),
+  ].join(' · ');
+}
+
 /// Title and one-line detail for an event, e.g. ("Bottle", "120 mL formula").
 (String, String) describe(Event e, Units u) {
   String sides() {
@@ -206,7 +224,7 @@ String wetDirty(Event e) => switch ((e['wet'] == true, e['dirty'] == true)) {
     case 'diaper' when e['potty'] != null:
       final parts = <String>[
         e['potty'] == 'success' ? l10n.inThePotty : pottyLabel(e['potty'])!,
-        if (e['potty'] != 'sat_dry') wetDirty(e),
+        if (e['potty'] != 'sat_dry') wetDirtySized(e),
         if (e['color'] != null) cap(e['color']),
         if (e['consistency'] != null) cap(e['consistency']),
         if (e['rash'] == true) l10n.rash,
@@ -215,7 +233,7 @@ String wetDirty(Event e) => switch ((e['wet'] == true, e['dirty'] == true)) {
       return (l10n.kindPotty, parts.where((s) => s.isNotEmpty).join(' · '));
     case 'diaper':
       final parts = <String>[
-        if (e['wet'] == true || e['dirty'] == true) wetDirty(e) else l10n.dry,
+        if (e['wet'] == true || e['dirty'] == true) wetDirtySized(e) else l10n.dry,
         if (e['color'] != null) cap(e['color']),
         if (e['consistency'] != null) cap(e['consistency']),
         if (e['rash'] == true) l10n.rash,

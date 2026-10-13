@@ -1508,5 +1508,13 @@
   "aboutOpenSourceHint": "The libraries Nestling is built with",
   "@aboutOpenSourceHint": {
     "description": "About page row hint"
-  }
+  },
+  "sizeSmall": "Small",
+  "sizeMedium": "Medium",
+  "sizeLarge": "Large",
+  "formWetSize": "Wet size",
+  "formDirtySize": "Dirty size",
+  "partSize": "{part} ({size})",
+  "settingsDiaperSizes": "Wet and dirty sizes",
+  "settingsDiaperSizesHint": "Small, medium or large on diapers and potty trips"
 }

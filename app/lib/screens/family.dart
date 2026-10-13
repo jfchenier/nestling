@@ -270,7 +270,7 @@ class _ConnectedAppsState extends State<_ConnectedApps> {
   }
 }
 
-/// Settings and the account (Home's menu → Settings): units, temperature, time format, appearance, language, day and night, time zone, Drive sync and backup, Nara import, export, API token, About.
+/// Settings and the account (Home's menu → Settings): units, temperature, time format, wet and dirty sizes, appearance, language, day and night, time zone, Drive sync and backup, Nara import, export, API token, About.
 class SettingsScreen extends StatelessWidget with _FamilyActions {
   const SettingsScreen({super.key});
 
@@ -324,6 +324,13 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
                       onSelectionChanged: (v) => s.setUse24h(v.first),
                     ),
                   ),
+                  if (full)
+                    SwitchListTile(
+                      title: Text(l10n.settingsDiaperSizes),
+                      subtitle: Text(l10n.settingsDiaperSizesHint),
+                      value: s.diaperSizes,
+                      onChanged: s.setDiaperSizes,
+                    ),
                   ListTile(
                     title: Text(l10n.familyAppearance),
                     subtitle: Padding(
