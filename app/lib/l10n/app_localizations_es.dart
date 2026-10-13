@@ -3527,4 +3527,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get settingsImperial => 'Imperial';
+
+  @override
+  String get growthUnits => 'Unidades de estas curvas';
 }

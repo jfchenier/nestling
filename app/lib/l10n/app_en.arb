@@ -1283,5 +1283,6 @@
   "homePumpAmount": "Amount only",
   "settingsUnits": "Units",
   "settingsMetric": "Metric",
-  "settingsImperial": "Imperial"
+  "settingsImperial": "Imperial",
+  "growthUnits": "Units for these charts"
 }

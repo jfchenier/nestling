@@ -956,5 +956,6 @@
   "homePumpAmount": "Quantité seulement",
   "settingsUnits": "Unités",
   "settingsMetric": "Métrique",
-  "settingsImperial": "Impérial"
+  "settingsImperial": "Impérial",
+  "growthUnits": "Unités de ces courbes"
 }

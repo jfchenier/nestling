@@ -3513,4 +3513,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsImperial => 'Imperial';
+
+  @override
+  String get growthUnits => 'Units for these charts';
 }

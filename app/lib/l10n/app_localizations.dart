@@ -5841,6 +5841,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Imperial'**
   String get settingsImperial;
+
+  /// No description provided for @growthUnits.
+  ///
+  /// In en, this message translates to:
+  /// **'Units for these charts'**
+  String get growthUnits;
 }
 
 class _AppLocalizationsDelegate
