@@ -8,6 +8,7 @@ use axum::{
     Json,
 };
 use serde::Deserialize;
+use sqlx::SqlitePool;
 use serde_json::{json, Value};
 
 use crate::{
@@ -52,9 +53,21 @@ pub async fn create(
     if name.is_empty() || name.chars().count() > 60 {
         return bad("name is required (e.g. 'Home Assistant'), 60 characters at most");
     }
+    let (id, now) = add(&state.db, &family_id, name).await?;
+    let (_, token) = issue_token(&state.db, &id, name, "api").await?;
+    state.publish(&family_id, "family", "updated", json!({ "id": family_id }));
+    Ok((
+        StatusCode::CREATED,
+        Json(json!({ "id": id, "name": name, "created_at": fmt_utc(now), "last_used_at": null, "token": token })),
+    ))
+}
+
+/// Add a connected app named `name` to the family (no checks: callers check the owner and name).
+/// Returns its user id and creation time; it has no token yet.
+pub async fn add(db: &SqlitePool, family_id: &str, name: &str) -> AppResult<(String, i64)> {
     let id = new_id();
     let now = now_ms();
-    let mut tx = state.db.begin().await?;
+    let mut tx = db.begin().await?;
     // No password (an empty hash never verifies) and an address nobody can sign in with.
     sqlx::query("INSERT INTO users (id, email, name, password_hash, units, created_at, kind) VALUES (?, ?, ?, '', 'metric', ?, ?)")
         .bind(&id)
@@ -65,19 +78,14 @@ pub async fn create(
         .execute(&mut *tx)
         .await?;
     sqlx::query("INSERT INTO memberships (family_id, user_id, role, created_at) VALUES (?, ?, ?, ?)")
-        .bind(&family_id)
+        .bind(family_id)
         .bind(&id)
         .bind(INTEGRATION)
         .bind(now)
         .execute(&mut *tx)
         .await?;
     tx.commit().await?;
-    let (_, token) = issue_token(&state.db, &id, name, "api").await?;
-    state.publish(&family_id, "family", "updated", json!({ "id": family_id }));
-    Ok((
-        StatusCode::CREATED,
-        Json(json!({ "id": id, "name": name, "created_at": fmt_utc(now), "last_used_at": null, "token": token })),
-    ))
+    Ok((id, now))
 }
 
 /// Remove a connected app (owners only): its token stops working at once. The entries it
