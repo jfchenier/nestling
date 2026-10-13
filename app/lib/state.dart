@@ -166,7 +166,10 @@ class AppState extends ChangeNotifier {
 
   SyncApi _syncApi(String server, String token) => SyncApi(server, token, store)
     ..onStatus = _syncStatus
-    ..onSynced = () => refreshChild().catchError((_) {});
+    ..onSynced = () {
+      refreshChild().catchError((_) {});
+      unawaited(keepPhotos());
+    };
 
   void _syncStatus() {
     final notices = api?.notices;
@@ -255,56 +258,126 @@ class AppState extends ChangeNotifier {
   final Map<String, (int, Uint8List)> _photos = {};
   final Set<String> _photoLoads = {};
 
-  /// The child's profile picture once downloaded (null: none, or not loaded yet). Downloads it
-  /// on first use and again when `photo_version` changes; the old one shows meanwhile.
+  /// The child's profile picture once loaded (null: none, or not loaded yet). Loads it on first
+  /// use and again when `photo_version` changes (from the device, else the server); the old one
+  /// shows meanwhile.
   Uint8List? photoFor(Child child) {
-    final version = child.photoVersion, a = api;
+    final version = child.photoVersion;
     final cached = _photos[child.id];
-    if (version == null || a == null) return null;
+    if (version == null || api == null) return null;
     if (cached?.$1 == version) return cached!.$2;
-    final key = '${child.id}@$version';
-    if (_photoLoads.add(key)) {
+    if (_photoLoads.add('${child.id}@$version')) {
       () async {
-        try {
-          _photos[child.id] = (version, await a.getBytes('/children/${child.id}/photo'));
-          notifyListeners();
-        } catch (_) {
-          // Shown as the initial; retried on the next change.
-        }
+        final bytes = await _loadPhoto('c-${child.id}', version, '/children/${child.id}/photo');
+        if (bytes == null) return;
+        _photos[child.id] = (version, bytes);
+        notifyListeners();
       }();
     }
     return cached?.$2;
   }
 
-  // Photos on entries (the baby book) by event id, with the version they were downloaded for.
+  // Photos on entries (the baby book) by event id, with the version they were loaded for.
   final Map<String, (int, Uint8List)> _eventPhotos = {};
   final Set<String> _eventPhotoLoads = {};
 
-  /// A memory's photo once downloaded (null: none, or not loaded yet), like [photoFor].
+  /// A memory's photo once loaded (null: none, or not loaded yet), like [photoFor].
   Uint8List? eventPhoto(Event e) {
-    final version = toInt(e['photo_version']), a = api;
+    final version = toInt(e['photo_version']);
     final cached = _eventPhotos[e.id];
-    if (version == null || a == null) return null;
+    if (version == null || api == null) return null;
     if (cached?.$1 == version) return cached!.$2;
-    if (_eventPhotoLoads.add('${e.id}@$version')) {
+    final key = '${e.id}@$version';
+    if (_eventPhotoLoads.add(key)) {
       () async {
-        try {
-          _eventPhotos[e.id] = (version, await a.getBytes('/events/${e.id}/photo'));
-          notifyListeners();
-        } catch (_) {
+        final bytes = await _loadPhoto('e-${e.id}', version, '/events/${e.id}/photo');
+        if (bytes == null) {
           // Not reachable now (offline, or still on its way from another phone): retried on the
           // next change.
-          _eventPhotoLoads.remove('${e.id}@$version');
+          _eventPhotoLoads.remove(key);
+          return;
         }
+        _eventPhotos[e.id] = (version, bytes);
+        notifyListeners();
       }();
     }
     return cached?.$2;
+  }
+
+  /// A photo from the device's copy, else downloaded (and kept for offline). Null when neither
+  /// has it right now.
+  Future<Uint8List?> _loadPhoto(String name, int version, String path) async {
+    final a = api;
+    if (a == null) return null;
+    // Serverless: the photos are in the local store already.
+    final cache = serverless ? null : store.photoCache;
+    try {
+      if (await cache?.read(name, version) case final bytes?) return bytes;
+    } catch (_) {
+      // Unreadable: download it again.
+    }
+    if (a.offline) return null;
+    try {
+      final bytes = await a.getBytes(path);
+      try {
+        await cache?.write(name, version, bytes);
+      } catch (_) {
+        // Storage full or unavailable: shown anyway.
+      }
+      return bytes;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// A photo this device just uploaded, so it shows without downloading it again.
   void rememberEventPhoto(Map<String, dynamic> event, Uint8List bytes) {
     final version = toInt(event['photo_version']);
     if (version != null) _eventPhotos[event['id'] as String] = (version, bytes);
+  }
+
+  bool _keepingPhotos = false;
+
+  /// Server mode: downloads every photo of the book (and the profile pictures) that the device
+  /// doesn't have yet, so they all show offline, and forgets the ones of entries gone since.
+  /// Runs after each sync; stops when the server can't be reached.
+  Future<void> keepPhotos() async {
+    final a = api;
+    if (a == null || serverless || _keepingPhotos || !store.hasData) return;
+    _keepingPhotos = true;
+    try {
+      final cache = store.photoCache;
+      final want = <String, (int, String)>{
+        for (final f in store.families)
+          for (final c in (f['children'] as List? ?? []))
+            if (c is Map)
+              if (toInt(c['photo_version']) case final v?) 'c-${c['id']}': (v, '/children/${c['id']}/photo'),
+        for (final e in store.events.values)
+          if (e['deleted'] != true)
+            if (toInt(e['photo_version']) case final v?) 'e-${e['id']}': (v, '/events/${e['id']}/photo'),
+      };
+      final have = await cache.versions();
+      // Only once every family's data is here, so nothing is forgotten before it arrives.
+      if (store.families.every((f) => store.cursors.containsKey(f['id']))) {
+        for (final name in have.keys) {
+          if (!want.containsKey(name) && !store.photoUploads.containsKey(name.substring(2))) await cache.remove(name);
+        }
+      }
+      for (final MapEntry(key: name, value: (version, path)) in want.entries) {
+        if (have[name] == version) continue;
+        if (a.offline || api != a) break;
+        try {
+          await cache.write(name, version, await a.getBytes(path));
+        } on ApiException catch (e) {
+          if (SyncApi.unreachable(e)) break;
+          // Gone meanwhile, or not readable by this account: skipped.
+        }
+      }
+    } catch (_) {
+      // Storage full or unavailable: photos are downloaded when shown instead.
+    } finally {
+      _keepingPhotos = false;
+    }
   }
 
   /// Signs out. [forget] also removes this device's copy of the data (kept when the session

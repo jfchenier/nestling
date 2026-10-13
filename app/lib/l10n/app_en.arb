@@ -766,7 +766,6 @@
     "description": "Length (height) of the baby in a one-line summary."
   },
   "localNeedsServer": "This needs a Nestling server. In serverless mode everything stays on your phones.",
-  "localPhotosNeedServer": "Photos on memories need the Android app or a Nestling server.",
   "locationArms": "Arms",
   "locationBassinet": "Bassinet",
   "locationBed": "Bed",

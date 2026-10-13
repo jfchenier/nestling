@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -7,6 +8,7 @@ import 'package:http/testing.dart';
 import 'package:nestling/api/api.dart';
 import 'package:nestling/api/sync_api.dart';
 import 'package:nestling/local/persist.dart';
+import 'package:nestling/local/photo_cache.dart';
 import 'package:nestling/local/store.dart';
 
 /// A fake server that can be switched off, recording what it receives.
@@ -18,6 +20,8 @@ class FakeServer {
   final pushes = <Map<String, dynamic>>[];
   final events = <Map<String, dynamic>>[];
   final timers = <String, Map<String, dynamic>>{};
+  final photos = <String, Uint8List>{};
+  int photoGets = 0;
   String pushStatus = 'applied';
 
   /// While set, logging requests wait for it (a slow connection).
@@ -30,7 +34,7 @@ class FakeServer {
     if (!up) throw http.ClientException('connection refused');
     if (proxyStatus != null) return http.Response('Bad Gateway', proxyStatus!);
     final path = req.url.path.replaceFirst('/api/v1', '');
-    final body = req.body.isEmpty ? null : jsonDecode(req.body);
+    final body = !(req.headers['content-type'] ?? '').startsWith('application/json') || req.body.isEmpty ? null : jsonDecode(req.body);
     http.Response json(Object? v, [int status = 200]) => http.Response(jsonEncode(v), status, headers: {'content-type': 'application/json'});
     if (gate != null && req.method != 'GET') await gate!.future;
     final seg = path.split('/').where((s) => s.isNotEmpty).toList();
@@ -54,6 +58,20 @@ class FakeServer {
       case ('GET', ['events', final id]):
         final e = events.where((e) => e['id'] == id).firstOrNull;
         return e == null ? json({'error': {'code': 'not_found', 'message': 'event not found'}}, 404) : json(e);
+      case ('PUT', ['events', final id, 'photo']):
+        final e = events.where((e) => e['id'] == id).firstOrNull;
+        if (e == null) return json({'error': {'code': 'not_found', 'message': 'event not found'}}, 404);
+        photos[id] = req.bodyBytes;
+        e['photo_version'] = 5000 + photos.length;
+        return json(e);
+      case ('DELETE', ['events', final id, 'photo']):
+        photos.remove(id);
+        events.where((e) => e['id'] == id).firstOrNull?['photo_version'] = null;
+        return http.Response('', 204);
+      case ('GET', ['events', final id, 'photo']):
+        photoGets++;
+        final bytes = photos[id];
+        return bytes == null ? json({'error': {'code': 'not_found', 'message': 'photo not found'}}, 404) : http.Response.bytes(bytes, 200);
       case ('GET', ['timers', final id]):
         final t = timers[id];
         return t == null ? json({'error': {'code': 'not_found', 'message': 'timer not found'}}, 404) : json(t);
@@ -80,6 +98,13 @@ class FakeServer {
         return json(e, 201);
       case ('POST', '/families/f1/sync'):
         pushes.add(body);
+        if (pushStatus == 'applied') {
+          for (final r in body['events']) {
+            events
+              ..removeWhere((e) => e['id'] == r['id'])
+              ..add({...r}..remove('changed_at'));
+          }
+        }
         Map<String, dynamic> res(r) => {'id': r['id'], 'status': pushStatus, if (pushStatus != 'applied') 'current': pushCurrent};
         return json({
           'events': [for (final r in body['events']) res(r)],
@@ -95,11 +120,13 @@ class FakeServer {
 void main() {
   late FakeServer server;
   late LocalStore store;
+  late MemoryPersist persist;
   late SyncApi api;
 
   setUp(() async {
     server = FakeServer();
-    store = await LocalStore.open(MemoryPersist());
+    persist = MemoryPersist();
+    store = await LocalStore.open(persist);
     api = SyncApi('http://nestling.test', 'token', store, server.client);
     SyncApi.retryEvery = const Duration(hours: 1);
     await api.get('/me');
@@ -241,6 +268,92 @@ void main() {
     test('local validation errors are thrown right away', () async {
       await expectLater(api.post('/children/c1/events', {'type': 'nope'}), throwsA(isA<ApiException>()));
       expect(store.pendingCount, 0);
+    });
+  });
+
+  group('book photos', () {
+    final jpeg = Uint8List.fromList([0xFF, 0xD8, 0xFF, 1, 2, 3]);
+    MemoryPhotoCache cache() => store.photoCache as MemoryPhotoCache;
+
+    setUp(() => api.pull('f1'));
+
+    test('online: sent at once and kept on the device', () async {
+      final e = await api.post('/children/c1/events', {'type': 'milestone', 'name': 'First smile'});
+      final res = await api.putBytes('/events/${e['id']}/photo', jpeg, contentType: 'image/jpeg');
+      expect(server.photos[e['id']], jpeg);
+      expect(res['photo_version'], 5001);
+      expect(await store.photoCache.read('e-${e['id']}', 5001), jpeg);
+      expect(api.pending, 0);
+    });
+
+    test('offline: kept here, shown, and sent after the entry on reconnection', () async {
+      server.up = false;
+      final e = await api.post('/children/c1/events', {'type': 'milestone', 'name': 'First smile'});
+      final res = await api.putBytes('/events/${e['id']}/photo', jpeg, contentType: 'image/jpeg');
+      expect(api.offline, isTrue);
+      final local = res['photo_version'] as int;
+      expect(await store.photoCache.read('e-${e['id']}', local), jpeg);
+      expect(api.pending, 2, reason: 'the entry and its photo');
+      final listed = await api.get('/children/c1/events', {'type': 'milestone'});
+      expect(listed['events'].single['photo_version'], local);
+
+      // Saved on the device: still there after the app restarts.
+      await store.flush();
+      expect((await LocalStore.open(persist)).photoUploads, {e['id']: local});
+
+      server.up = true;
+      api.offline = false;
+      await api.sync();
+      expect(api.pending, 0);
+      expect(server.photos[e['id']], jpeg);
+      expect(store.events[e['id']]!['photo_version'], 5001);
+      expect(await store.photoCache.read('e-${e['id']}', 5001), jpeg, reason: 'kept under the server\'s version');
+      expect(cache().data, hasLength(1));
+    });
+
+    test('a photo set on an entry the server has, while offline', () async {
+      final e = await api.post('/children/c1/events', {'type': 'milestone', 'name': 'First smile'});
+      await pumpEventQueue();
+      server.up = false;
+      await api.putBytes('/events/${e['id']}/photo', jpeg, contentType: 'image/jpeg');
+      expect(api.offline, isTrue);
+      expect(server.photos, isEmpty);
+      // A pull meanwhile doesn't hide the photo waiting here.
+      store.putEvent({...server.events.single});
+      expect(store.events[e['id']]!['photo_version'], isNotNull);
+      server.up = true;
+      api.offline = false;
+      await api.sync();
+      expect(server.photos[e['id']], jpeg);
+      expect(server.pushes, isEmpty, reason: 'only the photo was waiting');
+    });
+
+    test('removed offline: removed on the server on reconnection', () async {
+      final e = await api.post('/children/c1/events', {'type': 'milestone', 'name': 'First smile'});
+      await pumpEventQueue();
+      await api.putBytes('/events/${e['id']}/photo', jpeg, contentType: 'image/jpeg');
+      server.up = false;
+      await api.delete('/events/${e['id']}/photo');
+      expect(store.events[e['id']]!['photo_version'], isNull);
+      expect(cache().data, isEmpty);
+      server.up = true;
+      api.offline = false;
+      await api.sync();
+      expect(server.photos, isEmpty);
+      expect(api.pending, 0);
+    });
+
+    test('an entry deleted before its photo went up: the photo is dropped', () async {
+      server.up = false;
+      final e = await api.post('/children/c1/events', {'type': 'milestone', 'name': 'First smile'});
+      await api.putBytes('/events/${e['id']}/photo', jpeg, contentType: 'image/jpeg');
+      await api.delete('/events/${e['id']}');
+      server.up = true;
+      api.offline = false;
+      await api.sync();
+      expect(server.photos, isEmpty);
+      expect(store.photoUploads, isEmpty);
+      expect(api.pending, 0);
     });
   });
 }
