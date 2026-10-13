@@ -348,7 +348,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
       return out;
     }
 
-    Widget ideas(BookChapter chapter, {bool seeAll = false}) {
+    Widget ideas(BookChapter chapter) {
       if (readOnly) return const SizedBox.shrink();
       final left = milestoneIdeas.where((i) => i.chapter == chapter && (i.repeats || !logged.contains(i.id))).toList();
       return Column(
@@ -356,7 +356,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
         children: [
           SectionTitle(
             chapter == BookChapter.firsts ? l10n.bookIdeasToRemember : l10n.bookIdeasForChapter,
-            trailing: seeAll ? TextButton(onPressed: () => _showAllIdeas(context), child: Text(l10n.bookSeeAll)) : null,
+            trailing: TextButton(onPressed: () => _showAllIdeas(context, chapter), child: Text(l10n.bookSeeAll)),
           ),
           SizedBox(
             height: 128,
@@ -413,7 +413,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
       heading(BookChapter.firsts),
       if (list != null && byChapter[BookChapter.firsts]!.isEmpty) _EmptyBook(readOnly: readOnly),
       ...prints(byChapter[BookChapter.firsts]!, byAge: true),
-      ideas(BookChapter.firsts, seeAll: true),
+      ideas(BookChapter.firsts),
       // Growing up
       heading(BookChapter.growing),
       SectionTitle(
@@ -460,8 +460,8 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
     );
   }
 
-  /// Every idea by chapter, ticked when it's in the book.
-  void _showAllIdeas(BuildContext context) => showModalBottomSheet(
+  /// Every idea of [chapter], ticked when it's in the book.
+  void _showAllIdeas(BuildContext context, BookChapter chapter) => showModalBottomSheet(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
@@ -472,7 +472,8 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
         for (final e in memories ?? const <Event>[])
           if (ideaFor(e['name'] as String?) case final idea?) idea.id: e,
       };
-      final done = milestoneIdeas.where((i) => byId.containsKey(i.id)).length;
+      final all = milestoneIdeas.where((i) => i.chapter == chapter).toList();
+      final done = all.where((i) => byId.containsKey(i.id)).length;
       return ConstrainedBox(
         constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(sheet).height * 0.85),
         child: Column(
@@ -481,39 +482,34 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 4),
-              child: Text(l10n.bookIdeasToRemember, style: serifStyle(24)),
+              child: Text(chapter.title, style: serifStyle(24)),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
-              child: Text(l10n.bookIdeasProgress(done, milestoneIdeas.length), style: TextStyle(color: c.muted)),
+              child: Text(l10n.bookIdeasProgress(done, all.length), style: TextStyle(color: c.muted)),
             ),
             Divider(height: 1, color: c.line),
             Flexible(
               child: ListView(
                 shrinkWrap: true,
                 children: [
-                  for (final chapter in BookChapter.values) ...[
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 20, 4),
-                      child: Text(chapter.title, style: serifStyle(18, color: Kind.milestone.on(c))),
-                    ),
-                    for (final idea in milestoneIdeas.where((i) => i.chapter == chapter))
-                      () {
-                        final e = byId[idea.id];
-                        return ListTile(
-                          leading: BlobIcon(Kind.milestone, size: 40, icon: idea.icon),
-                          title: Text(idea.label, style: const TextStyle(fontWeight: FontWeight.w600)),
-                          subtitle: Text(e == null ? idea.when : DateFormat.yMMMd().format(e.start)),
-                          trailing: e == null
-                              ? Icon(Icons.add_circle_outline_rounded, color: c.accent)
-                              : Icon(Icons.check_circle_rounded, color: Kind.milestone.on(c)),
-                          onTap: () {
-                            Navigator.pop(sheet);
-                            showMemoryForm(context, event: e, name: idea.label);
-                          },
-                        );
-                      }(),
-                  ],
+                  const SizedBox(height: 8),
+                  for (final idea in all)
+                    () {
+                      final e = byId[idea.id];
+                      return ListTile(
+                        leading: BlobIcon(Kind.milestone, size: 40, icon: idea.icon),
+                        title: Text(idea.label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                        subtitle: Text(e == null ? idea.when : DateFormat.yMMMd().format(e.start)),
+                        trailing: e == null
+                            ? Icon(Icons.add_circle_outline_rounded, color: c.accent)
+                            : Icon(Icons.check_circle_rounded, color: Kind.milestone.on(c)),
+                        onTap: () {
+                          Navigator.pop(sheet);
+                          showMemoryForm(context, event: e, name: idea.label);
+                        },
+                      );
+                    }(),
                   const SizedBox(height: 24),
                 ],
               ),
