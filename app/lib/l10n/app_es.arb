@@ -838,7 +838,6 @@
   "timelineEmpty": "Aún no hay nada.",
   "timelineFeeds": "Tomas",
   "timelineNote": "«{note}»",
-  "timelineOther": "Otros",
   "timelineSummary": "Resumen",
   "timelineTitle": "Historial de {name}",
   "timerAwakeFor": "Despierto desde hace {duration}",

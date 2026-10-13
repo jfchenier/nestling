@@ -205,7 +205,7 @@ class HomeScreen extends StatelessWidget {
         l10n.homeCardRoutine,
         simple(latest('activity'), (e) => e['kind'] is String ? cap(e['kind'] as String) : l10n.kindActivity),
         () => showEventForm(context, type: 'activity'),
-        'activity,milestone,note',
+        'activity,note',
       ),
       card(
         Kind.milestone,

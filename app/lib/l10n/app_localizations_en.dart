@@ -3040,9 +3040,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get timelineOther => 'Other';
-
-  @override
   String get timelineSummary => 'Summary';
 
   @override

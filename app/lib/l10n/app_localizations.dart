@@ -5128,12 +5128,6 @@ abstract class AppLocalizations {
   /// **'“{note}”'**
   String timelineNote(Object note);
 
-  /// No description provided for @timelineOther.
-  ///
-  /// In en, this message translates to:
-  /// **'Other'**
-  String get timelineOther;
-
   /// No description provided for @timelineSummary.
   ///
   /// In en, this message translates to:

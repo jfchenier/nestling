@@ -838,7 +838,6 @@
   "timelineEmpty": "Rien pour l'instant.",
   "timelineFeeds": "Repas",
   "timelineNote": "« {note} »",
-  "timelineOther": "Autre",
   "timelineSummary": "Résumé",
   "timelineTitle": "Journal de {name}",
   "timerAwakeFor": "Éveillé depuis {duration}",

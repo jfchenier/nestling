@@ -1147,7 +1147,6 @@
   "@timelineNote": {
     "description": "A note shown under an entry, in quotes."
   },
-  "timelineOther": "Other",
   "timelineSummary": "Summary",
   "timelineTitle": "{name}’s timeline",
   "timerAwakeFor": "Awake for {duration}",
