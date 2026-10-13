@@ -108,10 +108,10 @@ pub async fn summary(State(state): State<AppState>, user: AuthUser, Path(child_i
     let events = trend_events(&state, &child_id, r0, r1).await?;
     let t = trends::compute(&events, ctx.tz, ctx.day, today, 1, now);
     let (medicines,): (String,) = sqlx::query_as("SELECT medicines FROM children WHERE id = ?").bind(&child_id).fetch_one(&state.db).await?;
-    let medicines: Vec<Value> = medicines_status(&state.db, &child_id, &parse_medicines(&medicines), now)
+    let medicines: Vec<Value> = medicines_status(&state.db, &child_id, &parse_medicines(&medicines), now, ctx.tz)
         .await?
         .iter()
-        .map(|(m, st)| medicine_json(m, st, now, |ms| fmt_time(ms, ctx.tz)))
+        .map(|(m, st)| medicine_json(m, st, |ms| fmt_time(ms, ctx.tz)))
         .collect();
     Ok(Json(json!({
         "child": child_json(&state, &child_id, ctx.tz).await?,

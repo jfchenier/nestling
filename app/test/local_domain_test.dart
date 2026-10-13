@@ -66,6 +66,36 @@ void main() {
     expect(() => checkReminders([{'type': 'bath', 'after_minutes': 180}]), throwsA(anything));
   });
 
+  test('medicine at set times (same cases as schedule.rs, in local time)', () {
+    const h = 3600000, day = 24 * h;
+    final at8 = DateTime(2026, 7, 10, 8).millisecondsSinceEpoch;
+    Map<String, dynamic> daily(List<String> times) => {'name': 'Vitamin D', 'every_hours': 24, 'times': times};
+    final m = daily(['08:00']);
+    // Nothing given: due from 08:00 (shown as "next at 08:00" from 06:00).
+    var st = medicineStatus(m, [], at8 + h);
+    expect((st.nextAt, st.due), (at8, true));
+    st = medicineStatus(m, [], at8 - h);
+    expect((st.nextAt, st.due), (at8, true));
+    st = medicineStatus(m, [], at8 - 3 * h);
+    expect((st.nextAt, st.due), (DateTime(2026, 7, 9, 8).millisecondsSinceEpoch, true));
+    // Given at 07:00 or 21:00: counts for today's 08:00; the next is tomorrow's.
+    for (final given in [at8 - h, at8 + 13 * h]) {
+      st = medicineStatus(m, [given], given + 1);
+      expect((st.nextAt, st.due, st.lastAt), (DateTime(2026, 7, 11, 8).millisecondsSinceEpoch, false, given));
+    }
+    // Yesterday's dose doesn't count for today.
+    st = medicineStatus(m, [at8 - day + 3 * h], at8 + 1);
+    expect((st.nextAt, st.due), (at8, true));
+    // Close times: the window before a time is at most half the gap.
+    expect(earlyMs([480, 540, 1200]), 30 * 60000);
+    st = medicineStatus(daily(['20:00', '08:00', '09:00']), [at8 + 10 * 60000], at8 + 31 * 60000);
+    expect((st.nextAt, st.due), (at8 + h, true));
+    // Saved sorted, without duplicates; a bad time is refused.
+    expect(checkMedicines([daily([' 20:00', '8:00', '08:00'])]).first['times'], ['08:00', '20:00']);
+    expect(() => checkMedicines([daily(['24:00'])]), throwsA(anything));
+    expect(checkMedicines([daily([])]).first.containsKey('times'), false);
+  });
+
   test('stopping a breastfeed timer makes a feed', () {
     final segs = [Segment('left', 0, 600000), Segment('right', 600000)];
     final (start, end, details) = stopTimerSegments('breastfeed', segs, null, {}, 900000);

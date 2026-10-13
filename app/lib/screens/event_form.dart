@@ -453,6 +453,9 @@ class _EventFormState extends State<EventForm> {
     final next = DateTime.tryParse('${m['next_at']}')?.toLocal(), last = DateTime.tryParse('${m['last_at']}')?.toLocal();
     if (next == null || !_start.isBefore(next)) return null;
     final at = timeOfDay(next);
+    if (m['times'] is List && (m['times'] as List).isNotEmpty) {
+      return l10n.formMedAlreadyGiven(last == null ? '?' : timeOfDay(last), at);
+    }
     if (m['limited'] == true) return l10n.formMedLimited(toInt(m['doses_24h']) ?? 0, at);
     return l10n.formMedTooSoon(last == null ? '?' : timeOfDay(last), at);
   }

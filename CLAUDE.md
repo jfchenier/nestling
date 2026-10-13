@@ -142,7 +142,8 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       made on the server in step with `app/lib/timer_notifications.dart`.
 - [x] **Medicine schedules + reminders** (`src/schedule.rs`, `src/reminders.rs`; Dart port
       `app/lib/local/schedule.dart`): lists saved on the child; the summary says when the next dose
-      is allowed; reminders ("no feed in 3 h", "dose due") show on the app's home strip when due
+      is allowed (every N h after the last dose, or at set daily `times` in the family tz — a dose
+      from 2 h before a time counts for it); reminders ("no feed in 3 h", "dose due") show on the app's home strip when due
       (any mode) and are pushed only when Firebase is set up (`state.push`), checked every minute,
       once per entry (`reminders_sent`). App: Home's menu → Medicines and reminders; home strip
       (`_ReminderStrip`, same due rule as `reminders.rs`); early-dose warning in the medicine form.

@@ -1295,6 +1295,11 @@ class AppLocalizationsFr extends AppLocalizations {
   String get formMeasured => 'Mesuré le';
 
   @override
+  String formMedAlreadyGiven(Object last, Object time) {
+    return 'Déjà donnée à $last. Prochaine dose à $time.';
+  }
+
+  @override
   String formMedLimited(Object count, Object time) {
     return 'Déjà $count doses en 24 heures. Prochaine permise à $time.';
   }
@@ -1528,6 +1533,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get homeDiapersToday => 'couches aujourd\'hui';
+
+  @override
+  String homeDoseDueSince(Object time) {
+    return 'Dose de $time pas encore donnée';
+  }
 
   @override
   String get homeDoseNow => 'Prochaine dose possible maintenant';
@@ -2614,7 +2624,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String get scheduleAddMedicine => 'Ajouter un médicament';
 
   @override
+  String get scheduleAddTime => 'Ajouter une heure';
+
+  @override
   String get scheduleDaily => 'par jour';
+
+  @override
+  String scheduleDailyAt(Object times) {
+    return 'Chaque jour à $times';
+  }
 
   @override
   String get scheduleDescribeEmpty =>
@@ -2637,6 +2655,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get scheduleErrName => 'Donnez un nom au médicament.';
+
+  @override
+  String get scheduleErrTimes => 'Ajoutez au moins une heure.';
 
   @override
   String get scheduleEvery => 'Toutes les';
@@ -2679,6 +2700,23 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get scheduleMedicineSection => 'Horaire des médicaments';
+
+  @override
+  String get scheduleModeAfterDose => 'Intervalle';
+
+  @override
+  String scheduleModeHint(String mode) {
+    String _temp0 = intl.Intl.selectLogic(mode, {
+      'times':
+          'Due aux mêmes heures chaque jour, peu importe l\'heure de la dernière dose.',
+      'other':
+          'La prochaine dose se compte depuis la dernière, donc elle se décale avec l\'heure où elle a été donnée.',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get scheduleModeTimes => 'Heures fixes';
 
   @override
   String get scheduleName => 'Nom';
@@ -2727,6 +2765,9 @@ class AppLocalizationsFr extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get scheduleTimesLabel => 'Donner à';
 
   @override
   String get scheduleTitle => 'Médicaments et rappels';

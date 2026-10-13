@@ -1087,6 +1087,46 @@ async fn medicine_schedule_and_reminders() {
     assert_eq!(sum["medicines"][0]["doses_24h"], 2);
     nestling::reminders::check(&state, &push, nestling::util::now_ms()).await.unwrap();
     assert_eq!(sent.lock().unwrap().len(), 2);
+
+    // A daily vitamin at a set time (3 h ago, family time): due since then, never given before.
+    let toronto: chrono_tz::Tz = "America/Toronto".parse().unwrap();
+    let at = (chrono::Utc::now() - chrono::Duration::hours(3)).with_timezone(&toronto).format("%H:%M").to_string();
+    let (s, child) = c
+        .call(
+            Method::PATCH,
+            &format!("/children/{cid}"),
+            Some(&mom),
+            Some(json!({ "medicines": [{ "name": "Vitamin D", "every_hours": 24, "times": [at.clone(), "25:00"], "remind": true }] })),
+        )
+        .await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{child}");
+    let (s, child) = c
+        .call(
+            Method::PATCH,
+            &format!("/children/{cid}"),
+            Some(&mom),
+            Some(json!({ "medicines": [{ "name": "Vitamin D", "every_hours": 24, "times": [at.clone()], "remind": true }] })),
+        )
+        .await;
+    assert_eq!((s, child["medicines"][0]["times"].clone()), (StatusCode::OK, json!([at.clone()])), "{child}");
+    let (_, sum) = c.call(Method::GET, &format!("/children/{cid}/summary"), Some(&mom), None).await;
+    let med = &sum["medicines"][0];
+    assert_eq!(med["due"], true, "{sum}");
+    assert!(med["next_at"].as_str().unwrap()[11..].starts_with(&at), "{sum}");
+    nestling::reminders::check(&state, &push, nestling::util::now_ms()).await.unwrap();
+    let msgs = sent.lock().unwrap().clone();
+    assert_eq!(msgs.len(), 3, "{msgs:?}");
+    assert_eq!(msgs[2]["message"]["data"]["body"], format!("{at} dose is due"));
+
+    // Given now: done for today; the next one is tomorrow at the same time, whatever time it was given.
+    c.call(Method::POST, &format!("/children/{cid}/events"), Some(&mom), Some(json!({ "type": "health", "kind": "medicine", "name": "Vitamin D", "start": "now" })))
+        .await;
+    let (_, sum) = c.call(Method::GET, &format!("/children/{cid}/summary"), Some(&mom), None).await;
+    let med = &sum["medicines"][0];
+    assert_eq!(med["due"], false, "{sum}");
+    let next = chrono::DateTime::parse_from_rfc3339(med["next_at"].as_str().unwrap()).unwrap();
+    assert_eq!(next.with_timezone(&toronto).format("%H:%M").to_string(), at);
+    assert!(next > chrono::Utc::now() + chrono::Duration::hours(20), "{sum}");
 }
 
 #[tokio::test]
