@@ -1025,5 +1025,11 @@
   "settingsImperial": "Imperial",
   "growthUnits": "Unidades de estas curvas",
   "logBreast": "Pecho",
-  "logAmount": "Cantidad"
+  "logAmount": "Cantidad",
+  "unitMl": "mL",
+  "unitOz": "oz",
+  "unitKg": "kg",
+  "unitLb": "lb",
+  "unitCm": "cm",
+  "unitIn": "in"
 }

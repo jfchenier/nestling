@@ -84,8 +84,8 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
     final sex = child?.sex == 'male' || child?.sex == 'female' ? child!.sex! : _compareSex;
     final std = WhoStandard(_indicator, sex);
     final u = Units(_imperial ?? s.units.imperial);
-    final metricLabel = _indicator == GrowthIndicator.weight ? 'kg' : 'cm';
-    final imperialLabel = _indicator == GrowthIndicator.weight ? 'lb' : 'in';
+    final metricLabel = _indicator == GrowthIndicator.weight ? l10n.unitKg : l10n.unitCm;
+    final imperialLabel = _indicator == GrowthIndicator.weight ? l10n.unitLb : l10n.unitIn;
 
     double? age(Event e) => birth == null ? null : e.start.difference(birth).inHours / 24;
     final points = <_Point>[
@@ -224,7 +224,7 @@ String _indicatorName(GrowthIndicator i) => switch (i) {
   GrowthIndicator.head => l10n.growthHead,
 };
 
-/// A percentile as a rank in the app's language: "50th" (English), "50e" / "1er" (French), "50" (Spanish).
+/// A percentile as a rank in the app's language: "50th" (English), "50e" / "1er" (French), "50" (Spanish, Russian).
 String _rank(double p) {
   final lang = l10n.localeName;
   if (lang.startsWith('en')) return percentileLabel(p);

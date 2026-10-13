@@ -1421,5 +1421,29 @@
   "logAmount": "Amount",
   "@logAmount": {
     "description": "Pump page switch: note the amounts without the timer."
+  },
+  "unitMl": "mL",
+  "@unitMl": {
+    "description": "Unit symbol: millilitres"
+  },
+  "unitOz": "oz",
+  "@unitOz": {
+    "description": "Unit symbol: fluid ounces (and ounces in a weight such as 12 lb 3 oz)"
+  },
+  "unitKg": "kg",
+  "@unitKg": {
+    "description": "Unit symbol: kilograms"
+  },
+  "unitLb": "lb",
+  "@unitLb": {
+    "description": "Unit symbol: pounds"
+  },
+  "unitCm": "cm",
+  "@unitCm": {
+    "description": "Unit symbol: centimetres"
+  },
+  "unitIn": "in",
+  "@unitIn": {
+    "description": "Unit symbol: inches"
   }
 }

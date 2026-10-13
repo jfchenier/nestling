@@ -14,13 +14,13 @@ void main() {
     Set<String> keys(String lang) =>
         (jsonDecode(File('lib/l10n/app_$lang.arb').readAsStringSync()) as Map<String, dynamic>).keys.where((k) => !k.startsWith('@')).toSet();
     final en = keys('en');
-    for (final lang in ['fr', 'es']) {
+    for (final lang in ['fr', 'es', 'ru']) {
       expect(en.difference(keys(lang)), isEmpty, reason: 'missing in $lang');
       expect(keys(lang).difference(en), isEmpty, reason: 'extra in $lang');
     }
   });
 
-  test('French and Spanish labels and formats', () {
+  test('French, Spanish and Russian labels and formats', () {
     final e = Event({'type': 'feed', 'method': 'breast', 'start': '2026-10-08T10:00:00Z', 'left_seconds': 600, 'right_seconds': 300, 'start_side': 'left'});
     useLanguage('fr');
     expect(Kind.bottle.label, 'Biberon');
@@ -33,5 +33,18 @@ void main() {
     expect(ago(7200), 'hace 2 h 00 min');
     expect(cap('tummy_time'), 'Tiempo boca abajo');
     expect(cap('something_else'), 'Something else');
+    useLanguage('ru');
+    expect(Kind.bottle.label, 'Бутылочка');
+    expect(duration(3900), '1 ч 05 мин');
+    expect(ago(3 * 86400), '3 дн. назад');
+    expect(cap('crib'), 'Кроватка');
+    expect(describe(e, const Units(false)).$1, 'Грудное кормление');
+  });
+
+  test('Russian plurals', () {
+    useLanguage('ru');
+    expect([1, 2, 5, 11, 21, 22].map(l10n.ageMonths), ['1 месяц', '2 месяца', '5 месяцев', '11 месяцев', '21 месяц', '22 месяца']);
+    expect(l10n.homeNaps(3), '3 дневных сна');
+    expect(l10n.trendsCompareArrows(1), 'Стрелки — сравнение со вчерашним днём.');
   });
 }

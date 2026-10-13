@@ -6,9 +6,9 @@ OpenAPI description is [`../docs/openapi.yaml`](../docs/openapi.yaml)).
 
 ## Languages
 
-English, French and Spanish. The app follows the phone's (or browser's) language, English when
+English, French, Spanish and Russian. The app follows the phone's (or browser's) language, English when
 it isn't one of those; Settings → Language picks one for this device. Texts are in
-`lib/l10n/app_en.arb` (the template), `app_fr.arb` and `app_es.arb`; `flutter gen-l10n` (also run by
+`lib/l10n/app_en.arb` (the template), `app_fr.arb`, `app_es.arb` and `app_ru.arb`; `flutter gen-l10n` (also run by
 `flutter pub get`) regenerates `lib/l10n/app_localizations*.dart`, which are committed. Code reads
 them through the global `l10n` (`lib/l10n/l10n.dart`), so plain helpers like `describe()` can use
 it too. Values saved as keys (sleep locations, poop colors, built-in activities, health kinds) are

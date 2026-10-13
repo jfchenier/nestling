@@ -845,10 +845,10 @@ class _EventFormState extends State<EventForm> {
 
 /// The kinds of amounts a form can take in either unit, with their two unit labels.
 enum _Dim {
-  volume('mL', 'oz'),
-  weight('kg', 'lb'),
-  length('cm', 'in');
+  volume,
+  weight,
+  length;
 
-  const _Dim(this.metric, this.imperial);
-  final String metric, imperial;
+  String get metric => switch (this) { volume => l10n.unitMl, weight => l10n.unitKg, length => l10n.unitCm };
+  String get imperial => switch (this) { volume => l10n.unitOz, weight => l10n.unitLb, length => l10n.unitIn };
 }
