@@ -4132,6 +4132,12 @@ abstract class AppLocalizations {
   /// **'Time of birth'**
   String get pagesTimeOfBirth;
 
+  /// No description provided for @pagesTreeBabyPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Their photo at the bottom of the tree, apart from the profile picture.'**
+  String get pagesTreeBabyPhoto;
+
   /// No description provided for @pagesTreeGrandparent.
   ///
   /// In en, this message translates to:

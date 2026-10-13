@@ -619,6 +619,7 @@ class FamilyTreePage extends StatelessWidget {
     final grand = [book['tree_gp_1a'], book['tree_gp_1b'], book['tree_gp_2a'], book['tree_gp_2b']];
     final parents = [book['tree_parent_1'], book['tree_parent_2']];
     const sides = [Kind.sleep, Kind.activity];
+    final babyPhoto = photo(treeBabyPhoto);
     // Book viewers see only the levels with names.
     final showGreat = great.any((g) => g.isNotEmpty) || (!readOnly && grand.any((n) => n != null));
     final showGrand = !readOnly || grand.any((n) => n != null) || showGreat;
@@ -660,8 +661,9 @@ class FamilyTreePage extends StatelessWidget {
                     shape: BoxShape.circle,
                     border: Border.all(color: c.surface, width: 3),
                     boxShadow: [BoxShadow(color: c.ink.withValues(alpha: 0.15), blurRadius: 6, offset: const Offset(0, 2))],
+                    image: babyPhoto == null ? null : DecorationImage(image: MemoryImage(babyPhoto), fit: BoxFit.cover),
                   ),
-                  child: Icon(Icons.child_care_rounded, size: 34, color: c.bandInk),
+                  child: babyPhoto != null ? null : Icon(Icons.child_care_rounded, size: 34, color: c.bandInk),
                 ),
                 const SizedBox(height: 4),
                 Text(child.name, style: serifStyle(18, color: Kind.milestone.on(c))),
@@ -1044,12 +1046,16 @@ Map<String, List<String>> get _treePhotos => {
   },
 };
 
+/// The baby's own photo on the tree (not the profile picture).
+const treeBabyPhoto = 'tree_baby';
+
 Future<void> editTreePage(BuildContext context, Child child) => _editPage(
   context,
   child,
   title: l10n.pagesTreeTitle,
   icon: Icons.account_tree_rounded,
   photos: _treePhotos,
+  photoRows: [(key: treeBabyPhoto, label: child.name, hint: l10n.pagesTreeBabyPhoto)],
   fields: [
     for (final n in const [1, 2]) ...[
       (key: 'tree_parent_$n', label: l10n.pagesTreeParent(n), hint: l10n.pagesHintName, long: false),
@@ -1084,13 +1090,17 @@ Future<void> _editPage(
   required List<_Field> fields,
   bool time = false,
   Map<String, List<String>> photos = const {},
+  List<_PhotoRow> photoRows = const [],
 }) => showModalBottomSheet(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
   backgroundColor: context.pal.background,
-  builder: (_) => _PageForm(child: child, title: title, icon: icon, fields: fields, time: time, photos: photos),
+  builder: (_) => _PageForm(child: child, title: title, icon: icon, fields: fields, time: time, photos: photos, photoRows: photoRows),
 );
+
+/// A form row with only a photo (its key in `book_photos`) and a line saying what it is for.
+typedef _PhotoRow = ({String key, String label, String hint});
 
 class _PageForm extends StatefulWidget {
   const _PageForm({
@@ -1100,6 +1110,7 @@ class _PageForm extends StatefulWidget {
     required this.fields,
     required this.time,
     this.photos = const {},
+    this.photoRows = const [],
   });
   final Child child;
   final String title;
@@ -1109,6 +1120,9 @@ class _PageForm extends StatefulWidget {
 
   /// Fields with photos next to them: field key → the photos' keys (`book_photos`).
   final Map<String, List<String>> photos;
+
+  /// Photo-only rows, at the top.
+  final List<_PhotoRow> photoRows;
 
   @override
   State<_PageForm> createState() => _PageFormState();
@@ -1199,6 +1213,12 @@ class _PageFormState extends State<_PageForm> {
     }
   }
 
+  Widget _photoSpot(String key) => _PhotoSpot(
+    photo: _photos.containsKey(key) ? _photos[key] : context.watch<AppState>().bookPhoto(widget.child, key),
+    has: _photos.containsKey(key) ? _photos[key] != null : widget.child.bookPhotos.containsKey(key),
+    onTap: () => _pickPhoto(key),
+  );
+
   @override
   Widget build(BuildContext context) {
     final c = context.pal;
@@ -1235,17 +1255,24 @@ class _PageFormState extends State<_PageForm> {
                         style: TextStyle(fontWeight: FontWeight.w600, color: _time == null ? c.accent : c.ink),
                       ),
                     ),
+                  for (final r in widget.photoRows)
+                    FormRow(
+                      label: r.label,
+                      below: Row(
+                        children: [
+                          _photoSpot(r.key),
+                          const SizedBox(width: 12),
+                          Expanded(child: Text(r.hint, style: TextStyle(color: c.muted))),
+                        ],
+                      ),
+                    ),
                   for (final f in widget.fields)
                     FormRow(
                       label: f.label,
                       below: Row(
                         children: [
                           for (final key in widget.photos[f.key] ?? const <String>[]) ...[
-                            _PhotoSpot(
-                              photo: _photos.containsKey(key) ? _photos[key] : context.watch<AppState>().bookPhoto(widget.child, key),
-                              has: _photos.containsKey(key) ? _photos[key] != null : widget.child.bookPhotos.containsKey(key),
-                              onTap: () => _pickPhoto(key),
-                            ),
+                            _photoSpot(key),
                             const SizedBox(width: 8),
                           ],
                           Expanded(

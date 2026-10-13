@@ -992,6 +992,7 @@
     "description": "Screen-reader label of a baby book page."
   },
   "pagesTimeOfBirth": "Time of birth",
+  "pagesTreeBabyPhoto": "Their photo at the bottom of the tree, apart from the profile picture.",
   "pagesTreeGrandparent": "Their parent (side {n})",
   "@pagesTreeGrandparent": {
     "placeholders": {
