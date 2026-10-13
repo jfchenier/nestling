@@ -851,7 +851,7 @@
   "timerLastFeedEnded": "{side, select, left{Dernière tétée finie à gauche} other{Dernière tétée finie à droite}} · {ago}\n{side, select, left{Commencer à droite} other{Commencer à gauche}}",
   "timerLastSideBadge": "Dernier\ncôté",
   "timerLeftSide": "Côté gauche",
-  "timerLogPast": "Saisir après",
+  "timerLogPast": "Saisie manuelle",
   "timerMinutes": "Minutes",
   "timerNoteHint": "Note (facultatif)",
   "timerOnSide": "{side, select, left{À gauche} other{À droite}}",

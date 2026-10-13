@@ -3113,7 +3113,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get timerLeftSide => 'Lado izquierdo';
 
   @override
-  String get timerLogPast => 'Registrar';
+  String get timerLogPast => 'Registro manual';
 
   @override
   String get timerMinutes => 'Minutos';

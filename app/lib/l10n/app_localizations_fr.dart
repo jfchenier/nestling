@@ -3119,7 +3119,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get timerLeftSide => 'Côté gauche';
 
   @override
-  String get timerLogPast => 'Saisir après';
+  String get timerLogPast => 'Saisie manuelle';
 
   @override
   String get timerMinutes => 'Minutes';

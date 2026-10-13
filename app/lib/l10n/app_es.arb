@@ -851,7 +851,7 @@
   "timerLastFeedEnded": "{side, select, left{La última toma terminó en el izquierdo} other{La última toma terminó en el derecho}} · {ago}\n{side, select, left{Empieza por el derecho} other{Empieza por el izquierdo}}",
   "timerLastSideBadge": "Último\nlado",
   "timerLeftSide": "Lado izquierdo",
-  "timerLogPast": "Registrar",
+  "timerLogPast": "Registro manual",
   "timerMinutes": "Minutos",
   "timerNoteHint": "Nota (opcional)",
   "timerOnSide": "{side, select, left{En el izquierdo} other{En el derecho}}",
