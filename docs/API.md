@@ -145,7 +145,7 @@ from, which the CSV export writes as `_activityKey`).
 | `growth` | `weight_g`, `length_cm`, `head_cm` (at least one) |
 | `health` | `kind`: `medicine` (`name`, `dose`, `dose_unit`) \| `temperature` (`temperature_c`) \| `vaccine` (`name`) \| `appointment` (`name` = doctor) \| `symptom` (`name`) |
 | `activity` | `kind`: free text, e.g. `bath`, `tummy_time`, `outdoor`, `play`, `read`, `nail_trim`, `vitamin` |
-| `milestone` | `name`; `tooth`: `A`–`T` for a baby tooth that came in (the usual primary-teeth letters: `A`–`J` upper, right to left; `K`–`T` lower, left to right); `chapter`: the baby book chapter, an id of the app's (`waiting`, `hello`, `firsts`, `growing`, `celebrations` today; any lowercase id of up to 32 letters, digits or `_` is kept; absent: the app picks one from the name) |
+| `milestone` | `name`; `tooth`: `A`–`T` for a baby tooth that came in (the usual primary-teeth letters: `A`–`J` upper, right to left; `K`–`T` lower, left to right); `chapter`: the baby book chapter, an id of the app's (`family`, `waiting`, `hello`, `firsts`, `growing`, `celebrations` today; any lowercase id of up to 32 letters, digits or `_` is kept; absent: the app picks one from the name) |
 | `note` | just `note` |
 
 Examples:

@@ -286,6 +286,12 @@ abstract class AppLocalizations {
   /// **'Celebrations'**
   String get bookChapterCelebrations;
 
+  /// No description provided for @bookChapterFamily.
+  ///
+  /// In en, this message translates to:
+  /// **'About your family'**
+  String get bookChapterFamily;
+
   /// No description provided for @bookChapterFirsts.
   ///
   /// In en, this message translates to:
@@ -315,6 +321,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Holidays and special days'**
   String get bookChapterSubCelebrations;
+
+  /// No description provided for @bookChapterSubFamily.
+  ///
+  /// In en, this message translates to:
+  /// **'Before you, there was us'**
+  String get bookChapterSubFamily;
 
   /// No description provided for @bookChapterSubFirsts.
   ///
@@ -364,6 +376,24 @@ abstract class AppLocalizations {
   /// **'Delete this memory?'**
   String get bookDeleteTitle;
 
+  /// No description provided for @bookDiaryFirst.
+  ///
+  /// In en, this message translates to:
+  /// **'Write the first page'**
+  String get bookDiaryFirst;
+
+  /// No description provided for @bookDiaryIntro.
+  ///
+  /// In en, this message translates to:
+  /// **'Now and then, a page on how {name}\'s days go. The schedule is filled in from the last 7 days.'**
+  String bookDiaryIntro(Object name);
+
+  /// No description provided for @bookDiaryNew.
+  ///
+  /// In en, this message translates to:
+  /// **'New page'**
+  String get bookDiaryNew;
+
   /// No description provided for @bookDueDate.
   ///
   /// In en, this message translates to:
@@ -399,6 +429,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The first page is waiting'**
   String get bookEmptyTitle;
+
+  /// No description provided for @bookHereFor.
+  ///
+  /// In en, this message translates to:
+  /// **'Here for {time}'**
+  String bookHereFor(Object time);
 
   /// A memory idea in the baby book; saved as the memory name
   ///
@@ -442,6 +478,12 @@ abstract class AppLocalizations {
   /// **'Came home'**
   String get bookIdeaCameHome;
 
+  /// No description provided for @bookIdeaCar.
+  ///
+  /// In en, this message translates to:
+  /// **'Our car'**
+  String get bookIdeaCar;
+
   /// No description provided for @bookIdeaCarSeat.
   ///
   /// In en, this message translates to:
@@ -465,6 +507,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Up a clothes size'**
   String get bookIdeaClothesSize;
+
+  /// No description provided for @bookIdeaCold.
+  ///
+  /// In en, this message translates to:
+  /// **'First cold'**
+  String get bookIdeaCold;
 
   /// A memory idea in the baby book; saved as the memory name
   ///
@@ -501,6 +549,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Up a diaper size'**
   String get bookIdeaDiaperSize;
+
+  /// No description provided for @bookIdeaDiary.
+  ///
+  /// In en, this message translates to:
+  /// **'Diary'**
+  String get bookIdeaDiary;
 
   /// A memory idea in the baby book; saved as the memory name
   ///
@@ -628,6 +682,18 @@ abstract class AppLocalizations {
   /// **'Held head up'**
   String get bookIdeaHeldHead;
 
+  /// Memory idea: the family's home (where it is, since when)
+  ///
+  /// In en, this message translates to:
+  /// **'Our home'**
+  String get bookIdeaHome;
+
+  /// No description provided for @bookIdeaHowWeMet.
+  ///
+  /// In en, this message translates to:
+  /// **'How we met'**
+  String get bookIdeaHowWeMet;
+
   /// A memory idea in the baby book; saved as the memory name
   ///
   /// In en, this message translates to:
@@ -646,6 +712,12 @@ abstract class AppLocalizations {
   /// **'First Mother\'s Day'**
   String get bookIdeaMothersDay;
 
+  /// No description provided for @bookIdeaNursery.
+  ///
+  /// In en, this message translates to:
+  /// **'The nursery'**
+  String get bookIdeaNursery;
+
   /// A memory idea in the baby book; saved as the memory name
   ///
   /// In en, this message translates to:
@@ -663,6 +735,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Own room'**
   String get bookIdeaOwnRoom;
+
+  /// No description provided for @bookIdeaPets.
+  ///
+  /// In en, this message translates to:
+  /// **'Our pets'**
+  String get bookIdeaPets;
+
+  /// No description provided for @bookIdeaPrints.
+  ///
+  /// In en, this message translates to:
+  /// **'Hand and footprints'**
+  String get bookIdeaPrints;
 
   /// A memory idea in the baby book; saved as the memory name
   ///
@@ -687,6 +771,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sat up alone'**
   String get bookIdeaSatUp;
+
+  /// No description provided for @bookIdeaSentence.
+  ///
+  /// In en, this message translates to:
+  /// **'First sentence'**
+  String get bookIdeaSentence;
+
+  /// No description provided for @bookIdeaSiblings.
+  ///
+  /// In en, this message translates to:
+  /// **'Met big brother or sister'**
+  String get bookIdeaSiblings;
 
   /// A memory idea in the baby book; saved as the memory name
   ///
@@ -742,6 +838,12 @@ abstract class AppLocalizations {
   /// **'Waved bye-bye'**
   String get bookIdeaWaved;
 
+  /// No description provided for @bookIdeaWedding.
+  ///
+  /// In en, this message translates to:
+  /// **'Our wedding'**
+  String get bookIdeaWedding;
+
   /// No description provided for @bookIdeasForChapter.
   ///
   /// In en, this message translates to:
@@ -759,6 +861,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Ideas to remember'**
   String get bookIdeasToRemember;
+
+  /// No description provided for @bookLivedHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Lived here {time}'**
+  String bookLivedHere(Object time);
 
   /// No description provided for @bookMemoryCount.
   ///
@@ -874,6 +982,12 @@ abstract class AppLocalizations {
   /// **'Celebrations'**
   String get bookTabCelebrations;
 
+  /// No description provided for @bookTabFamily.
+  ///
+  /// In en, this message translates to:
+  /// **'Family'**
+  String get bookTabFamily;
+
   /// No description provided for @bookTabFirsts.
   ///
   /// In en, this message translates to:
@@ -987,6 +1101,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'around {from}–{to} weeks'**
   String bookWhenAroundWeeksRange(Object from, Object to);
+
+  /// No description provided for @bookWhenBeforeYou.
+  ///
+  /// In en, this message translates to:
+  /// **'before you'**
+  String get bookWhenBeforeYou;
+
+  /// No description provided for @bookWhenEachOne.
+  ///
+  /// In en, this message translates to:
+  /// **'one for each'**
+  String get bookWhenEachOne;
 
   /// No description provided for @bookWhenFirstDays.
   ///
@@ -1347,6 +1473,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Delete'**
   String get delete;
+
+  /// No description provided for @diaryBedtime.
+  ///
+  /// In en, this message translates to:
+  /// **'Bedtime around {time}'**
+  String diaryBedtime(Object time);
+
+  /// No description provided for @diaryFeeds.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 feed a day} other{{count} feeds a day}}'**
+  String diaryFeeds(int count);
+
+  /// No description provided for @diaryNaps.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 nap a day ({time} in all)} other{{count} naps a day ({time} in all)}}'**
+  String diaryNaps(int count, String time);
+
+  /// No description provided for @diaryNightSleep.
+  ///
+  /// In en, this message translates to:
+  /// **'{time} of sleep at night'**
+  String diaryNightSleep(Object time);
+
+  /// No description provided for @diarySchedule.
+  ///
+  /// In en, this message translates to:
+  /// **'Our days right now:'**
+  String get diarySchedule;
+
+  /// No description provided for @diaryWakesUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Wakes up around {time}'**
+  String diaryWakesUp(Object time);
 
   /// No description provided for @dirty.
   ///
@@ -3508,6 +3670,12 @@ abstract class AppLocalizations {
   /// **'Birth weight and length come from a Growth entry on the birth day.'**
   String get pagesBirthGrowthHint;
 
+  /// No description provided for @pagesBirthPeople.
+  ///
+  /// In en, this message translates to:
+  /// **'Who was there'**
+  String get pagesBirthPeople;
+
   /// No description provided for @pagesBorn.
   ///
   /// In en, this message translates to:
@@ -3568,6 +3736,12 @@ abstract class AppLocalizations {
   /// **'Head'**
   String get pagesHead;
 
+  /// No description provided for @pagesHintBirthPeople.
+  ///
+  /// In en, this message translates to:
+  /// **'Both parents, the midwife…'**
+  String get pagesHintBirthPeople;
+
   /// No description provided for @pagesHintEyes.
   ///
   /// In en, this message translates to:
@@ -3580,11 +3754,53 @@ abstract class AppLocalizations {
   /// **'Dark and lots of it'**
   String get pagesHintHair;
 
+  /// No description provided for @pagesHintHospital.
+  ///
+  /// In en, this message translates to:
+  /// **'Worked out from “Came home” if left empty'**
+  String get pagesHintHospital;
+
+  /// No description provided for @pagesHintLabourStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Tuesday night, around 11 pm'**
+  String get pagesHintLabourStarted;
+
+  /// No description provided for @pagesHintLabourStory.
+  ///
+  /// In en, this message translates to:
+  /// **'The long night, the drive, the first cry…'**
+  String get pagesHintLabourStory;
+
+  /// No description provided for @pagesHintLetter.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, when you read this…'**
+  String pagesHintLetter(Object name);
+
+  /// No description provided for @pagesHintLetterFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'Who writes it'**
+  String get pagesHintLetterFrom;
+
   /// No description provided for @pagesHintMeaning.
   ///
   /// In en, this message translates to:
   /// **'Its meaning or origin'**
   String get pagesHintMeaning;
+
+  /// No description provided for @pagesHintName.
+  ///
+  /// In en, this message translates to:
+  /// **'A name'**
+  String get pagesHintName;
+
+  /// No description provided for @pagesHintNames.
+  ///
+  /// In en, this message translates to:
+  /// **'Names, one per line'**
+  String get pagesHintNames;
 
   /// No description provided for @pagesHintNicknames.
   ///
@@ -3622,11 +3838,77 @@ abstract class AppLocalizations {
   /// **'Anything else about that year'**
   String get pagesHintWorldNote;
 
+  /// No description provided for @pagesHospital.
+  ///
+  /// In en, this message translates to:
+  /// **'At the hospital'**
+  String get pagesHospital;
+
+  /// No description provided for @pagesHospitalDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 day} other{{count} days}}'**
+  String pagesHospitalDays(int count);
+
+  /// No description provided for @pagesHospitalSameDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Home the same day'**
+  String get pagesHospitalSameDay;
+
+  /// No description provided for @pagesLabourStarted.
+  ///
+  /// In en, this message translates to:
+  /// **'Labour started'**
+  String get pagesLabourStarted;
+
+  /// No description provided for @pagesLabourStory.
+  ///
+  /// In en, this message translates to:
+  /// **'How it went'**
+  String get pagesLabourStory;
+
   /// No description provided for @pagesLength.
   ///
   /// In en, this message translates to:
   /// **'Length'**
   String get pagesLength;
+
+  /// No description provided for @pagesLetterFrom.
+  ///
+  /// In en, this message translates to:
+  /// **'From {name}'**
+  String pagesLetterFrom(Object name);
+
+  /// No description provided for @pagesLetterFromNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Letter {n}: from'**
+  String pagesLetterFromNumber(int n);
+
+  /// No description provided for @pagesLetterNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Letter {n}'**
+  String pagesLetterNumber(int n);
+
+  /// No description provided for @pagesLetterOpenOn.
+  ///
+  /// In en, this message translates to:
+  /// **'To read on {date}, at 18'**
+  String pagesLetterOpenOn(Object date);
+
+  /// No description provided for @pagesLetterPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Write {name} a letter to read at 18.'**
+  String pagesLetterPrompt(Object name);
+
+  /// No description provided for @pagesLetterTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'A letter for later'**
+  String get pagesLetterTitle;
 
   /// No description provided for @pagesMeasured.
   ///
@@ -3814,6 +4096,18 @@ abstract class AppLocalizations {
   /// **'Set'**
   String get pagesSetTime;
 
+  /// No description provided for @pagesStoryPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to tell how the big day went.'**
+  String get pagesStoryPrompt;
+
+  /// No description provided for @pagesStoryTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your birth story'**
+  String get pagesStoryTitle;
+
   /// Screen-reader label of a baby book page.
   ///
   /// In en, this message translates to:
@@ -3825,6 +4119,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Time of birth'**
   String get pagesTimeOfBirth;
+
+  /// No description provided for @pagesTreeGrandparent.
+  ///
+  /// In en, this message translates to:
+  /// **'Their parent (side {n})'**
+  String pagesTreeGrandparent(int n);
+
+  /// No description provided for @pagesTreeGrandparents.
+  ///
+  /// In en, this message translates to:
+  /// **'Grandparents'**
+  String get pagesTreeGrandparents;
+
+  /// No description provided for @pagesTreeGreat.
+  ///
+  /// In en, this message translates to:
+  /// **'Great-grandparents'**
+  String get pagesTreeGreat;
+
+  /// No description provided for @pagesTreeGreatOf.
+  ///
+  /// In en, this message translates to:
+  /// **'Their grandparents (side {n})'**
+  String pagesTreeGreatOf(int n);
+
+  /// No description provided for @pagesTreeOthers.
+  ///
+  /// In en, this message translates to:
+  /// **'Aunts, uncles and cousins'**
+  String get pagesTreeOthers;
+
+  /// No description provided for @pagesTreeParent.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent {n}'**
+  String pagesTreeParent(int n);
+
+  /// No description provided for @pagesTreeParents.
+  ///
+  /// In en, this message translates to:
+  /// **'Parents'**
+  String get pagesTreeParents;
+
+  /// No description provided for @pagesTreePrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to write the names of the family.'**
+  String get pagesTreePrompt;
+
+  /// No description provided for @pagesTreeSiblings.
+  ///
+  /// In en, this message translates to:
+  /// **'Brothers and sisters'**
+  String get pagesTreeSiblings;
+
+  /// No description provided for @pagesTreeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Family tree'**
+  String get pagesTreeTitle;
 
   /// No description provided for @pagesWeRemember.
   ///
@@ -3951,6 +4305,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The world you were born into'**
   String get pagesWorldTitle;
+
+  /// No description provided for @pagesZodiac.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign'**
+  String get pagesZodiac;
+
+  /// Western zodiac sign name; sign is the English id
+  ///
+  /// In en, this message translates to:
+  /// **'{sign, select, aries{Aries} taurus{Taurus} gemini{Gemini} cancer{Cancer} leo{Leo} virgo{Virgo} libra{Libra} scorpio{Scorpio} sagittarius{Sagittarius} capricorn{Capricorn} aquarius{Aquarius} pisces{Pisces} other{{sign}}}'**
+  String pagesZodiacSign(String sign);
 
   /// No description provided for @pairingCodeCopied.
   ///

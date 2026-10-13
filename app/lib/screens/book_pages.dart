@@ -10,10 +10,11 @@ import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import 'growth_chart.dart';
 
-/// The baby book's own pages: the day they were born, their name, the world they were born into,
-/// and growth month by month. The texts are kept on the child (`book`), the measurements come
-/// from the Growth entries.
+/// The baby book's own pages: the family tree, the day they were born and its story, their name,
+/// the world they were born into, growth month by month and a letter for later. The texts are kept
+/// on the child (`book`), the measurements come from the Growth entries.
 
 /// The moon on a day: its phase name and how lit it is (0 new … 1 full), from the mean synodic
 /// month counted from the new moon of 6 January 2000, 18:14 UTC (good to about a day).
@@ -35,6 +36,44 @@ import '../widgets/common.dart';
   final name = names[((age / month) * 8 + 0.5).floor() % 8];
   return (name: name, lit: (1 - math.cos(2 * math.pi * age / month)) / 2, age: age);
 }
+
+/// The Western zodiac sign of a birthday, as an English id (`libra`); shown with `pagesZodiacSign`.
+String zodiacSign(DateTime day) {
+  const starts = [
+    (1, 20, 'aquarius'),
+    (2, 19, 'pisces'),
+    (3, 21, 'aries'),
+    (4, 20, 'taurus'),
+    (5, 21, 'gemini'),
+    (6, 21, 'cancer'),
+    (7, 23, 'leo'),
+    (8, 23, 'virgo'),
+    (9, 23, 'libra'),
+    (10, 23, 'scorpio'),
+    (11, 22, 'sagittarius'),
+    (12, 22, 'capricorn'),
+  ];
+  var sign = 'capricorn';
+  for (final (month, from, id) in starts) {
+    if (day.month > month || (day.month == month && day.day >= from)) sign = id;
+  }
+  return sign;
+}
+
+const _zodiacSymbols = {
+  'aries': '♈',
+  'taurus': '♉',
+  'gemini': '♊',
+  'cancer': '♋',
+  'leo': '♌',
+  'virgo': '♍',
+  'libra': '♎',
+  'scorpio': '♏',
+  'sagittarius': '♐',
+  'capricorn': '♑',
+  'aquarius': '♒',
+  'pisces': '♓',
+};
 
 /// When the baby was born, as a local time (noon without a `birth_time`), or null without a
 /// birth date.
@@ -256,6 +295,7 @@ class BornPage extends StatelessWidget {
           if (book['hair'] case final h?) _Line(l10n.pagesHair, h),
           if (book['eyes'] case final e?) _Line(l10n.pagesEyes, e),
           if (moon != null) _Line(l10n.pagesMoon, moon.name, icon: moon.lit > 0.5 ? Icons.circle : Icons.dark_mode_rounded),
+          if (child.birthDate case final d?) _Line(l10n.pagesZodiac, '${l10n.pagesZodiacSign(zodiacSign(d))} ${_zodiacSymbols[zodiacSign(d)]}'),
           if (book['birth_note'] case final n?) _Block(l10n.pagesWeRemember, n),
           if (born == null && !readOnly) _Prompt(l10n.pagesBornNoDate),
           if (!filled) _Prompt(l10n.pagesBornPrompt),
@@ -424,6 +464,12 @@ class GrowthPage extends StatelessWidget {
                 const BlobIcon(Kind.growth, size: 40, icon: Icons.straighten_rounded),
                 const SizedBox(width: 12),
                 Expanded(child: Text(l10n.pagesMonthByMonth, style: serifStyle(21))),
+                if (rows.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GrowthChartScreen())),
+                    icon: const Icon(Icons.show_chart_rounded, size: 18),
+                    label: Text(l10n.homeChartsShort),
+                  ),
               ],
             ),
           ),
@@ -474,6 +520,329 @@ class GrowthPage extends StatelessWidget {
   }
 }
 
+/// The birth story's texts: key (saved in the book).
+const _storyKeys = ['labour_start', 'labour_story', 'birth_people', 'hospital_stay'];
+
+/// "Your birth story": when labour started, how it went, who was there and the time at the
+/// hospital (typed, else from the birth date to the "Came home" memory).
+class BirthStoryPage extends StatelessWidget {
+  const BirthStoryPage({super.key, required this.child, this.cameHome});
+  final Child child;
+
+  /// The day of the "Came home" memory, if there is one.
+  final DateTime? cameHome;
+
+  static bool hasText(Child child) => child.book.keys.any(_storyKeys.contains);
+
+  /// "3 days" at the hospital, from the birth date to [cameHome].
+  static String? hospitalStay(Child child, DateTime? cameHome) {
+    final b = child.birthDate;
+    if (b == null || cameHome == null) return null;
+    final days = DateTime(cameHome.year, cameHome.month, cameHome.day).difference(DateTime(b.year, b.month, b.day)).inDays;
+    if (days < 0 || days > 120) return null;
+    return days == 0 ? l10n.pagesHospitalSameDay : l10n.pagesHospitalDays(days);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final book = child.book;
+    final readOnly = context.select<AppState, bool>((s) => s.bookOnly);
+    final stay = book['hospital_stay'] ?? hospitalStay(child, cameHome);
+    return TapedPaper(
+      tilt: 0.006,
+      semanticLabel: readOnly ? l10n.pagesStoryTitle : l10n.pagesTapToEdit(l10n.pagesStoryTitle),
+      onTap: readOnly ? null : () => editStoryPage(context, child),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PageHead(l10n.pagesStoryTitle, Icons.local_hospital_rounded),
+          if (book['labour_start'] case final v?) _Line(l10n.pagesLabourStarted, v),
+          if (book['birth_people'] case final v?) _Line(l10n.pagesBirthPeople, v),
+          if (stay != null) _Line(l10n.pagesHospital, stay),
+          if (book['labour_story'] case final v?) _Block(l10n.pagesLabourStory, v),
+          if (!hasText(child)) _Prompt(l10n.pagesStoryPrompt),
+        ],
+      ),
+    );
+  }
+}
+
+/// The family tree's names: parents (1, 2), each one's parents, their grandparents (several lines),
+/// brothers and sisters, aunts, uncles and cousins.
+const _treeKeys = ['tree_parent_1', 'tree_parent_2', 'tree_gp_1a', 'tree_gp_1b', 'tree_gp_2a', 'tree_gp_2b', 'tree_great_1', 'tree_great_2', 'tree_siblings', 'tree_others'];
+
+/// "Family tree": the baby at the bottom, the parents above, then the grandparents (and the
+/// great-grandparents as lists), with the brothers and sisters and the rest of the family below.
+class FamilyTreePage extends StatelessWidget {
+  const FamilyTreePage({super.key, required this.child});
+  final Child child;
+
+  static bool hasText(Child child) => child.book.keys.any(_treeKeys.contains);
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.pal;
+    final book = child.book;
+    final readOnly = context.select<AppState, bool>((s) => s.bookOnly);
+    final grand = [book['tree_gp_1a'], book['tree_gp_1b'], book['tree_gp_2a'], book['tree_gp_2b']];
+    final parents = [book['tree_parent_1'], book['tree_parent_2']];
+    final great = [book['tree_great_1'], book['tree_great_2']];
+    // Book viewers see only the rows with names.
+    final showGrand = !readOnly || grand.any((n) => n != null);
+    final showParents = !readOnly || parents.any((n) => n != null) || showGrand;
+
+    Widget caption(String text) => Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(color: c.muted, fontSize: 11.5, fontWeight: FontWeight.w700, letterSpacing: 1.1),
+      ),
+    );
+
+    return TapedPaper(
+      tilt: -0.006,
+      semanticLabel: readOnly ? l10n.pagesTreeTitle : l10n.pagesTapToEdit(l10n.pagesTreeTitle),
+      onTap: readOnly ? null : () => editTreePage(context, child),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PageHead(l10n.pagesTreeTitle, Icons.account_tree_rounded),
+          if (great.any((g) => g != null)) ...[
+            caption(l10n.pagesTreeGreat),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final g in great)
+                  Expanded(
+                    child: Text(
+                      (g ?? '').split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).join('\n'),
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: c.ink, fontSize: 13, height: 1.35),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (showGrand) ...[caption(l10n.pagesTreeGrandparents), _TreeRow(grand), _TreeJoins(grand, 2)],
+          if (showParents) ...[if (!showGrand) caption(l10n.pagesTreeParents), _TreeRow(parents), _TreeJoins(parents, 1)],
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+              decoration: BoxDecoration(color: Kind.milestone.fill(c), borderRadius: BorderRadius.circular(14)),
+              child: Text(child.name, style: serifStyle(18, color: c.bandInk)),
+            ),
+          ),
+          if (book['tree_siblings'] case final v?) _Block(l10n.pagesTreeSiblings, v),
+          if (book['tree_others'] case final v?) _Block(l10n.pagesTreeOthers, v),
+          if (!hasText(child)) _Prompt(l10n.pagesTreePrompt),
+        ],
+      ),
+    );
+  }
+}
+
+/// A row of the tree: one box per name, spread evenly (an empty one is a dashed spot to fill in,
+/// or nothing for a book viewer).
+class _TreeRow extends StatelessWidget {
+  const _TreeRow(this.names);
+  final List<String?> names;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.pal;
+    final readOnly = context.select<AppState, bool>((s) => s.bookOnly);
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final n in names)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: n == null && readOnly
+                    ? const SizedBox()
+                    : Container(
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: n == null ? null : Kind.milestone.fill(c).withValues(alpha: 0.35),
+                          border: n == null ? Border.all(color: c.line) : null,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          n ?? '?',
+                          textAlign: TextAlign.center,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5, height: 1.2, color: n == null ? c.muted : c.ink),
+                        ),
+                      ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The lines from a row of the tree down to the row under it ([to] boxes): each box joins the
+/// one it belongs to (two grandparents → their child).
+class _TreeJoins extends StatelessWidget {
+  const _TreeJoins(this.names, this.to);
+  final List<String?> names;
+  final int to;
+
+  @override
+  Widget build(BuildContext context) {
+    final readOnly = context.select<AppState, bool>((s) => s.bookOnly);
+    return SizedBox(
+      height: 20,
+      width: double.infinity,
+      child: CustomPaint(painter: _JoinsPainter([for (final n in names) n != null || !readOnly], to, context.pal.line)),
+    );
+  }
+}
+
+class _JoinsPainter extends CustomPainter {
+  _JoinsPainter(this.shown, this.to, this.color);
+  final List<bool> shown;
+  final int to;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    final from = shown.length, per = from ~/ to;
+    for (var j = 0; j < to; j++) {
+      final below = Offset(size.width * (j + 0.5) / to, size.height);
+      final mid = size.height / 2;
+      final tops = [
+        for (var i = j * per; i < (j + 1) * per; i++)
+          if (shown[i]) size.width * (i + 0.5) / from,
+      ];
+      if (tops.isEmpty) continue;
+      for (final x in tops) {
+        canvas.drawLine(Offset(x, 0), Offset(x, mid), paint);
+      }
+      final left = math.min(tops.reduce(math.min), below.dx), right = math.max(tops.reduce(math.max), below.dx);
+      canvas.drawLine(Offset(left, mid), Offset(right, mid), paint);
+      canvas.drawLine(Offset(below.dx, mid), below, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_JoinsPainter old) => old.color != color || old.to != to || old.shown.join() != shown.join();
+}
+
+/// "A letter for later": up to two letters (from whom, and the letter), to read at 18.
+class LetterPage extends StatelessWidget {
+  const LetterPage({super.key, required this.child});
+  final Child child;
+
+  static bool hasText(Child child) => child.book['letter_1'] != null || child.book['letter_2'] != null;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.pal;
+    final book = child.book;
+    final b = child.birthDate;
+    final readOnly = context.select<AppState, bool>((s) => s.bookOnly);
+    return TapedPaper(
+      tilt: 0.007,
+      semanticLabel: readOnly ? l10n.pagesLetterTitle : l10n.pagesTapToEdit(l10n.pagesLetterTitle),
+      onTap: readOnly ? null : () => editLetterPage(context, child),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PageHead(l10n.pagesLetterTitle, Icons.mail_rounded, subtitle: b == null ? null : l10n.pagesLetterOpenOn(DateFormat.yMMMMd().format(DateTime(b.year + 18, b.month, b.day)))),
+          for (final n in const [1, 2])
+            if (book['letter_$n'] case final text?)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (book['letter_from_$n'] case final from?) Text(l10n.pagesLetterFrom(from), style: serifStyle(17, color: Kind.milestone.on(c))),
+                    const SizedBox(height: 4),
+                    Text(
+                      text,
+                      style: TextStyle(color: c.ink, fontSize: 15.5, height: 1.45, fontStyle: FontStyle.italic),
+                    ),
+                  ],
+                ),
+              ),
+          if (!hasText(child)) _Prompt(l10n.pagesLetterPrompt(child.name)),
+        ],
+      ),
+    );
+  }
+}
+
+/// A diary page's start: the schedule of the past 7 days (wake-up and bedtime from the sleep
+/// entries, naps, night sleep and feeds from the trends), or null with nothing logged.
+Future<String?> diarySchedule(AppState s) async {
+  final api = s.api, id = s.childId;
+  if (api == null || id == null) return null;
+  final now = DateTime.now();
+  final sleeps = await api.get('/children/$id/events', {'type': 'sleep', 'from': formatTime(now.subtract(const Duration(days: 7))), 'limit': '1000'});
+  final trends = await api.get('/children/$id/trends', {'days': '7'});
+  final lines = scheduleLines(
+    [for (final e in (sleeps as Map)['events'] as List) Event(e)],
+    ((trends as Map)['averages'] as Map?)?.cast<String, dynamic>() ?? const {},
+    dayStart: s.family?.dayStart ?? '06:00',
+    dayEnd: s.family?.dayEnd ?? '18:00',
+  );
+  return lines.isEmpty ? null : [l10n.diarySchedule, for (final l in lines) '• $l'].join('\n');
+}
+
+/// The schedule's lines: usual wake-up, naps, bedtime, night sleep and feeds a day. Bedtime is the
+/// usual start of the first long sleep (90 min or more) of each evening (from an hour before
+/// [dayEnd], so a late nap isn't bedtime), wake-up the usual end of each night's last sleep before noon.
+List<String> scheduleLines(List<Event> sleeps, Map<String, dynamic> averages, {String dayStart = '06:00', String dayEnd = '18:00'}) {
+  int minutes(String hhmm) {
+    final p = hhmm.split(':');
+    return int.parse(p[0]) * 60 + int.parse(p.length > 1 ? p[1] : '0');
+  }
+
+  // Minutes since noon, so a night doesn't wrap around midnight.
+  int sinceNoon(DateTime t) => (t.hour * 60 + t.minute - 720) % 1440;
+  final evening = (minutes(dayEnd) - 60 - 720) % 1440, morning = (minutes(dayStart) - 720) % 1440;
+  final bed = <String, int>{}, wake = <String, int>{};
+  for (final e in sleeps) {
+    final end = e.end;
+    if (end == null) continue;
+    final start = sinceNoon(e.start);
+    if (start < evening || start >= morning) continue;
+    final day = e.start.hour >= 12 ? e.start : e.start.subtract(const Duration(days: 1));
+    final night = '${day.year}-${day.month}-${day.day}';
+    if (end.difference(e.start).inMinutes >= 90 && start < (bed[night] ?? 1440)) bed[night] = start;
+    final stop = sinceNoon(end);
+    if (stop >= 720 && end.difference(e.start).inHours < 16 && stop > (wake[night] ?? -1)) wake[night] = stop;
+  }
+  String? usual(Iterable<int> values) {
+    if (values.isEmpty) return null;
+    final sorted = values.toList()..sort();
+    final m = (sorted[sorted.length ~/ 2] / 5).round() * 5;
+    final t = (m + 720) % 1440;
+    return timeOfDay(DateTime(2000, 1, 1, t ~/ 60, t % 60));
+  }
+
+  double avg(String k) => toDouble(averages[k]) ?? 0;
+  final naps = avg('naps_per_day').round(), feeds = avg('feeds_per_day').round();
+  final nightSleep = avg('night_sleep_seconds_per_day').round();
+  return [
+    if (usual(wake.values) case final t?) l10n.diaryWakesUp(t),
+    if (naps > 0) l10n.diaryNaps(naps, duration(avg('day_sleep_seconds_per_day').round())),
+    if (usual(bed.values) case final t?) l10n.diaryBedtime(t),
+    if (nightSleep > 0) l10n.diaryNightSleep(duration(nightSleep)),
+    if (feeds > 0) l10n.diaryFeeds(feeds),
+  ];
+}
+
 // ---- editing ----
 
 /// One field of a page's form: key in the book, label, hint, several lines or not.
@@ -516,6 +885,49 @@ Future<void> editWorldPage(BuildContext context, Child child) => _editPage(
     for (final (k, label, hint) in worldTopics) (key: k, label: label, hint: hint, long: true),
     for (final (k, label) in worldPrices) (key: k, label: label, hint: l10n.pagesPriceHint, long: false),
     (key: 'world_note', label: l10n.pagesAndAlso, hint: l10n.pagesHintWorldNote, long: true),
+  ],
+);
+
+Future<void> editStoryPage(BuildContext context, Child child) => _editPage(
+  context,
+  child,
+  title: l10n.pagesStoryTitle,
+  icon: Icons.local_hospital_rounded,
+  fields: [
+    (key: 'labour_start', label: l10n.pagesLabourStarted, hint: l10n.pagesHintLabourStarted, long: false),
+    (key: 'labour_story', label: l10n.pagesLabourStory, hint: l10n.pagesHintLabourStory, long: true),
+    (key: 'birth_people', label: l10n.pagesBirthPeople, hint: l10n.pagesHintBirthPeople, long: false),
+    (key: 'hospital_stay', label: l10n.pagesHospital, hint: l10n.pagesHintHospital, long: false),
+  ],
+);
+
+Future<void> editTreePage(BuildContext context, Child child) => _editPage(
+  context,
+  child,
+  title: l10n.pagesTreeTitle,
+  icon: Icons.account_tree_rounded,
+  fields: [
+    for (final n in const [1, 2]) ...[
+      (key: 'tree_parent_$n', label: l10n.pagesTreeParent(n), hint: l10n.pagesHintName, long: false),
+      (key: 'tree_gp_${n}a', label: l10n.pagesTreeGrandparent(n), hint: l10n.pagesHintName, long: false),
+      (key: 'tree_gp_${n}b', label: l10n.pagesTreeGrandparent(n), hint: l10n.pagesHintName, long: false),
+      (key: 'tree_great_$n', label: l10n.pagesTreeGreatOf(n), hint: l10n.pagesHintNames, long: true),
+    ],
+    (key: 'tree_siblings', label: l10n.pagesTreeSiblings, hint: l10n.pagesHintNames, long: true),
+    (key: 'tree_others', label: l10n.pagesTreeOthers, hint: l10n.pagesHintNames, long: true),
+  ],
+);
+
+Future<void> editLetterPage(BuildContext context, Child child) => _editPage(
+  context,
+  child,
+  title: l10n.pagesLetterTitle,
+  icon: Icons.mail_rounded,
+  fields: [
+    for (final n in const [1, 2]) ...[
+      (key: 'letter_from_$n', label: l10n.pagesLetterFromNumber(n), hint: l10n.pagesHintLetterFrom, long: false),
+      (key: 'letter_$n', label: l10n.pagesLetterNumber(n), hint: l10n.pagesHintLetter(child.name), long: true),
+    ],
   ],
 );
 

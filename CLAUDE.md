@@ -155,11 +155,14 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       set or removed offline in `LocalStore.photoUploads` (`SyncApi._pushPhotos`, after the entries).
       Teeth chart (`app/lib/screens/teeth_chart.dart`): milestones with `tooth` = A–T (A–J upper, the
       baby's right to left; K–T lower, left to right); only "First tooth" shows as a memory card.
-      Chapters (Waiting for you, Hello world, Firsts, Growing up, Celebrations) live in the app
+      Chapters (About your family, Waiting for you, Hello world, Firsts, Growing up, Celebrations) live in the app
       (`BookChapter`); a milestone's `chapter` is any short id to the server (the app always saves it; one
       without follows its idea, else Waiting for you before the birth date, else Firsts). The book's own pages
       are texts on the child (`book`, replaced whole by `PATCH /children/{id}`; CSV `[Profile] Book`).
       "Banana for scale": repeatable milestones shown as a monthly photo strip.
+      Book pages (`book_pages.dart`): family tree, the day you were born (moon, zodiac), birth story,
+      name, the world, growth by month, a letter for later. "Diary" milestones (Growing up) start
+      with the past week's schedule (`scheduleLines`); "Our home" shows how long you lived there.
       Bottom tabs: Home, Timeline, Calendar, Trends, Book; Medicines and reminders, Family and Settings open from Home's menu button (top right; the baby's photo is top left).
 - [x] **Google Drive backup in server mode** (`app/lib/local/server_backup.dart`): the Android app
       saves each family's CSV export, a JSON of what the CSV leaves out (time zone, day hours,

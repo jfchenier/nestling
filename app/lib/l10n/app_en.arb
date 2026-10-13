@@ -43,11 +43,13 @@
   "bookChangePhoto": "Change",
   "bookChapter": "Chapter",
   "bookChapterCelebrations": "Celebrations",
+  "bookChapterFamily": "About your family",
   "bookChapterFirsts": "Firsts",
   "bookChapterGrowing": "Growing up",
   "bookChapterHello": "Hello, world",
   "bookChapterNumber": "CHAPTER {number}",
   "bookChapterSubCelebrations": "Holidays and special days",
+  "bookChapterSubFamily": "Before you, there was us",
   "bookChapterSubFirsts": "Every new thing, month by month",
   "bookChapterSubGrowing": "Teeth, size, and how fast it goes",
   "bookChapterSubHello": "The very beginning",
@@ -56,12 +58,16 @@
   "bookDaysBeforeBirth": "days before birth",
   "bookDeleteBody": "It will be removed for everyone in the family, with its photo.",
   "bookDeleteTitle": "Delete this memory?",
+  "bookDiaryFirst": "Write the first page",
+  "bookDiaryIntro": "Now and then, a page on how {name}'s days go. The schedule is filled in from the last 7 days.",
+  "bookDiaryNew": "New page",
   "bookDueDate": "Due date",
   "bookDueOn": "Due {date}",
   "bookEditMemory": "Edit memory",
   "bookEmptyBody": "Pick an idea below or add your own: a photo, the day and a few words about it.",
   "bookEmptyReadOnly": "Memories show here as the family adds them.",
   "bookEmptyTitle": "The first page is waiting",
+  "bookHereFor": "Here for {time}",
   "bookIdeaBabyShower": "Baby shower",
   "@bookIdeaBabyShower": {
     "description": "A memory idea in the baby book; saved as the memory name"
@@ -87,6 +93,7 @@
   "@bookIdeaCameHome": {
     "description": "A memory idea in the baby book; saved as the memory name"
   },
+  "bookIdeaCar": "Our car",
   "bookIdeaCarSeat": "Forward-facing car seat",
   "bookIdeaChristmas": "First Christmas",
   "@bookIdeaChristmas": {
@@ -97,6 +104,7 @@
     "description": "A memory idea in the baby book; saved as the memory name"
   },
   "bookIdeaClothesSize": "Up a clothes size",
+  "bookIdeaCold": "First cold",
   "bookIdeaCooed": "Cooed",
   "@bookIdeaCooed": {
     "description": "A memory idea in the baby book; saved as the memory name"
@@ -118,6 +126,7 @@
     "description": "A memory idea in the baby book; saved as the memory name"
   },
   "bookIdeaDiaperSize": "Up a diaper size",
+  "bookIdeaDiary": "Diary",
   "bookIdeaEaster": "First Easter",
   "@bookIdeaEaster": {
     "description": "A memory idea in the baby book; saved as the memory name"
@@ -199,6 +208,11 @@
   "@bookIdeaHeldHead": {
     "description": "A memory idea in the baby book; saved as the memory name"
   },
+  "bookIdeaHome": "Our home",
+  "@bookIdeaHome": {
+    "description": "Memory idea: the family's home (where it is, since when)"
+  },
+  "bookIdeaHowWeMet": "How we met",
   "bookIdeaKiss": "Gave a kiss",
   "@bookIdeaKiss": {
     "description": "A memory idea in the baby book; saved as the memory name"
@@ -211,6 +225,7 @@
   "@bookIdeaMothersDay": {
     "description": "A memory idea in the baby book; saved as the memory name"
   },
+  "bookIdeaNursery": "The nursery",
   "bookIdeaOwnBottle": "Held own bottle",
   "@bookIdeaOwnBottle": {
     "description": "A memory idea in the baby book; saved as the memory name"
@@ -220,6 +235,8 @@
     "description": "A memory idea in the baby book; saved as the memory name"
   },
   "bookIdeaOwnRoom": "Own room",
+  "bookIdeaPets": "Our pets",
+  "bookIdeaPrints": "Hand and footprints",
   "bookIdeaPulledStand": "Pulled to stand",
   "@bookIdeaPulledStand": {
     "description": "A memory idea in the baby book; saved as the memory name"
@@ -236,6 +253,8 @@
   "@bookIdeaSatUp": {
     "description": "A memory idea in the baby book; saved as the memory name"
   },
+  "bookIdeaSentence": "First sentence",
+  "bookIdeaSiblings": "Met big brother or sister",
   "bookIdeaSleptNight": "Slept through the night",
   "@bookIdeaSleptNight": {
     "description": "A memory idea in the baby book; saved as the memory name"
@@ -272,9 +291,11 @@
   "@bookIdeaWaved": {
     "description": "A memory idea in the baby book; saved as the memory name"
   },
+  "bookIdeaWedding": "Our wedding",
   "bookIdeasForChapter": "Ideas for this chapter",
   "bookIdeasProgress": "{done} of {total} in the book. Tap one to add it.",
   "bookIdeasToRemember": "Ideas to remember",
+  "bookLivedHere": "Lived here {time}",
   "bookMemoryCount": "{count, plural, =1{1 memory} other{{count} memories}}",
   "bookNameHint": "First smile, rolled over…",
   "bookNameNeeded": "What happened? Give the memory a name.",
@@ -294,6 +315,7 @@
   "bookStory": "The story",
   "bookStoryHint": "Where you were, who was there, how it felt…",
   "bookTabCelebrations": "Celebrations",
+  "bookTabFamily": "Family",
   "bookTabFirsts": "Firsts",
   "bookTabGrowing": "Growing",
   "bookTabHello": "Hello",
@@ -313,6 +335,8 @@
   "bookWhenAroundMonths": "around {count} months",
   "bookWhenAroundWeeks": "around {count} weeks",
   "bookWhenAroundWeeksRange": "around {from}–{to} weeks",
+  "bookWhenBeforeYou": "before you",
+  "bookWhenEachOne": "one for each",
   "bookWhenFirstDays": "first days",
   "bookWhenFirstWeeks": "first weeks",
   "bookWhenLastWeeks": "last weeks",
@@ -379,6 +403,29 @@
   "daysAgo": "{count} days ago",
   "defaultBabyName": "Baby",
   "delete": "Delete",
+  "diaryBedtime": "Bedtime around {time}",
+  "diaryFeeds": "{count, plural, =1{1 feed a day} other{{count} feeds a day}}",
+  "@diaryFeeds": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "diaryNaps": "{count, plural, =1{1 nap a day ({time} in all)} other{{count} naps a day ({time} in all)}}",
+  "@diaryNaps": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "diaryNightSleep": "{time} of sleep at night",
+  "diarySchedule": "Our days right now:",
+  "diaryWakesUp": "Wakes up around {time}",
   "dirty": "Dirty",
   "done": "Done",
   "dry": "Dry",
@@ -841,6 +888,7 @@
   },
   "pagesBirth": "Birth",
   "pagesBirthGrowthHint": "Birth weight and length come from a Growth entry on the birth day.",
+  "pagesBirthPeople": "Who was there",
   "pagesBorn": "Born",
   "pagesBornNoDate": "Add the birth date in Family → the baby to start this page.",
   "pagesBornPrompt": "Tap to add the time, the place, hair and eyes.",
@@ -851,16 +899,56 @@
   "pagesGrowthNoBirth": "Add the birth date to see growth month by month.",
   "pagesHair": "Hair",
   "pagesHead": "Head",
+  "pagesHintBirthPeople": "Both parents, the midwife…",
   "pagesHintEyes": "Deep blue",
   "pagesHintHair": "Dark and lots of it",
+  "pagesHintHospital": "Worked out from “Came home” if left empty",
+  "pagesHintLabourStarted": "Tuesday night, around 11 pm",
+  "pagesHintLabourStory": "The long night, the drive, the first cry…",
+  "pagesHintLetter": "{name}, when you read this…",
+  "pagesHintLetterFrom": "Who writes it",
   "pagesHintMeaning": "Its meaning or origin",
+  "pagesHintName": "A name",
+  "pagesHintNames": "Names, one per line",
   "pagesHintNicknames": "What we call you at home",
   "pagesHintOthers": "The runners-up",
   "pagesHintPlace": "The hospital, home, the city",
   "pagesHintRemember": "The first cry, who was there, the weather…",
   "pagesHintWhy": "Who or what it comes from",
   "pagesHintWorldNote": "Anything else about that year",
+  "pagesHospital": "At the hospital",
+  "pagesHospitalDays": "{count, plural, =1{1 day} other{{count} days}}",
+  "@pagesHospitalDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "pagesHospitalSameDay": "Home the same day",
+  "pagesLabourStarted": "Labour started",
+  "pagesLabourStory": "How it went",
   "pagesLength": "Length",
+  "pagesLetterFrom": "From {name}",
+  "pagesLetterFromNumber": "Letter {n}: from",
+  "@pagesLetterFromNumber": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pagesLetterNumber": "Letter {n}",
+  "@pagesLetterNumber": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pagesLetterOpenOn": "To read on {date}, at 18",
+  "pagesLetterPrompt": "Write {name} a letter to read at 18.",
+  "pagesLetterTitle": "A letter for later",
   "pagesMeasured": "Measured",
   "pagesMonthByMonth": "Month by month",
   "pagesMonthsShort": "{count} mo",
@@ -895,11 +983,44 @@
   "pagesSaveToBook": "Save to the book",
   "pagesSaving": "Saving…",
   "pagesSetTime": "Set",
+  "pagesStoryPrompt": "Tap to tell how the big day went.",
+  "pagesStoryTitle": "Your birth story",
   "pagesTapToEdit": "{title}. Tap to edit.",
   "@pagesTapToEdit": {
     "description": "Screen-reader label of a baby book page."
   },
   "pagesTimeOfBirth": "Time of birth",
+  "pagesTreeGrandparent": "Their parent (side {n})",
+  "@pagesTreeGrandparent": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pagesTreeGrandparents": "Grandparents",
+  "pagesTreeGreat": "Great-grandparents",
+  "pagesTreeGreatOf": "Their grandparents (side {n})",
+  "@pagesTreeGreatOf": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pagesTreeOthers": "Aunts, uncles and cousins",
+  "pagesTreeParent": "Parent {n}",
+  "@pagesTreeParent": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pagesTreeParents": "Parents",
+  "pagesTreePrompt": "Tap to write the names of the family.",
+  "pagesTreeSiblings": "Brothers and sisters",
+  "pagesTreeTitle": "Family tree",
   "pagesWeRemember": "We remember",
   "pagesWeighed": "Weighed",
   "pagesWeight": "Weight",
@@ -921,6 +1042,16 @@
   "pagesWorldTech": "Gadgets",
   "pagesWorldTechHint": "The phone in our pocket, the new thing",
   "pagesWorldTitle": "The world you were born into",
+  "pagesZodiac": "Sign",
+  "pagesZodiacSign": "{sign, select, aries{Aries} taurus{Taurus} gemini{Gemini} cancer{Cancer} leo{Leo} virgo{Virgo} libra{Libra} scorpio{Scorpio} sagittarius{Sagittarius} capricorn{Capricorn} aquarius{Aquarius} pisces{Pisces} other{{sign}}}",
+  "@pagesZodiacSign": {
+    "description": "Western zodiac sign name; sign is the English id",
+    "placeholders": {
+      "sign": {
+        "type": "String"
+      }
+    }
+  },
   "pairingCodeCopied": "Pairing code copied. Send it only to your family: it opens your baby's data.",
   "pairingCopyCode": "Copy the code instead",
   "pairingIntro": "On the other phone, install Nestling, choose \"Use without a server\", then \"Join with a pairing code\" and scan this. Both phones must be on the same Wi-Fi.",

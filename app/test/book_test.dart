@@ -93,4 +93,64 @@ void main() {
     expect(pregnancyWeeks(Child({'id': 'c', 'birth_date': '2026-05-20'}), DateTime(2026, 1, 7)), '19 weeks before birth');
     expect(pregnancyWeeks(c, DateTime(2026, 5, 20)), isNull);
   });
+
+  test('zodiac signs at the edges', () {
+    expect(zodiacSign(DateTime(2026, 1, 1)), 'capricorn');
+    expect(zodiacSign(DateTime(2026, 1, 20)), 'aquarius');
+    expect(zodiacSign(DateTime(2026, 3, 20)), 'pisces');
+    expect(zodiacSign(DateTime(2026, 3, 21)), 'aries');
+    expect(zodiacSign(DateTime(2026, 10, 13)), 'libra');
+    expect(zodiacSign(DateTime(2026, 12, 22)), 'capricorn');
+    expect(l10n.pagesZodiacSign('libra'), 'Libra');
+  });
+
+  test('the new family ideas find their chapters', () {
+    expect(chapterOf(Event({'name': 'Our wedding', 'start': '2019-06-01T10:00:00Z'})), BookChapter.family);
+    expect(chapterOf(Event({'name': 'The nursery'})), BookChapter.waiting);
+    expect(chapterOf(Event({'name': 'first cold'})), BookChapter.firsts);
+    expect(isDiary(Event({'name': 'diary'})), isTrue);
+  });
+
+  test('our homes say how long we lived there', () {
+    Event home(String id, String day) => Event({'id': id, 'type': 'milestone', 'name': 'Our home', 'start': '${day}T10:00:00Z'});
+    final spans = homeSpans([home('b', '2022-03-01'), home('a', '2018-01-15')], now: DateTime(2026, 10, 13));
+    expect(spans, {'a': 'Lived here 4 years', 'b': 'Here for 4 years'});
+    expect(homeSpans([home('c', '2026-09-01')], now: DateTime(2026, 10, 13)), {'c': 'Here for 1 month'});
+  });
+
+  test('a memory long before birth shows only its date', () {
+    final c = Child({'id': 'c', 'birth_date': '2026-05-20'});
+    expect(pregnancyWeeks(c, DateTime(2026, 3, 1)), '11 weeks before birth');
+    expect(pregnancyWeeks(c, DateTime(2019, 6, 1)), isNull);
+  });
+
+  test('time at the hospital, up to Came home', () {
+    final c = Child({'id': 'c', 'birth_date': '2026-05-20'});
+    expect(BirthStoryPage.hospitalStay(c, DateTime(2026, 5, 23, 15)), '3 days');
+    expect(BirthStoryPage.hospitalStay(c, DateTime(2026, 5, 20, 18)), 'Home the same day');
+    expect(BirthStoryPage.hospitalStay(c, null), isNull);
+  });
+
+  test("the diary's schedule from the past week", () {
+    Event sleep(String start, String end) => Event({'id': start, 'type': 'sleep', 'start': start, 'end': end});
+    final lines = scheduleLines(
+      [
+        sleep('2026-10-10T19:30:00', '2026-10-11T06:55:00'),
+        sleep('2026-10-11T09:30:00', '2026-10-11T10:30:00'), // a nap
+        sleep('2026-10-11T19:40:00', '2026-10-11T23:00:00'),
+        sleep('2026-10-11T23:20:00', '2026-10-12T07:10:00'),
+        sleep('2026-10-12T15:30:00', '2026-10-12T17:05:00'), // a long late nap is not bedtime
+        sleep('2026-10-12T19:20:00', '2026-10-13T07:05:00'),
+      ],
+      {'naps_per_day': 2.6, 'day_sleep_seconds_per_day': 9600, 'night_sleep_seconds_per_day': 39000, 'feeds_per_day': 7.2},
+    );
+    expect(lines, [
+      'Wakes up around 07:05',
+      '3 naps a day (2h 40m in all)',
+      'Bedtime around 19:30',
+      '10h 50m of sleep at night',
+      '7 feeds a day',
+    ]);
+    expect(scheduleLines(const [], const {}), isEmpty);
+  });
 }

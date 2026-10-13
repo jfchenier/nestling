@@ -1668,7 +1668,7 @@ components:
           type: string
           pattern: '^[a-z][a-z0-9_]{0,31}$'
           description: >-
-            The baby book chapter it goes in, an id of the app's (today `waiting`, `hello`, `firsts`,
+            The baby book chapter it goes in, an id of the app's (today `family`, `waiting`, `hello`, `firsts`,
             `growing`, `celebrations`); when absent the app picks one from the name.
     NoteDetails:
       type: object
