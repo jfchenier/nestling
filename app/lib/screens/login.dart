@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../api/api.dart';
@@ -63,6 +64,8 @@ class _LoginScreenState extends State<LoginScreen> {
         _password.text,
         name: _name.text,
         register: _register || _needsSetup,
+        // Tells the browser's or phone's password manager the sign-in worked, so it offers to save.
+        onAccepted: () => TextInput.finishAutofillContext(),
       );
     } on ApiException catch (e) {
       if (mounted) {
@@ -113,122 +116,130 @@ class _LoginScreenState extends State<LoginScreen> {
       body: SafeArea(
         child: Constrained(
           maxWidth: 440,
-          child: Form(
-            key: _form,
-            child: ListView(
-              padding: const EdgeInsets.all(28),
-              children: [
-                const SizedBox(height: 36),
-                Center(child: Image.asset('assets/icon.png', width: 104, height: 104)),
-                const SizedBox(height: 20),
-                Text('Nestling', textAlign: TextAlign.center, style: t.headlineMedium),
-                const SizedBox(height: 6),
-                Text(
-                  _needsSetup
-                      ? l10n.loginNewServer
-                      : _register
-                      ? l10n.loginCreateYourAccount
-                      : l10n.loginWelcomeBack,
-                  textAlign: TextAlign.center,
-                  style: t.bodyLarge?.copyWith(color: context.pal.muted),
-                ),
-                const SizedBox(height: 32),
-                if (_showServer) ...[
+          // One autofill group, so password managers see the email and password as one sign-in form
+          // (on the web Flutter builds a real <form> for it). Leaving without signing in (e.g. to the
+          // phone-only mode) saves nothing.
+          child: AutofillGroup(
+            onDisposeAction: AutofillContextAction.cancel,
+            child: Form(
+              key: _form,
+              child: ListView(
+                padding: const EdgeInsets.all(28),
+                children: [
+                  const SizedBox(height: 36),
+                  Center(child: Image.asset('assets/icon.png', width: 104, height: 104)),
+                  const SizedBox(height: 20),
+                  Text('Nestling', textAlign: TextAlign.center, style: t.headlineMedium),
+                  const SizedBox(height: 6),
+                  Text(
+                    _needsSetup
+                        ? l10n.loginNewServer
+                        : _register
+                        ? l10n.loginCreateYourAccount
+                        : l10n.loginWelcomeBack,
+                    textAlign: TextAlign.center,
+                    style: t.bodyLarge?.copyWith(color: context.pal.muted),
+                  ),
+                  const SizedBox(height: 32),
+                  if (_showServer) ...[
+                    TextFormField(
+                      controller: _server,
+                      keyboardType: TextInputType.url,
+                      autocorrect: false,
+                      autofillHints: const [AutofillHints.url],
+                      decoration: InputDecoration(
+                        labelText: l10n.loginServerAddress,
+                        hintText: 'http://192.168.1.10:8080',
+                        prefixIcon: const Icon(Icons.dns_outlined),
+                      ),
+                      validator: (v) => (v ?? '').trim().isEmpty ? l10n.loginEnterServer : null,
+                      onChanged: (_) {
+                        _debounce?.cancel();
+                        _debounce = Timer(const Duration(milliseconds: 600), _checkServer);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  if (_register) ...[
+                    TextFormField(
+                      controller: _name,
+                      textCapitalization: TextCapitalization.words,
+                      autofillHints: const [AutofillHints.name],
+                      decoration: InputDecoration(labelText: l10n.loginYourName, prefixIcon: const Icon(Icons.person_outline)),
+                      validator: (v) => (v ?? '').trim().isEmpty ? l10n.loginEnterName : null,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   TextFormField(
-                    controller: _server,
-                    keyboardType: TextInputType.url,
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
                     autocorrect: false,
-                    decoration: InputDecoration(
-                      labelText: l10n.loginServerAddress,
-                      hintText: 'http://192.168.1.10:8080',
-                      prefixIcon: const Icon(Icons.dns_outlined),
-                    ),
-                    validator: (v) => (v ?? '').trim().isEmpty ? l10n.loginEnterServer : null,
-                    onChanged: (_) {
-                      _debounce?.cancel();
-                      _debounce = Timer(const Duration(milliseconds: 600), _checkServer);
-                    },
+                    autofillHints: const [AutofillHints.username, AutofillHints.email],
+                    decoration: InputDecoration(labelText: l10n.loginEmail, prefixIcon: const Icon(Icons.mail_outline)),
+                    validator: (v) => (v ?? '').contains('@') ? null : l10n.loginEnterEmail,
                   ),
                   const SizedBox(height: 12),
-                ],
-                if (_register) ...[
                   TextFormField(
-                    controller: _name,
-                    textCapitalization: TextCapitalization.words,
-                    decoration: InputDecoration(labelText: l10n.loginYourName, prefixIcon: const Icon(Icons.person_outline)),
-                    validator: (v) => (v ?? '').trim().isEmpty ? l10n.loginEnterName : null,
+                    controller: _password,
+                    obscureText: true,
+                    autofillHints: [_register || _needsSetup ? AutofillHints.newPassword : AutofillHints.password],
+                    decoration: InputDecoration(labelText: l10n.loginPassword, prefixIcon: const Icon(Icons.lock_outline)),
+                    validator: (v) => _register && (v ?? '').length < 8
+                        ? l10n.loginPasswordMin
+                        : (v ?? '').isEmpty
+                        ? l10n.loginEnterPassword
+                        : null,
+                    onFieldSubmitted: (_) => _submit(),
+                  ),
+                  const SizedBox(height: 24),
+                  FilledButton(
+                    onPressed: _busy ? null : _submit,
+                    child: _busy
+                        ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: context.pal.onAccent))
+                        : Text(
+                            _needsSetup
+                                ? l10n.loginCreateAdmin
+                                : _register
+                                ? l10n.loginCreateAccount
+                                : l10n.loginSignIn,
+                          ),
+                  ),
+                  const SizedBox(height: 8),
+                  if (_openSignUp && !_needsSetup)
+                    TextButton(
+                      onPressed: () => setState(() => _register = !_register),
+                      child: Text(_register ? l10n.loginHaveAccount : l10n.loginNewHere),
+                    )
+                  else if (!_needsSetup)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        l10n.loginAskAdmin,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: context.pal.muted, fontSize: 13),
+                      ),
+                    ),
+                  if (!_showServer)
+                    TextButton(
+                      onPressed: () => setState(() => _showServer = true),
+                      child: Text(l10n.loginServerLink(_server.text), style: TextStyle(color: context.pal.muted)),
+                    ),
+                  const SizedBox(height: 24),
+                  const Divider(),
+                  const SizedBox(height: 12),
+                  Text(
+                    l10n.loginNoServerIntro,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: context.pal.muted, fontSize: 13),
                   ),
                   const SizedBox(height: 12),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.smartphone_rounded),
+                    label: Text(l10n.loginServerless),
+                    onPressed: _busy ? null : _serverless,
+                  ),
                 ],
-                TextFormField(
-                  controller: _email,
-                  keyboardType: TextInputType.emailAddress,
-                  autocorrect: false,
-                  autofillHints: const [AutofillHints.email],
-                  decoration: InputDecoration(labelText: l10n.loginEmail, prefixIcon: const Icon(Icons.mail_outline)),
-                  validator: (v) => (v ?? '').contains('@') ? null : l10n.loginEnterEmail,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: _password,
-                  obscureText: true,
-                  autofillHints: const [AutofillHints.password],
-                  decoration: InputDecoration(labelText: l10n.loginPassword, prefixIcon: const Icon(Icons.lock_outline)),
-                  validator: (v) => _register && (v ?? '').length < 8
-                      ? l10n.loginPasswordMin
-                      : (v ?? '').isEmpty
-                      ? l10n.loginEnterPassword
-                      : null,
-                  onFieldSubmitted: (_) => _submit(),
-                ),
-                const SizedBox(height: 24),
-                FilledButton(
-                  onPressed: _busy ? null : _submit,
-                  child: _busy
-                      ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: context.pal.onAccent))
-                      : Text(
-                          _needsSetup
-                              ? l10n.loginCreateAdmin
-                              : _register
-                              ? l10n.loginCreateAccount
-                              : l10n.loginSignIn,
-                        ),
-                ),
-                const SizedBox(height: 8),
-                if (_openSignUp && !_needsSetup)
-                  TextButton(
-                    onPressed: () => setState(() => _register = !_register),
-                    child: Text(_register ? l10n.loginHaveAccount : l10n.loginNewHere),
-                  )
-                else if (!_needsSetup)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                      l10n.loginAskAdmin,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: context.pal.muted, fontSize: 13),
-                    ),
-                  ),
-                if (!_showServer)
-                  TextButton(
-                    onPressed: () => setState(() => _showServer = true),
-                    child: Text(l10n.loginServerLink(_server.text), style: TextStyle(color: context.pal.muted)),
-                  ),
-                const SizedBox(height: 24),
-                const Divider(),
-                const SizedBox(height: 12),
-                Text(
-                  l10n.loginNoServerIntro,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: context.pal.muted, fontSize: 13),
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.smartphone_rounded),
-                  label: Text(l10n.loginServerless),
-                  onPressed: _busy ? null : _serverless,
-                ),
-              ],
+              ),
             ),
           ),
         ),

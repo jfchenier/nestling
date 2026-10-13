@@ -268,12 +268,22 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> signIn(String server, String email, String password, {String? name, bool register = false}) async {
+  /// [onAccepted] runs once the server accepts the credentials, before the sign-in screen goes
+  /// away (the login form tells password managers to save them then).
+  Future<void> signIn(
+    String server,
+    String email,
+    String password, {
+    String? name,
+    bool register = false,
+    void Function()? onAccepted,
+  }) async {
     server = normalizeServer(server);
     final a = Api(server);
     final res = register
         ? await a.post('/auth/register', {'email': email.trim(), 'password': password, 'name': name?.trim()})
         : await a.post('/auth/login', {'email': email.trim(), 'password': password});
+    onAccepted?.call();
     final user = res['user'];
     // Another account or server: this device's copy isn't theirs.
     final sameAccount = store.server == server && user is Map && store.me?['id'] == user['id'];
