@@ -1455,5 +1455,58 @@
   "unitIn": "in",
   "@unitIn": {
     "description": "Unit symbol: inches"
+  },
+  "aboutTitle": "About Nestling",
+  "@aboutTitle": {
+    "description": "Settings → About: page title"
+  },
+  "aboutVersion": "Version {version}",
+  "@aboutVersion": {
+    "description": "Settings row under About: the app's version",
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "aboutTagline": "A self-hosted, open-source baby tracker.",
+  "@aboutTagline": {
+    "description": "About page: one line under the app name"
+  },
+  "aboutAppVersion": "App version",
+  "@aboutAppVersion": {
+    "description": "About page row"
+  },
+  "aboutServerVersion": "Server version",
+  "@aboutServerVersion": {
+    "description": "About page row"
+  },
+  "aboutDevBuild": "Development build",
+  "@aboutDevBuild": {
+    "description": "About page: version of an app built locally (no version set)"
+  },
+  "aboutUnavailable": "Unavailable",
+  "@aboutUnavailable": {
+    "description": "About page: the server's version could not be read"
+  },
+  "aboutSourceCode": "Source code",
+  "@aboutSourceCode": {
+    "description": "About page row: link to the GitHub repository"
+  },
+  "aboutLicense": "License",
+  "@aboutLicense": {
+    "description": "About page row"
+  },
+  "aboutLicenseValue": "MIT: free and open source",
+  "@aboutLicenseValue": {
+    "description": "About page: Nestling's license"
+  },
+  "aboutOpenSource": "Open-source licenses",
+  "@aboutOpenSource": {
+    "description": "About page row: opens the list of libraries' licenses"
+  },
+  "aboutOpenSourceHint": "The libraries Nestling is built with",
+  "@aboutOpenSourceHint": {
+    "description": "About page row hint"
   }
 }

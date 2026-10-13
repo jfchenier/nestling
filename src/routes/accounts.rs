@@ -87,7 +87,11 @@ pub(crate) async fn insert_user(state: &AppState, email: &str, name: &str, passw
 /// Public: whether the server still needs its first (admin) account, and whether anyone may sign up.
 pub async fn setup_status(State(state): State<AppState>) -> AppResult<Json<Value>> {
     let (users,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users").fetch_one(&state.db).await?;
-    Ok(Json(json!({ "needs_setup": users == 0, "open_registration": users == 0 || state.config.open_registration })))
+    Ok(Json(json!({
+        "needs_setup": users == 0,
+        "open_registration": users == 0 || state.config.open_registration,
+        "version": crate::VERSION,
+    })))
 }
 
 /// Sign up. The first account on a server is its admin; after that only admins create accounts

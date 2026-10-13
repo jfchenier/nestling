@@ -457,6 +457,7 @@ async fn admin_creates_accounts() {
     let c = Client::with_registration(false).await;
     let (_, setup) = c.call(Method::GET, "/auth/setup", None, None).await;
     assert_eq!(setup["needs_setup"], true);
+    assert!(setup["version"].as_str().is_some_and(|v| !v.is_empty()));
 
     // First account: the admin.
     let admin = c.register("admin@example.com", "Admin").await;

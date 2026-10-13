@@ -1743,7 +1743,7 @@ abstract class AppLocalizations {
   /// No description provided for @familyConnectedAppUsed.
   ///
   /// In en, this message translates to:
-  /// **'Last used {when}'**
+  /// **'Last used: {when}'**
   String familyConnectedAppUsed(Object when);
 
   /// No description provided for @familyConnectedAppNeverUsed.
@@ -6353,6 +6353,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'in'**
   String get unitIn;
+
+  /// Settings → About: page title
+  ///
+  /// In en, this message translates to:
+  /// **'About Nestling'**
+  String get aboutTitle;
+
+  /// Settings row under About: the app's version
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version}'**
+  String aboutVersion(String version);
+
+  /// About page: one line under the app name
+  ///
+  /// In en, this message translates to:
+  /// **'A self-hosted, open-source baby tracker.'**
+  String get aboutTagline;
+
+  /// About page row
+  ///
+  /// In en, this message translates to:
+  /// **'App version'**
+  String get aboutAppVersion;
+
+  /// About page row
+  ///
+  /// In en, this message translates to:
+  /// **'Server version'**
+  String get aboutServerVersion;
+
+  /// About page: version of an app built locally (no version set)
+  ///
+  /// In en, this message translates to:
+  /// **'Development build'**
+  String get aboutDevBuild;
+
+  /// About page: the server's version could not be read
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable'**
+  String get aboutUnavailable;
+
+  /// About page row: link to the GitHub repository
+  ///
+  /// In en, this message translates to:
+  /// **'Source code'**
+  String get aboutSourceCode;
+
+  /// About page row
+  ///
+  /// In en, this message translates to:
+  /// **'License'**
+  String get aboutLicense;
+
+  /// About page: Nestling's license
+  ///
+  /// In en, this message translates to:
+  /// **'MIT: free and open source'**
+  String get aboutLicenseValue;
+
+  /// About page row: opens the list of libraries' licenses
+  ///
+  /// In en, this message translates to:
+  /// **'Open-source licenses'**
+  String get aboutOpenSource;
+
+  /// About page row hint
+  ///
+  /// In en, this message translates to:
+  /// **'The libraries Nestling is built with'**
+  String get aboutOpenSourceHint;
 }
 
 class _AppLocalizationsDelegate

@@ -12,6 +12,7 @@ import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import 'about.dart';
 import 'child_form.dart';
 import 'day_hours.dart';
 import 'drive_restore.dart';
@@ -269,7 +270,7 @@ class _ConnectedAppsState extends State<_ConnectedApps> {
   }
 }
 
-/// Settings and the account (Home's menu → Settings): units, temperature, time format, appearance, language, day and night, time zone, Drive sync and backup, Nara import, export, API token.
+/// Settings and the account (Home's menu → Settings): units, temperature, time format, appearance, language, day and night, time zone, Drive sync and backup, Nara import, export, API token, About.
 class SettingsScreen extends StatelessWidget with _FamilyActions {
   const SettingsScreen({super.key});
 
@@ -477,6 +478,16 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
                     },
                   ),
                 ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.info_outline_rounded),
+                title: Text(l10n.aboutTitle),
+                subtitle: Text(appVersion.isEmpty ? l10n.aboutDevBuild : l10n.aboutVersion(appVersion)),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const AboutScreen())),
               ),
             ),
           ],

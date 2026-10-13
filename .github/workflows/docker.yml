@@ -40,9 +40,19 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=sha
 
+      # The version Settings → About shows: 0.2.0 for tag v0.2.0, else <branch>-<commit>.
+      - id: version
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF_NAME}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
       - uses: docker/build-push-action@v6
         with:
           context: .
+          build-args: NESTLING_VERSION=${{ steps.version.outputs.version }}
           platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}

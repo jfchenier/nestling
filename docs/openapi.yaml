@@ -53,7 +53,7 @@ paths:
     get:
       tags: [accounts]
       operationId: getSetup
-      summary: Whether the server still needs its first (admin) account
+      summary: Whether the server still needs its first (admin) account, and its version
       security: []
       responses:
         "200":
@@ -62,10 +62,11 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [needs_setup, open_registration]
+                required: [needs_setup, open_registration, version]
                 properties:
                   needs_setup: { type: boolean, description: true while the server has no account }
                   open_registration: { type: boolean, description: whether POST /auth/register is open }
+                  version: { type: string, description: "the server's version, e.g. 0.2.1 (a build from main: main-<commit>)" }
   /auth/register:
     post:
       tags: [accounts]

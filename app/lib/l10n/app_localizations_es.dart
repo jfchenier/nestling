@@ -1018,7 +1018,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String familyConnectedAppUsed(Object when) {
-    return 'Usada $when';
+    return 'Último uso: $when';
   }
 
   @override
@@ -3878,4 +3878,43 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get unitIn => 'in';
+
+  @override
+  String get aboutTitle => 'Acerca de Nestling';
+
+  @override
+  String aboutVersion(String version) {
+    return 'Versión $version';
+  }
+
+  @override
+  String get aboutTagline => 'Un registro del bebé libre y autoalojado.';
+
+  @override
+  String get aboutAppVersion => 'Versión de la app';
+
+  @override
+  String get aboutServerVersion => 'Versión del servidor';
+
+  @override
+  String get aboutDevBuild => 'Versión de desarrollo';
+
+  @override
+  String get aboutUnavailable => 'No disponible';
+
+  @override
+  String get aboutSourceCode => 'Código fuente';
+
+  @override
+  String get aboutLicense => 'Licencia';
+
+  @override
+  String get aboutLicenseValue => 'MIT: libre y de código abierto';
+
+  @override
+  String get aboutOpenSource => 'Licencias de código abierto';
+
+  @override
+  String get aboutOpenSourceHint =>
+      'Las bibliotecas con las que se hizo Nestling';
 }

@@ -4,7 +4,9 @@ WORKDIR /app
 COPY app/pubspec.yaml app/pubspec.lock ./
 RUN flutter pub get
 COPY app ./
-RUN flutter build web --release --no-web-resources-cdn \
+# Shown in Settings → About (e.g. 0.2.1, or main-<commit>); docker.yml sets it.
+ARG NESTLING_VERSION=""
+RUN flutter build web --release --no-web-resources-cdn --dart-define=NESTLING_VERSION=$NESTLING_VERSION \
  && sh tool/finish_web_build.sh
 
 # Server (Rust)
@@ -14,6 +16,7 @@ COPY Cargo.toml Cargo.lock* ./
 COPY migrations migrations
 COPY src src
 COPY docs/openapi.yaml docs/openapi.yaml
+ARG NESTLING_VERSION=""
 RUN cargo build --release
 
 FROM debian:bookworm-slim

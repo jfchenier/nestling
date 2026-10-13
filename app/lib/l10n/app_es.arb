@@ -1041,5 +1041,17 @@
   "unitKg": "kg",
   "unitLb": "lb",
   "unitCm": "cm",
-  "unitIn": "in"
+  "unitIn": "in",
+  "aboutTitle": "Acerca de Nestling",
+  "aboutVersion": "Versión {version}",
+  "aboutTagline": "Un registro del bebé libre y autoalojado.",
+  "aboutAppVersion": "Versión de la app",
+  "aboutServerVersion": "Versión del servidor",
+  "aboutDevBuild": "Versión de desarrollo",
+  "aboutUnavailable": "No disponible",
+  "aboutSourceCode": "Código fuente",
+  "aboutLicense": "Licencia",
+  "aboutLicenseValue": "MIT: libre y de código abierto",
+  "aboutOpenSource": "Licencias de código abierto",
+  "aboutOpenSourceHint": "Las bibliotecas con las que se hizo Nestling"
 }

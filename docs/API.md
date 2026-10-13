@@ -22,7 +22,7 @@ missing from it.
 
 | | | |
 |---|---|---|
-| `GET /auth/setup` | | public: `{needs_setup, open_registration}`; `needs_setup` while the server has no account |
+| `GET /auth/setup` | | public: `{needs_setup, open_registration, version}`; `needs_setup` while the server has no account; `version` is the server's (`0.2.1`; a build from main: `main-<commit>`) |
 | `POST /auth/register` | `{email, password (8+), name, units?}` | → `201 {token, user}`. Only the first account (it becomes the admin), unless `NESTLING_OPEN_REGISTRATION` is on; otherwise `403` |
 | `POST /auth/login` | `{email, password}` | → `{token, user}`; a wrong email or password is `400`. After 5 failed attempts on an account, or 20 from one address (sign-ups count too), within 15 minutes: `429` until the oldest one is 15 minutes old. Behind a reverse proxy the address comes from `X-Real-IP` / `X-Forwarded-For` |
 | `POST /auth/logout` | | revokes the current token |
