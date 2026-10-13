@@ -5811,6 +5811,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Unit for this amount'**
   String get formVolumeUnit;
+
+  /// No description provided for @homeLogPump.
+  ///
+  /// In en, this message translates to:
+  /// **'Log pumping'**
+  String get homeLogPump;
+
+  /// No description provided for @homePumpTimer.
+  ///
+  /// In en, this message translates to:
+  /// **'Timer'**
+  String get homePumpTimer;
+
+  /// No description provided for @homePumpAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount only'**
+  String get homePumpAmount;
 }
 
 class _AppLocalizationsDelegate

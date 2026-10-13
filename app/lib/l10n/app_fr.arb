@@ -951,5 +951,8 @@
   "settingsTimeFormat": "Format de l'heure",
   "settingsClock24": "24 h",
   "settingsClock12": "12 h",
-  "formVolumeUnit": "Unité de cette quantité"
+  "formVolumeUnit": "Unité de cette quantité",
+  "homeLogPump": "Noter un tirage",
+  "homePumpTimer": "Minuteur",
+  "homePumpAmount": "Quantité seulement"
 }

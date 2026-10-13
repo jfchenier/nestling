@@ -3520,4 +3520,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get formVolumeUnit => 'Unité de cette quantité';
+
+  @override
+  String get homeLogPump => 'Noter un tirage';
+
+  @override
+  String get homePumpTimer => 'Minuteur';
+
+  @override
+  String get homePumpAmount => 'Quantité seulement';
 }

@@ -197,7 +197,7 @@ class HomeScreen extends StatelessWidget {
       card(Kind.breast, l10n.homeCardFeed, feedCard, () => showFeedPicker(context), 'feed', nursing),
       card(Kind.sleep, l10n.kindSleep, sleepCard, () => open('sleep'), 'sleep', sleeping),
       card(Kind.diaper, l10n.kindDiaper, diaperCard, () => showEventForm(context, type: 'diaper'), 'diaper'),
-      card(Kind.pump, l10n.kindPump, pumpCard, () => open('pump'), 'pump', pumping),
+      card(Kind.pump, l10n.kindPump, pumpCard, () => showPumpPicker(context), 'pump', pumping),
       card(Kind.growth, l10n.kindGrowth, growthCard, () => showEventForm(context, type: 'growth'), 'growth'),
       card(Kind.health, l10n.kindHealth, healthCard, () => showEventForm(context, type: 'health'), 'health'),
       card(
@@ -909,6 +909,7 @@ class _ReminderStripState extends State<_ReminderStrip> {
             onTap: () => switch (type) {
               'feed' => showFeedPicker(context),
               'diaper' => showEventForm(context, type: 'diaper'),
+              'pump' => showPumpPicker(context),
               final kind => TimerScreen.open(context, kind),
             },
           ),
@@ -1022,13 +1023,20 @@ class _TodayStrip extends StatelessWidget {
 }
 
 /// Feed card: pick the kind of feed.
-void showFeedPicker(BuildContext context) {
-  final options = <(Kind, String, VoidCallback)>[
-    (Kind.breast, l10n.kindBreastfeed, () => TimerScreen.open(context, 'breastfeed')),
-    (Kind.bottle, l10n.kindBottle, () => showEventForm(context, type: 'feed', method: 'bottle')),
-    (Kind.solids, l10n.kindSolids, () => showEventForm(context, type: 'feed', method: 'solids')),
-    (Kind.combo, l10n.kindCombo, () => showEventForm(context, type: 'feed', method: 'combo')),
-  ];
+void showFeedPicker(BuildContext context) => _showLogPicker(context, l10n.homeLogFeed, [
+  (Kind.breast, null, l10n.kindBreastfeed, () => TimerScreen.open(context, 'breastfeed')),
+  (Kind.bottle, null, l10n.kindBottle, () => showEventForm(context, type: 'feed', method: 'bottle')),
+  (Kind.solids, null, l10n.kindSolids, () => showEventForm(context, type: 'feed', method: 'solids')),
+  (Kind.combo, null, l10n.kindCombo, () => showEventForm(context, type: 'feed', method: 'combo')),
+]);
+
+/// Pump card: run the timer, or just note how much was pumped.
+void showPumpPicker(BuildContext context) => _showLogPicker(context, l10n.homeLogPump, [
+  (Kind.pump, Icons.timer_rounded, l10n.homePumpTimer, () => TimerScreen.open(context, 'pump')),
+  (Kind.pump, null, l10n.homePumpAmount, () => showEventForm(context, type: 'pump')),
+]);
+
+void _showLogPicker(BuildContext context, String title, List<(Kind, IconData?, String, VoidCallback)> options) {
   showModalBottomSheet(
     context: context,
     builder: (sheet) => SafeArea(
@@ -1040,11 +1048,11 @@ void showFeedPicker(BuildContext context) {
           children: [
             Padding(
               padding: const EdgeInsets.only(left: 8, bottom: 16),
-              child: Text(l10n.homeLogFeed, style: serifStyle(22)),
+              child: Text(title, style: serifStyle(22)),
             ),
             Row(
               children: [
-                for (final (k, label, onTap) in options)
+                for (final (k, icon, label, onTap) in options)
                   Expanded(
                     child: InkWell(
                       borderRadius: BorderRadius.circular(16),
@@ -1056,7 +1064,7 @@ void showFeedPicker(BuildContext context) {
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         child: Column(
                           children: [
-                            BlobIcon(k, size: 62),
+                            BlobIcon(k, size: 62, icon: icon),
                             const SizedBox(height: 8),
                             Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                           ],

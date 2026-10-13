@@ -3498,4 +3498,13 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get formVolumeUnit => 'Unit for this amount';
+
+  @override
+  String get homeLogPump => 'Log pumping';
+
+  @override
+  String get homePumpTimer => 'Timer';
+
+  @override
+  String get homePumpAmount => 'Amount only';
 }

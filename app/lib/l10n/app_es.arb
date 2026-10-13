@@ -951,5 +951,8 @@
   "settingsTimeFormat": "Formato de hora",
   "settingsClock24": "24 h",
   "settingsClock12": "12 h",
-  "formVolumeUnit": "Unidad de esta cantidad"
+  "formVolumeUnit": "Unidad de esta cantidad",
+  "homeLogPump": "Registrar extracción",
+  "homePumpTimer": "Temporizador",
+  "homePumpAmount": "Solo cantidad"
 }

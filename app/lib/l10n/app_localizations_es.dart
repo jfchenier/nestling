@@ -3512,4 +3512,13 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get formVolumeUnit => 'Unidad de esta cantidad';
+
+  @override
+  String get homeLogPump => 'Registrar extracción';
+
+  @override
+  String get homePumpTimer => 'Temporizador';
+
+  @override
+  String get homePumpAmount => 'Solo cantidad';
 }

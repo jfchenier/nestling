@@ -1278,5 +1278,8 @@
   "settingsTimeFormat": "Time format",
   "settingsClock24": "24-hour",
   "settingsClock12": "12-hour",
-  "formVolumeUnit": "Unit for this amount"
+  "formVolumeUnit": "Unit for this amount",
+  "homeLogPump": "Log pumping",
+  "homePumpTimer": "Timer",
+  "homePumpAmount": "Amount only"
 }
