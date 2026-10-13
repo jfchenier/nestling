@@ -1193,3 +1193,35 @@ async fn book_viewer_reads_the_book_only() {
     let (s, _) = c.call(Method::GET, &format!("/children/{cid}"), Some(&gran), None).await;
     assert_eq!(s, StatusCode::NOT_FOUND);
 }
+
+/// Another connection holding the database's write lock (a write stuck on a slow or hung disk)
+/// must not take reads down with it: signing in on each request used to write too, so every
+/// request failed with "internal server error" until the lock went away.
+#[tokio::test]
+async fn reads_work_while_the_database_is_locked_for_writing() {
+    let path = std::env::temp_dir().join(format!("nestling-lock-{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let url = format!("sqlite://{}", path.display());
+    let db = connect(&url, 4).await.unwrap();
+    let state = AppState::new(db.clone(), Config { open_registration: true, nara: NaraConfig::default() });
+    let c = Client { app: app(state, None), db };
+    let token = c.register("mom@example.com", "Mom").await;
+    let (s, _) = c.call(Method::POST, "/families", Some(&token), Some(json!({ "name": "Home", "timezone": "America/Toronto" }))).await;
+    assert_eq!(s, StatusCode::CREATED);
+
+    // The token was last used long ago, so this request would like to note its use.
+    sqlx::query("UPDATE tokens SET last_used_at = 0").execute(&c.db()).await.unwrap();
+    // A second process takes the write lock and keeps it.
+    use sqlx::Connection;
+    let mut other = sqlx::SqliteConnection::connect(&url).await.unwrap();
+    sqlx::query("BEGIN IMMEDIATE").execute(&mut other).await.unwrap();
+
+    let (s, me) = c.call(Method::GET, "/me", Some(&token), None).await;
+    assert_eq!(s, StatusCode::OK, "{me}");
+    let (s, fams) = c.call(Method::GET, "/families", Some(&token), None).await;
+    assert_eq!(s, StatusCode::OK, "{fams}");
+
+    sqlx::query("ROLLBACK").execute(&mut other).await.unwrap();
+    drop(other);
+    let _ = std::fs::remove_file(&path);
+}

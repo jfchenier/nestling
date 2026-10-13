@@ -68,24 +68,35 @@ fn token_from_parts(parts: &Parts) -> Option<String> {
     })
 }
 
+/// How often a token's `last_used_at` is written (it is shown to the day, more or less).
+const LAST_USED_EVERY_MS: i64 = 10 * 60 * 1000;
+
 impl FromRequestParts<AppState> for AuthUser {
     type Rejection = AppError;
 
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
         let token = token_from_parts(parts).ok_or(AppError::Unauthorized)?;
         let token_hash = sha256_hex(&token);
-        let row: Option<(String, String, String)> = sqlx::query_as(
-            "SELECT u.id, u.name, u.email FROM tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash = ?",
+        let row: Option<(String, String, String, Option<i64>)> = sqlx::query_as(
+            "SELECT u.id, u.name, u.email, t.last_used_at FROM tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash = ?",
         )
         .bind(&token_hash)
         .fetch_optional(&state.db)
         .await?;
-        let (id, name, email) = row.ok_or(AppError::Unauthorized)?;
-        sqlx::query("UPDATE tokens SET last_used_at = ? WHERE token_hash = ?")
-            .bind(now_ms())
-            .bind(&token_hash)
-            .execute(&state.db)
-            .await?;
+        let (id, name, email, last_used) = row.ok_or(AppError::Unauthorized)?;
+        // Only a write now and then, and never a reason to refuse the request: if the database
+        // can't take writes for a while (another write stuck on a slow disk), reading still works.
+        let now = now_ms();
+        if last_used.is_none_or(|t| now - t >= LAST_USED_EVERY_MS) {
+            if let Err(e) = sqlx::query("UPDATE tokens SET last_used_at = ? WHERE token_hash = ?")
+                .bind(now)
+                .bind(&token_hash)
+                .execute(&state.db)
+                .await
+            {
+                tracing::warn!("could not note the token's last use: {e}");
+            }
+        }
         Ok(AuthUser { id, name, email, token_hash })
     }
 }
