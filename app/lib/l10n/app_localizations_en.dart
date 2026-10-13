@@ -3921,11 +3921,4 @@ class AppLocalizationsEn extends AppLocalizations {
   String partSize(Object part, Object size) {
     return '$part ($size)';
   }
-
-  @override
-  String get settingsDiaperSizes => 'Wet and dirty sizes';
-
-  @override
-  String get settingsDiaperSizesHint =>
-      'Small, medium or large on diapers and potty trips';
 }

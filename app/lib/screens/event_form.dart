@@ -70,9 +70,8 @@ class _EventFormState extends State<EventForm> {
   late bool _wet = e?['wet'] ?? true, _dirty = e?['dirty'] ?? false, _dry = e?['dry'] ?? false;
   late bool _rash = e?['rash'] ?? false, _blowout = e?['blowout'] ?? false;
   late String? _color = e?['color'], _consistency = e?['consistency'];
-  // Optional sizes (Settings → Wet and dirty sizes); an entry that has one shows them whatever the setting.
+  // Optional sizes, picked per entry (none = not noted).
   late String? _wetSize = e?['wet_size'], _dirtySize = e?['dirty_size'];
-  late final bool _sizes = context.read<AppState>().diaperSizes || _wetSize != null || _dirtySize != null;
   // potty (diaper page, Potty tab): sat_dry / success / accident, then the same wet/dirty details.
   // A new entry opens on the tab of the last diaper/potty entry.
   late bool _pottyMode = e != null ? e!['potty'] != null : context.read<AppState>().summary?['last']?['diaper']?['potty'] != null;
@@ -749,9 +748,8 @@ class _EventFormState extends State<EventForm> {
     _switchRow(l10n.formDiaperRash, _rash, (v) => setState(() => _rash = v)),
   ];
 
-  /// Small / medium / large for each part that's checked, when sizes are on.
+  /// Optional small / medium / large for each part that's checked.
   List<Widget> _sizeRows() {
-    if (!_sizes) return const [];
     final options = {'small': l10n.sizeSmall, 'medium': l10n.sizeMedium, 'large': l10n.sizeLarge};
     return [
       if (_wet) _chipsRow<String>(l10n.formWetSize, options, _wetSize, (v) => setState(() => _wetSize = v)),

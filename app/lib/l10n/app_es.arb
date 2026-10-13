@@ -1059,7 +1059,5 @@
   "sizeLarge": "Grande",
   "formWetSize": "Cantidad de pipí",
   "formDirtySize": "Cantidad de caca",
-  "partSize": "{part} ({size})",
-  "settingsDiaperSizes": "Cantidades de pipí y caca",
-  "settingsDiaperSizesHint": "Pequeña, mediana o grande, en pañales y orinal"
+  "partSize": "{part} ({size})"
 }

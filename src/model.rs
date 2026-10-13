@@ -127,7 +127,7 @@ pub struct Diaper {
     pub color: Option<PoopColor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub consistency: Option<PoopConsistency>,
-    /// Optional sizes (an app setting): `wet_size` needs `wet`, `dirty_size` needs `dirty`.
+    /// Optional sizes: `wet_size` needs `wet`, `dirty_size` needs `dirty`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub wet_size: Option<Size>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

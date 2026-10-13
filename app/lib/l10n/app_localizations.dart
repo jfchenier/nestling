@@ -6461,18 +6461,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{part} ({size})'**
   String partSize(Object part, Object size);
-
-  /// No description provided for @settingsDiaperSizes.
-  ///
-  /// In en, this message translates to:
-  /// **'Wet and dirty sizes'**
-  String get settingsDiaperSizes;
-
-  /// No description provided for @settingsDiaperSizesHint.
-  ///
-  /// In en, this message translates to:
-  /// **'Small, medium or large on diapers and potty trips'**
-  String get settingsDiaperSizesHint;
 }
 
 class _AppLocalizationsDelegate

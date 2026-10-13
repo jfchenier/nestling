@@ -1743,7 +1743,7 @@ components:
       required: [type]
       description: |
         At least one of `wet`, `dirty`, `dry`. `color`, `consistency` and `dirty_size` need
-        `dirty`; `wet_size` needs `wet` (sizes are optional, an app setting). With
+        `dirty`; `wet_size` needs `wet` (sizes are optional). With
         `potty` it is a potty trip instead of a diaper: `wet`/`dirty` are pee/poo
         (one is required for `success`/`accident`), `sat_dry` goes with `dry`.
       properties:

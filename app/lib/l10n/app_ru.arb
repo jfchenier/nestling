@@ -1059,7 +1059,5 @@
   "sizeLarge": "Большой",
   "formWetSize": "Мокрый: размер",
   "formDirtySize": "Грязный: размер",
-  "partSize": "{part} ({size})",
-  "settingsDiaperSizes": "Размеры: мокрый и грязный",
-  "settingsDiaperSizesHint": "Маленький, средний или большой — для подгузника и горшка"
+  "partSize": "{part} ({size})"
 }

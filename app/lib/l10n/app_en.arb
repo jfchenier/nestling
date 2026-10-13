@@ -1514,7 +1514,5 @@
   "sizeLarge": "Large",
   "formWetSize": "Wet size",
   "formDirtySize": "Dirty size",
-  "partSize": "{part} ({size})",
-  "settingsDiaperSizes": "Wet and dirty sizes",
-  "settingsDiaperSizesHint": "Small, medium or large on diapers and potty trips"
+  "partSize": "{part} ({size})"
 }
