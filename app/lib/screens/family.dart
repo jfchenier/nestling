@@ -113,6 +113,8 @@ class FamilyScreen extends StatelessWidget with _FamilyActions {
                 ),
               ),
             if (f.isOwner && !s.serverless) ...[
+              SectionTitle(l10n.familyConnectedApps),
+              _ConnectedApps(key: ValueKey(f.id), family: f),
               const SizedBox(height: 16),
               TextButton(
                 style: TextButton.styleFrom(foregroundColor: context.pal.danger),
@@ -132,6 +134,136 @@ class FamilyScreen extends StatelessWidget with _FamilyActions {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Connected apps (owners): Home Assistant and the like, family members that aren't a person.
+/// Entries they log show their name; each has its own token, shown once.
+class _ConnectedApps extends StatefulWidget {
+  const _ConnectedApps({super.key, required this.family});
+
+  final Family family;
+
+  @override
+  State<_ConnectedApps> createState() => _ConnectedAppsState();
+}
+
+class _ConnectedAppsState extends State<_ConnectedApps> {
+  List<Map<String, dynamic>>? _apps;
+
+  String get _path => '/families/${widget.family.id}/integrations';
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final res = await context.read<AppState>().api!.get(_path);
+      if (mounted) setState(() => _apps = (res['integrations'] as List).cast<Map<String, dynamic>>());
+    } catch (_) {
+      // Offline or an older server: the list just stays empty.
+      if (mounted) setState(() => _apps = const []);
+    }
+  }
+
+  Future<void> _add() async {
+    final name = TextEditingController(text: 'Home Assistant');
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(l10n.familyConnectedAppAdd),
+        content: TextField(
+          controller: name,
+          autofocus: true,
+          maxLength: 60,
+          decoration: InputDecoration(labelText: l10n.familyConnectedAppName),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l10n.cancel)),
+          FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(l10n.familyNext)),
+        ],
+      ),
+    );
+    if (ok != true || name.text.trim().isEmpty || !mounted) return;
+    final s = context.read<AppState>();
+    final res = await guard(context, () => s.api!.post(_path, {'name': name.text.trim()}));
+    if (res == null || !mounted) return;
+    await _load();
+    if (!mounted) return;
+    final token = res['token'] as String;
+    await showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: Text(l10n.familyConnectedAppTokenTitle(res['name'])),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(l10n.familyConnectedAppTokenBody(res['name'])),
+            const SizedBox(height: 12),
+            SelectableText(token, style: const TextStyle(fontFamily: 'monospace')),
+            const SizedBox(height: 12),
+            Text(l10n.familyServerValue(s.server), style: TextStyle(color: context.pal.muted, fontSize: 12)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: token));
+              showMessage(c, l10n.familyCodeCopied);
+            },
+            child: Text(l10n.familyCopy),
+          ),
+          FilledButton(onPressed: () => Navigator.pop(c), child: Text(l10n.done)),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _remove(Map<String, dynamic> app) async {
+    final name = app['name'] as String;
+    if (!await confirm(context, l10n.familyConnectedAppRemoveTitle(name), l10n.familyConnectedAppRemoveBody, action: l10n.remove)) return;
+    if (!mounted) return;
+    final s = context.read<AppState>();
+    final done = await guard(context, () => s.api!.delete('$_path/${app['id']}').then((_) => true));
+    if (done == true) await _load();
+  }
+
+  String _used(Map<String, dynamic> app) {
+    final used = DateTime.tryParse(app['last_used_at'] as String? ?? '');
+    return used == null ? l10n.familyConnectedAppNeverUsed : l10n.familyConnectedAppUsed(dayLabel(used.toLocal()));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Column(
+        children: [
+          for (final app in _apps ?? const <Map<String, dynamic>>[])
+            ListTile(
+              leading: CircleAvatar(
+                backgroundColor: context.pal.raised,
+                child: Icon(Icons.hub_outlined, color: context.pal.accent),
+              ),
+              title: Text(app['name'] as String),
+              subtitle: Text(_used(app)),
+              trailing: IconButton(icon: const Icon(Icons.link_off_rounded), tooltip: l10n.remove, onPressed: () => _remove(app)),
+            ),
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: context.pal.line,
+              child: Icon(Icons.add_link_rounded, color: context.pal.ink),
+            ),
+            title: Text(l10n.familyConnectedAppAdd),
+            subtitle: Text(l10n.familyConnectedAppAddHint),
+            onTap: _apps == null ? null : _add,
+          ),
+        ],
       ),
     );
   }

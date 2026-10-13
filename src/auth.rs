@@ -2,7 +2,10 @@ use argon2::{
     password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
     Argon2,
 };
-use axum::{extract::FromRequestParts, http::request::Parts};
+use axum::{
+    extract::{FromRequestParts, MatchedPath},
+    http::{request::Parts, Method},
+};
 use chrono_tz::Tz;
 use sqlx::SqlitePool;
 
@@ -51,6 +54,8 @@ pub struct AuthUser {
     pub name: String,
     pub email: String,
     pub token_hash: String,
+    /// `person`, or [INTEGRATION] for a connected app (only [integration_may] routes).
+    pub kind: String,
 }
 
 fn token_from_parts(parts: &Parts) -> Option<String> {
@@ -77,13 +82,19 @@ impl FromRequestParts<AppState> for AuthUser {
     async fn from_request_parts(parts: &mut Parts, state: &AppState) -> Result<Self, Self::Rejection> {
         let token = token_from_parts(parts).ok_or(AppError::Unauthorized)?;
         let token_hash = sha256_hex(&token);
-        let row: Option<(String, String, String, Option<i64>)> = sqlx::query_as(
-            "SELECT u.id, u.name, u.email, t.last_used_at FROM tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash = ?",
+        let row: Option<(String, String, String, String, Option<i64>)> = sqlx::query_as(
+            "SELECT u.id, u.name, u.email, u.kind, t.last_used_at FROM tokens t JOIN users u ON u.id = t.user_id WHERE t.token_hash = ?",
         )
         .bind(&token_hash)
         .fetch_optional(&state.db)
         .await?;
-        let (id, name, email, last_used) = row.ok_or(AppError::Unauthorized)?;
+        let (id, name, email, kind, last_used) = row.ok_or(AppError::Unauthorized)?;
+        if kind == INTEGRATION {
+            let path = parts.extensions.get::<MatchedPath>().map(|p| p.as_str()).unwrap_or("");
+            if !integration_may(&parts.method, path.strip_prefix("/api/v1").unwrap_or(path)) {
+                return Err(AppError::Forbidden("a connected app can only log entries and use timers".into()));
+            }
+        }
         // Only a write now and then, and never a reason to refuse the request: if the database
         // can't take writes for a while (another write stuck on a slow disk), reading still works.
         let now = now_ms();
@@ -97,7 +108,26 @@ impl FromRequestParts<AppState> for AuthUser {
                 tracing::warn!("could not note the token's last use: {e}");
             }
         }
-        Ok(AuthUser { id, name, email, token_hash })
+        Ok(AuthUser { id, name, email, token_hash, kind })
+    }
+}
+
+/// The role and account kind of a connected app (e.g. Home Assistant): a family member that is
+/// not a person. It logs entries and runs timers like a caregiver, and nothing else.
+pub const INTEGRATION: &str = "integration";
+
+/// The routes a connected app may use (paths as in `routes::api()`); everything else is 403.
+pub fn integration_may(method: &Method, path: &str) -> bool {
+    let read = method == Method::GET;
+    match path {
+        "/me" | "/families" | "/families/{id}" | "/families/{id}/children" | "/children/{id}" | "/children/{id}/photo"
+        | "/children/{id}/summary" | "/children/{id}/trends" | "/families/{id}/stream" | "/families/{id}/sync" => read,
+        "/children/{id}/events" | "/children/{id}/timers" => read || method == Method::POST,
+        "/events/{id}" | "/timers/{id}" => read || method == Method::PATCH || method == Method::DELETE,
+        "/timers/{id}/pause" | "/timers/{id}/resume" | "/timers/{id}/switch" | "/timers/{id}/stop" | "/events/{id}/continue" => {
+            method == Method::POST
+        }
+        _ => false,
     }
 }
 

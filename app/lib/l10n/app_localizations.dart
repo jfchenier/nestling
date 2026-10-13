@@ -1605,7 +1605,7 @@ abstract class AppLocalizations {
   /// No description provided for @familyApiTokenHint.
   ///
   /// In en, this message translates to:
-  /// **'For Home Assistant or scripts'**
+  /// **'For your own scripts'**
   String get familyApiTokenHint;
 
   /// No description provided for @familyAppearance.
@@ -1703,6 +1703,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Continue'**
   String get familyContinue;
+
+  /// No description provided for @familyConnectedApps.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected apps'**
+  String get familyConnectedApps;
+
+  /// No description provided for @familyConnectedAppAdd.
+  ///
+  /// In en, this message translates to:
+  /// **'Connect an app'**
+  String get familyConnectedAppAdd;
+
+  /// No description provided for @familyConnectedAppAddHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Home Assistant or another app, logging under its own name'**
+  String get familyConnectedAppAddHint;
+
+  /// No description provided for @familyConnectedAppName.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get familyConnectedAppName;
+
+  /// No description provided for @familyConnectedAppTokenTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Token for {name}'**
+  String familyConnectedAppTokenTitle(Object name);
+
+  /// No description provided for @familyConnectedAppTokenBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Copy it now, it won’t be shown again. Paste it in Home Assistant when you add the Nestling integration. Entries it logs show “{name}” as the caregiver.'**
+  String familyConnectedAppTokenBody(Object name);
+
+  /// No description provided for @familyConnectedAppUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Last used {when}'**
+  String familyConnectedAppUsed(Object when);
+
+  /// No description provided for @familyConnectedAppNeverUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Not used yet'**
+  String get familyConnectedAppNeverUsed;
+
+  /// No description provided for @familyConnectedAppRemoveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove {name}?'**
+  String familyConnectedAppRemoveTitle(Object name);
+
+  /// No description provided for @familyConnectedAppRemoveBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Its token stops working at once. The entries it logged stay.'**
+  String get familyConnectedAppRemoveBody;
 
   /// No description provided for @familyCopy.
   ///

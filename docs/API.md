@@ -61,6 +61,23 @@ can still leave the family. Their phones get no timer or reminder notifications.
 | `POST /invites/{code}/accept` | | join the family |
 | `PATCH /families/{id}/members/{user_id}` | `{role}` | owner only; → the family. A family keeps at least one owner (409) |
 | `DELETE /families/{id}/members/{user_id}` | | owner removes someone, or anyone leaves |
+| `GET /families/{id}/integrations` | | owner only: connected apps, `{integrations: [{id, name, created_at, last_used_at}]}` |
+| `POST /families/{id}/integrations` | `{name}` (e.g. `"Home Assistant"`, 60 characters at most) | owner only: → `201 {id, name, created_at, last_used_at, token}`, the token shown only this once |
+| `DELETE /families/{id}/integrations/{integration_id}` | | owner only: its token stops working; the entries it logged stay, under its name |
+
+### Connected apps
+
+A connected app such as Home Assistant is a family member that is not a person, so the entries it
+logs show its own name as the caregiver rather than whoever set it up. It has no email or password
+and can't sign in; it uses the token it got when an owner added it, has the role `integration` and
+doesn't show in the family's `members` or the admin's account list. It may only:
+
+- read `GET /me`, `/families`, `/families/{id}`, `/families/{id}/children`, `/children/{id}` and its
+  photo, `/children/{id}/summary`, `/children/{id}/trends`, `GET /families/{id}/sync` and the live stream;
+- log, read, edit and delete entries (`/children/{id}/events`, `/events/{id}`);
+- start and use timers (`/children/{id}/timers`, `/timers/{id}` and its actions, `/events/{id}/continue`).
+
+Everything else answers `403`.
 
 ## Children
 

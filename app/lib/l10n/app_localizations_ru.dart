@@ -952,7 +952,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get familyApiToken => 'API-токен';
 
   @override
-  String get familyApiTokenHint => 'Для Home Assistant или скриптов';
+  String get familyApiTokenHint => 'Для ваших скриптов';
 
   @override
   String get familyAppearance => 'Оформление';
@@ -1016,6 +1016,46 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get familyContinue => 'Продолжить';
+
+  @override
+  String get familyConnectedApps => 'Подключённые приложения';
+
+  @override
+  String get familyConnectedAppAdd => 'Подключить приложение';
+
+  @override
+  String get familyConnectedAppAddHint =>
+      'Home Assistant или другое приложение, записи от его имени';
+
+  @override
+  String get familyConnectedAppName => 'Название';
+
+  @override
+  String familyConnectedAppTokenTitle(Object name) {
+    return 'Токен для $name';
+  }
+
+  @override
+  String familyConnectedAppTokenBody(Object name) {
+    return 'Скопируйте его сейчас — он больше не будет показан. Вставьте его в Home Assistant при добавлении интеграции Nestling. Его записи будут подписаны «$name».';
+  }
+
+  @override
+  String familyConnectedAppUsed(Object when) {
+    return 'Использовано: $when';
+  }
+
+  @override
+  String get familyConnectedAppNeverUsed => 'Ещё не использовалось';
+
+  @override
+  String familyConnectedAppRemoveTitle(Object name) {
+    return 'Удалить $name?';
+  }
+
+  @override
+  String get familyConnectedAppRemoveBody =>
+      'Его токен сразу перестанет работать. Сделанные записи останутся.';
 
   @override
   String get familyCopy => 'Копировать';
