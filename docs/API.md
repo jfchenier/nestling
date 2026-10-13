@@ -89,6 +89,13 @@ list (the child JSON carries both).
   (case and extra spaces ignored). `every_hours` 0.5–168; `max_per_day` (optional, 1–24) caps the
   doses in any 24 hours; `dose`/`dose_unit` only fill the app's form. The summary says when the
   next dose is allowed.
+- `times` (optional, up to 12 `"HH:MM"` in the family's time zone): the medicine is given at set
+  times every day, e.g. `["08:00"]` for a daily vitamin, rather than every few hours after the last
+  dose. A dose counts for a time when given up to 2 h before it (less when the times are closer)
+  or later, until the next time's window opens. The summary's `next_at` is then the time of the
+  dose that is due (`due: true`) or of the next one, and the reminder goes out at that time even
+  if no dose was ever logged. `every_hours` is still required (the app saves 24 ÷ the number of
+  times); `max_per_day` is not used.
 - `reminders`: one per `type` (`feed`, `sleep`, `diaper`, `pump`), `after_minutes` 15–1440. Sleep
   counts time awake.
 - The app shows a reminder on its home screen once it is due (computed from the summary's `last`),

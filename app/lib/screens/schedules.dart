@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../format.dart';
 import '../l10n/l10n.dart';
 import '../models.dart';
 import '../state.dart';
@@ -24,6 +25,18 @@ class SchedulesScreen extends StatelessWidget {
   };
 
   static String _n(num v) => v == v.roundToDouble() ? '${v.round()}' : '$v';
+
+  /// A saved "HH:MM" dose time, shown in the user's clock format.
+  static String clock(String hhmm) {
+    final [h, m] = [for (final p in hhmm.split(':')) int.tryParse(p) ?? 0];
+    return minutesOfDay(h * 60 + m);
+  }
+
+  /// "Daily at 08:00, 20:00" for set times, "Every 4 h" otherwise.
+  static String when(Map<String, dynamic> m) => switch (m['times']) {
+    final List times when times.isNotEmpty => l10n.scheduleDailyAt(times.map((t) => clock('$t')).join(', ')),
+    _ => every(m['every_hours'] as num),
+  };
 
   /// "30 min", "2 h", "1 h 30 min" (no line break inside a number and its unit).
   static String hm(int minutes) => switch ((minutes ~/ 60, minutes % 60)) {
@@ -126,8 +139,8 @@ class SchedulesScreen extends StatelessWidget {
     if (c == null) return const Scaffold();
     final meds = c.medicines;
     String medLine(Map<String, dynamic> m) => [
-      every(m['every_hours'] as num),
-      if (m['max_per_day'] != null) l10n.scheduleUpToPerDay(m['max_per_day']),
+      when(m),
+      if (m['max_per_day'] != null && (m['times'] as List? ?? const []).isEmpty) l10n.scheduleUpToPerDay(m['max_per_day']),
       if (m['dose'] != null) '${_n(m['dose'] as num)} ${m['dose_unit'] ?? ''}'.trim(),
       if (s.pushEnabled && m['remind'] == true) l10n.scheduleReminderOn,
     ].join(' · ');
@@ -220,7 +233,26 @@ class _MedicineDialogState extends State<_MedicineDialog> {
   late final _dose = TextEditingController(text: _n(widget.medicine['dose']));
   late final _unit = TextEditingController(text: '${widget.medicine['dose_unit'] ?? 'mL'}');
   late bool _remind = widget.medicine['remind'] == true || (widget.isNew && widget.canRemind);
+
+  /// Daily dose times ("HH:MM", sorted); used instead of "every" when [_fixed].
+  late final List<String> _times = [for (final t in widget.medicine['times'] as List? ?? const []) '$t'];
+  late bool _fixed = _times.isNotEmpty;
   String? _error;
+
+  Future<void> _pickTime([int? index]) async {
+    final [h, m] = [for (final p in (index == null ? '08:00' : _times[index]).split(':')) int.parse(p)];
+    final t = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: h, minute: m),
+    );
+    if (t == null || !mounted) return;
+    final v = '${'${t.hour}'.padLeft(2, '0')}:${'${t.minute}'.padLeft(2, '0')}';
+    setState(() {
+      if (index != null) _times.removeAt(index);
+      if (!_times.contains(v)) _times.add(v);
+      _times.sort();
+    });
+  }
 
   static num? _num(TextEditingController c) {
     final v = num.tryParse(c.text.trim().replaceAll(',', '.'));
@@ -232,9 +264,11 @@ class _MedicineDialogState extends State<_MedicineDialog> {
     String? err;
     if (_name.text.trim().isEmpty) {
       err = l10n.scheduleErrName;
-    } else if (every == null || every < 0.5 || every > 168) {
+    } else if (_fixed && _times.isEmpty) {
+      err = l10n.scheduleErrTimes;
+    } else if (!_fixed && (every == null || every < 0.5 || every > 168)) {
       err = l10n.scheduleErrEvery;
-    } else if (_max.text.trim().isNotEmpty && (max is! int || max < 1 || max > 24)) {
+    } else if (!_fixed && _max.text.trim().isNotEmpty && (max is! int || max < 1 || max > 24)) {
       err = l10n.scheduleErrMax;
     } else if (_dose.text.trim().isNotEmpty && dose == null) {
       err = l10n.scheduleErrDose;
@@ -242,8 +276,10 @@ class _MedicineDialogState extends State<_MedicineDialog> {
     if (err != null) return setState(() => _error = err);
     Navigator.pop(context, <String, dynamic>{
       'name': _name.text.trim(),
-      'every_hours': every,
-      'max_per_day': ?max,
+      // With set times these are unused but kept, for switching back (the server wants a spacing).
+      'every_hours': _fixed && (every == null || every < 0.5 || every > 168) ? (24 / _times.length * 10).round() / 10 : every,
+      if (!_fixed || (max is int && max >= 1 && max <= 24)) 'max_per_day': ?max,
+      if (_fixed) 'times': _times,
       'dose': ?dose,
       if (dose != null && _unit.text.trim().isNotEmpty) 'dose_unit': _unit.text.trim(),
       'remind': widget.canRemind ? _remind : widget.medicine['remind'] == true,
@@ -265,31 +301,66 @@ class _MedicineDialogState extends State<_MedicineDialog> {
             controller: _name,
             decoration: InputDecoration(labelText: l10n.scheduleName),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _every,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: InputDecoration(labelText: l10n.scheduleEvery, suffixText: l10n.scheduleHours),
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 6,
-            children: [
-              for (final h in quick)
-                ChoiceChip(
-                  label: Text(h == 24 ? l10n.scheduleDaily : '$h h'),
-                  selected: _num(_every) == h,
-                  onSelected: (_) => setState(() => _every.text = '$h'),
-                ),
+          const SizedBox(height: 14),
+          SegmentedButton<bool>(
+            segments: [
+              ButtonSegment(value: false, label: Text(l10n.scheduleModeAfterDose)),
+              ButtonSegment(value: true, label: Text(l10n.scheduleModeTimes)),
             ],
+            selected: {_fixed},
+            showSelectedIcon: false,
+            onSelectionChanged: (v) => setState(() {
+              _fixed = v.first;
+              if (_fixed && _times.isEmpty) _times.add('08:00');
+            }),
           ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: _max,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(labelText: l10n.scheduleMaxLabel, suffixText: l10n.scheduleDoses),
-          ),
+          const SizedBox(height: 6),
+          Text(l10n.scheduleModeHint(_fixed ? 'times' : 'after'), style: TextStyle(color: pal.muted, fontSize: 13, height: 1.3)),
+          if (_fixed) ...[
+            const SizedBox(height: 12),
+            Text(l10n.scheduleTimesLabel, style: TextStyle(color: pal.muted, fontSize: 12)),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final (i, t) in _times.indexed)
+                  InputChip(
+                    avatar: const Icon(Icons.schedule_rounded, size: 18),
+                    label: Text(SchedulesScreen.clock(t)),
+                    onPressed: () => _pickTime(i),
+                    onDeleted: () => setState(() => _times.removeAt(i)),
+                  ),
+                ActionChip(avatar: const Icon(Icons.add, size: 18), label: Text(l10n.scheduleAddTime), onPressed: _pickTime),
+              ],
+            ),
+          ] else ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _every,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: InputDecoration(labelText: l10n.scheduleEvery, suffixText: l10n.scheduleHours),
+              onChanged: (_) => setState(() {}),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              children: [
+                for (final h in quick)
+                  ChoiceChip(
+                    label: Text(h == 24 ? l10n.scheduleDaily : '$h h'),
+                    selected: _num(_every) == h,
+                    onSelected: (_) => setState(() => _every.text = '$h'),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _max,
+              keyboardType: TextInputType.number,
+              decoration: InputDecoration(labelText: l10n.scheduleMaxLabel, suffixText: l10n.scheduleDoses),
+            ),
+          ],
           const SizedBox(height: 12),
           Row(
             children: [

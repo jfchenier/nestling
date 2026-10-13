@@ -43,11 +43,11 @@ pub async fn medicine_doses(db: &SqlitePool, child_id: &str, name: &str, now: i6
         .collect())
 }
 
-pub async fn medicines_status(db: &SqlitePool, child_id: &str, medicines: &[Medicine], now: i64) -> AppResult<Vec<(Medicine, MedicineStatus)>> {
+pub async fn medicines_status(db: &SqlitePool, child_id: &str, medicines: &[Medicine], now: i64, tz: Tz) -> AppResult<Vec<(Medicine, MedicineStatus)>> {
     let mut out = Vec::new();
     for m in medicines {
         let doses = medicine_doses(db, child_id, &m.name, now).await?;
-        let st = medicine_status(m, &doses, now);
+        let st = medicine_status(m, &doses, now, tz);
         out.push((m.clone(), st));
     }
     Ok(out)
@@ -133,14 +133,17 @@ pub async fn due(db: &SqlitePool, now: i64) -> AppResult<Vec<(String, String, Du
         }
         for m in parse_medicines(&medicines).into_iter().filter(|m| m.remind) {
             let doses = medicine_doses(db, &child_id, &m.name, now).await?;
-            let st = medicine_status(&m, &doses, now);
-            let (Some(last), Some(next)) = (st.last_at, st.next_at) else { continue };
-            if next > now || now - next > STALE_MS {
+            let st = medicine_status(&m, &doses, now, tz);
+            // Every few hours: once a dose was given. At set times: from the first one on.
+            let Some(next) = st.next_at.filter(|_| st.last_at.is_some() || !m.times.is_empty()) else { continue };
+            if !st.due || next > now || now - next > STALE_MS {
                 continue;
             }
-            let body = match m.max_per_day {
-                Some(max) => format!("Next dose can be given now (last at {}, {} of {max} in 24 h)", at(last), st.doses_24h),
-                None => format!("Next dose can be given now (last at {})", at(last)),
+            let body = match (st.last_at, m.max_per_day) {
+                (Some(last), _) if !m.times.is_empty() => format!("{} dose is due (last at {})", at(next), at(last)),
+                (None, _) => format!("{} dose is due", at(next)),
+                (Some(last), Some(max)) => format!("Next dose can be given now (last at {}, {} of {max} in 24 h)", at(last), st.doses_24h),
+                (Some(last), None) => format!("Next dose can be given now (last at {})", at(last)),
             };
             out.push((
                 child_id.clone(),

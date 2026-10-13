@@ -795,8 +795,9 @@ class _ReminderStripState extends State<_ReminderStrip> {
   static String _medicineStatus(Map m, DateTime now) {
     final next = DateTime.tryParse('${m['next_at']}')?.toLocal();
     if (next == null) return l10n.homeNoDoseYet;
-    if (!next.isAfter(now)) return l10n.homeDoseNow;
     final at = timeOfDay(next);
+    final fixed = m['times'] is List && (m['times'] as List).isNotEmpty;
+    if (!next.isAfter(now)) return fixed ? l10n.homeDoseDueSince(at) : l10n.homeDoseNow;
     final day = DateTime(next.year, next.month, next.day).difference(DateTime(now.year, now.month, now.day)).inDays;
     final when = day == 0
         ? l10n.homeNextDoseToday(at)
@@ -918,7 +919,8 @@ class _ReminderStripState extends State<_ReminderStrip> {
         if (m is Map)
           () {
             final next = DateTime.tryParse('${m['next_at']}')?.toLocal();
-            final canGive = next == null || !next.isAfter(now);
+            // Set times: a dose may also be given a little before its time (`due` says so).
+            final canGive = next == null || !next.isAfter(now) || (m['due'] == true && m['times'] is List);
             void give() => showEventForm(
               context,
               type: 'health',

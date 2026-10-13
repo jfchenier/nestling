@@ -1527,6 +1527,14 @@ components:
         dose: { type: number, minimum: 0, description: The usual dose (fills the app's form) }
         dose_unit: { type: string }
         remind: { type: boolean, default: false, description: Notify phones when the next dose is due (server with notifications) }
+        times:
+          type: array
+          maxItems: 12
+          items: { type: string, pattern: "^[0-2][0-9]:[0-5][0-9]$", example: "08:00" }
+          description: |
+            Daily dose times in the family's time zone. When set, a dose is due at each time (a dose
+            given up to 2 h before it, or until 2 h before the next time, counts for it) instead of
+            `every_hours` after the last one, and `max_per_day` is not used.
     Reminder:
       type: object
       description: |
@@ -1543,8 +1551,8 @@ components:
           required: [last_at, next_at, due, doses_24h, limited]
           properties:
             last_at: { type: string, format: date-time, nullable: true }
-            next_at: { type: string, format: date-time, nullable: true, description: When the next dose is allowed; null when none was given }
-            due: { type: boolean }
+            next_at: { type: string, format: date-time, nullable: true, description: "When the next dose is allowed (null when none was given); with `times`, the time of the dose due now or of the next one" }
+            due: { type: boolean, description: "A dose can be given now (with `times`: the current time's dose is not given yet)" }
             doses_24h: { type: integer }
             limited: { type: boolean, description: "`max_per_day` is what holds the next dose back" }
 

@@ -2200,6 +2200,12 @@ abstract class AppLocalizations {
   /// **'Measured'**
   String get formMeasured;
 
+  /// No description provided for @formMedAlreadyGiven.
+  ///
+  /// In en, this message translates to:
+  /// **'Already given at {last}. Next dose at {time}.'**
+  String formMedAlreadyGiven(Object last, Object time);
+
   /// No description provided for @formMedLimited.
   ///
   /// In en, this message translates to:
@@ -2607,6 +2613,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'diapers today'**
   String get homeDiapersToday;
+
+  /// No description provided for @homeDoseDueSince.
+  ///
+  /// In en, this message translates to:
+  /// **'{time} dose not given yet'**
+  String homeDoseDueSince(Object time);
 
   /// No description provided for @homeDoseNow.
   ///
@@ -4468,11 +4480,23 @@ abstract class AppLocalizations {
   /// **'Add a medicine'**
   String get scheduleAddMedicine;
 
+  /// No description provided for @scheduleAddTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a time'**
+  String get scheduleAddTime;
+
   /// No description provided for @scheduleDaily.
   ///
   /// In en, this message translates to:
   /// **'daily'**
   String get scheduleDaily;
+
+  /// No description provided for @scheduleDailyAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily at {times}'**
+  String scheduleDailyAt(Object times);
 
   /// No description provided for @scheduleDescribeEmpty.
   ///
@@ -4515,6 +4539,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Give the medicine a name.'**
   String get scheduleErrName;
+
+  /// No description provided for @scheduleErrTimes.
+  ///
+  /// In en, this message translates to:
+  /// **'Add at least one time.'**
+  String get scheduleErrTimes;
 
   /// No description provided for @scheduleEvery.
   ///
@@ -4582,6 +4612,24 @@ abstract class AppLocalizations {
   /// **'Medicine schedule'**
   String get scheduleMedicineSection;
 
+  /// No description provided for @scheduleModeAfterDose.
+  ///
+  /// In en, this message translates to:
+  /// **'After each dose'**
+  String get scheduleModeAfterDose;
+
+  /// No description provided for @scheduleModeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'{mode, select, times{Due at the same times every day, whatever time the last dose was given.} other{The next dose counts from the last one, so it moves with the time it was given.}}'**
+  String scheduleModeHint(String mode);
+
+  /// No description provided for @scheduleModeTimes.
+  ///
+  /// In en, this message translates to:
+  /// **'At set times'**
+  String get scheduleModeTimes;
+
   /// No description provided for @scheduleName.
   ///
   /// In en, this message translates to:
@@ -4641,6 +4689,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, =1{{types} reminder} other{{types} reminders}}'**
   String scheduleRemindersList(num count, Object types);
+
+  /// No description provided for @scheduleTimesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Give at'**
+  String get scheduleTimesLabel;
 
   /// No description provided for @scheduleTitle.
   ///

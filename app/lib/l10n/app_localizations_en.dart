@@ -1292,6 +1292,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get formMeasured => 'Measured';
 
   @override
+  String formMedAlreadyGiven(Object last, Object time) {
+    return 'Already given at $last. Next dose at $time.';
+  }
+
+  @override
   String formMedLimited(Object count, Object time) {
     return 'Already $count doses in 24 hours. Next one allowed at $time.';
   }
@@ -1525,6 +1530,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get homeDiapersToday => 'diapers today';
+
+  @override
+  String homeDoseDueSince(Object time) {
+    return '$time dose not given yet';
+  }
 
   @override
   String get homeDoseNow => 'Next dose can be given now';
@@ -2602,7 +2612,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scheduleAddMedicine => 'Add a medicine';
 
   @override
+  String get scheduleAddTime => 'Add a time';
+
+  @override
   String get scheduleDaily => 'daily';
+
+  @override
+  String scheduleDailyAt(Object times) {
+    return 'Daily at $times';
+  }
 
   @override
   String get scheduleDescribeEmpty =>
@@ -2625,6 +2643,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get scheduleErrName => 'Give the medicine a name.';
+
+  @override
+  String get scheduleErrTimes => 'Add at least one time.';
 
   @override
   String get scheduleEvery => 'Every';
@@ -2667,6 +2688,23 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get scheduleMedicineSection => 'Medicine schedule';
+
+  @override
+  String get scheduleModeAfterDose => 'After each dose';
+
+  @override
+  String scheduleModeHint(String mode) {
+    String _temp0 = intl.Intl.selectLogic(mode, {
+      'times':
+          'Due at the same times every day, whatever time the last dose was given.',
+      'other':
+          'The next dose counts from the last one, so it moves with the time it was given.',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get scheduleModeTimes => 'At set times';
 
   @override
   String get scheduleName => 'Name';
@@ -2715,6 +2753,9 @@ class AppLocalizationsEn extends AppLocalizations {
     );
     return '$_temp0';
   }
+
+  @override
+  String get scheduleTimesLabel => 'Give at';
 
   @override
   String get scheduleTitle => 'Medicines and reminders';
