@@ -1022,9 +1022,17 @@ class _TodayStrip extends StatelessWidget {
   }
 }
 
-/// Feed card: pick the kind of feed.
-void showFeedPicker(BuildContext context) => _showLogPicker(context, l10n.homeLogFeed, [
-  (Kind.breast, null, l10n.kindBreastfeed, () => TimerScreen.open(context, 'breastfeed')),
+/// Feed card: pick the kind of feed. [pastBreast] (Log past on a running nursing timer) opens the
+/// breastfeed form instead of the timer.
+void showFeedPicker(BuildContext context, {bool pastBreast = false}) => _showLogPicker(context, l10n.homeLogFeed, [
+  (
+    Kind.breast,
+    null,
+    l10n.kindBreastfeed,
+    pastBreast
+        ? () => showEventForm(context, type: 'feed', method: 'breast')
+        : () => TimerScreen.open(context, 'breastfeed'),
+  ),
   (Kind.bottle, null, l10n.kindBottle, () => showEventForm(context, type: 'feed', method: 'bottle')),
   (Kind.solids, null, l10n.kindSolids, () => showEventForm(context, type: 'feed', method: 'solids')),
   (Kind.combo, null, l10n.kindCombo, () => showEventForm(context, type: 'feed', method: 'combo')),

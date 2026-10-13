@@ -10,6 +10,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/date_time.dart';
 import 'event_form.dart';
+import 'home.dart' show showFeedPicker;
 
 /// Live timer for `breastfeed`, `sleep` or `pump`, shared with every caregiver.
 class TimerScreen extends StatefulWidget {
@@ -267,9 +268,15 @@ class _TimerScreenState extends State<TimerScreen> {
     if (mounted) Navigator.pop(context);
   }
 
-  /// Log a finished session by hand instead of timing it.
-  void _manual() {
-    Navigator.pop(context);
+  /// Log a finished session by hand instead of timing it. While a timer runs, this screen stays
+  /// open under the form (the timer keeps going); a nursing timer offers every kind of feed.
+  void _manual(TimerModel? running) {
+    if (running == null) {
+      Navigator.pop(context);
+    } else if (widget.kind == 'breastfeed') {
+      showFeedPicker(context, pastBreast: true);
+      return;
+    }
     showEventForm(context, type: widget.kind == 'breastfeed' ? 'feed' : widget.kind, method: 'breast');
   }
 
@@ -279,26 +286,40 @@ class _TimerScreenState extends State<TimerScreen> {
     final t = _timer(s);
     final c = context.pal;
     final strong = c.isDark ? kind.fill(c) : kind.deepTone;
+    final logPast = TextButton.icon(
+      style: TextButton.styleFrom(
+        foregroundColor: kind.on(c),
+        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+      ),
+      onPressed: () => _manual(t),
+      icon: const Icon(Icons.edit_calendar_rounded, size: 18),
+      label: Text(l10n.timerLogPast),
+    );
     return Scaffold(
       backgroundColor: Color.lerp(c.background, kind.fill(c), c.isDark ? 0.25 : 0.3),
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         // Closing never stops the timer: it keeps running (for every caregiver) until saved or deleted.
         leading: IconButton(icon: const Icon(Icons.close_rounded), tooltip: l10n.close, onPressed: () => Navigator.pop(context)),
-        title: Text(title),
+        // Scaled down rather than cut off when Save leaves little room (French).
+        title: FittedBox(fit: BoxFit.scaleDown, child: Text(title)),
         centerTitle: true,
         actions: [
-          if (t == null) ...[TextButton(onPressed: _manual, child: Text(l10n.timerLogPast)), const SizedBox(width: 8)],
+          if (t == null) ...[logPast, const SizedBox(width: 8)],
           if (t != null) ...[
-            FilledButton(
-              style: FilledButton.styleFrom(
-                backgroundColor: strong,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(80, 40),
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+            // Capped so a long label ("Enregistrer") shrinks instead of pushing the title off center.
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 88),
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: strong,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(80, 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                ),
+                onPressed: _busy ? null : () => _stop(t, end: _endAt),
+                child: FittedBox(fit: BoxFit.scaleDown, child: Text(l10n.save)),
               ),
-              onPressed: _busy ? null : () => _stop(t, end: _endAt),
-              child: Text(l10n.save),
             ),
             const SizedBox(width: 12),
           ],
@@ -311,7 +332,7 @@ class _TimerScreenState extends State<TimerScreen> {
             builder: (context) => ListView(
               children: [
                 const SizedBox(height: 4),
-                _hint(s, t),
+                _hint(s, t, logPast),
                 const SizedBox(height: 12),
                 Text(
                   clock(_total(t)),
@@ -400,7 +421,8 @@ class _TimerScreenState extends State<TimerScreen> {
   }
 
   /// "Last feed ended on the left · 2h ago — start on the right" / "Awake for 45m".
-  Widget _hint(AppState s, TimerModel? t) {
+  /// While a timer runs the hint line holds [logPast] instead.
+  Widget _hint(AppState s, TimerModel? t, Widget logPast) {
     String? hint;
     if (t == null && widget.kind == 'breastfeed') {
       final last = s.summary?['last']?['feed'];
@@ -416,7 +438,11 @@ class _TimerScreenState extends State<TimerScreen> {
     }
     return SizedBox(
       height: 48,
-      child: hint == null ? null : Text(hint, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, height: 1.4)),
+      child: t != null
+          ? Center(child: logPast)
+          : hint == null
+          ? null
+          : Text(hint, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, height: 1.4)),
     );
   }
 
