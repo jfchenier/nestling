@@ -153,4 +153,11 @@ void main() {
     ]);
     expect(scheduleLines(const [], const {}), isEmpty);
   });
+
+  test('initials on the family tree', () {
+    expect(initials('Alex Martin'), 'AM');
+    expect(initials('Noah'), 'N');
+    expect(initials('Jean-Luc Picard Roy'), 'JL');
+    expect(initials('élise roy'), 'ÉR');
+  });
 }

@@ -567,12 +567,38 @@ class BirthStoryPage extends StatelessWidget {
   }
 }
 
-/// The family tree's names: parents (1, 2), each one's parents, their grandparents (several lines),
+/// The family tree's names: parents (1, 2), each one's parents, theirs (two names on two lines),
 /// brothers and sisters, aunts, uncles and cousins.
-const _treeKeys = ['tree_parent_1', 'tree_parent_2', 'tree_gp_1a', 'tree_gp_1b', 'tree_gp_2a', 'tree_gp_2b', 'tree_great_1', 'tree_great_2', 'tree_siblings', 'tree_others'];
+const _treeKeys = [
+  'tree_parent_1',
+  'tree_parent_2',
+  'tree_gp_1a',
+  'tree_gp_1b',
+  'tree_gp_2a',
+  'tree_gp_2b',
+  'tree_ggp_1a',
+  'tree_ggp_1b',
+  'tree_ggp_2a',
+  'tree_ggp_2b',
+  'tree_siblings',
+  'tree_others',
+];
 
-/// "Family tree": the baby at the bottom, the parents above, then the grandparents (and the
-/// great-grandparents as lists), with the brothers and sisters and the rest of the family below.
+/// The names on a few lines ("Henri Roy\nMarie Roy"), empty lines dropped.
+List<String> _names(String? text) => [
+  for (final l in (text ?? '').split('\n'))
+    if (l.trim().isNotEmpty) l.trim(),
+];
+
+/// "AM" for "Alex Martin", "N" for "Noah".
+String initials(String name) {
+  final words = name.trim().split(RegExp(r'[\s-]+')).where((w) => w.isNotEmpty).toList();
+  return words.take(2).map((w) => w.characters.first.toUpperCase()).join();
+}
+
+/// "Family tree": a little tree growing from the baby, with the parents on its branches, then the
+/// grandparents, then each grandparent's parents as a couple; one side lilac, the other seafoam.
+/// Brothers and sisters and the rest of the family are listed under it.
 class FamilyTreePage extends StatelessWidget {
   const FamilyTreePage({super.key, required this.child});
   final Child child;
@@ -584,20 +610,14 @@ class FamilyTreePage extends StatelessWidget {
     final c = context.pal;
     final book = child.book;
     final readOnly = context.select<AppState, bool>((s) => s.bookOnly);
+    final great = [for (final k in ['tree_ggp_1a', 'tree_ggp_1b', 'tree_ggp_2a', 'tree_ggp_2b']) _names(book[k])];
     final grand = [book['tree_gp_1a'], book['tree_gp_1b'], book['tree_gp_2a'], book['tree_gp_2b']];
     final parents = [book['tree_parent_1'], book['tree_parent_2']];
-    final great = [book['tree_great_1'], book['tree_great_2']];
-    // Book viewers see only the rows with names.
-    final showGrand = !readOnly || grand.any((n) => n != null);
+    const sides = [Kind.sleep, Kind.activity];
+    // Book viewers see only the levels with names.
+    final showGreat = great.any((g) => g.isNotEmpty) || (!readOnly && grand.any((n) => n != null));
+    final showGrand = !readOnly || grand.any((n) => n != null) || showGreat;
     final showParents = !readOnly || parents.any((n) => n != null) || showGrand;
-
-    Widget caption(String text) => Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Text(
-        text.toUpperCase(),
-        style: TextStyle(color: c.muted, fontSize: 11.5, fontWeight: FontWeight.w700, letterSpacing: 1.1),
-      ),
-    );
 
     return TapedPaper(
       tilt: -0.006,
@@ -607,30 +627,43 @@ class FamilyTreePage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _PageHead(l10n.pagesTreeTitle, Icons.account_tree_rounded),
-          if (great.any((g) => g != null)) ...[
-            caption(l10n.pagesTreeGreat),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (final g in great)
-                  Expanded(
-                    child: Text(
-                      (g ?? '').split('\n').map((l) => l.trim()).where((l) => l.isNotEmpty).join('\n'),
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: c.ink, fontSize: 13, height: 1.35),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 12),
+          if (showGreat) ...[
+            _TreeLevel([for (final (i, g) in great.indexed) _Couple(g, sides[i ~/ 2], hidden: readOnly && g.isEmpty)]),
+            _Branches([for (final g in great) g.isNotEmpty || !readOnly], 4, width: 2),
           ],
-          if (showGrand) ...[caption(l10n.pagesTreeGrandparents), _TreeRow(grand), _TreeJoins(grand, 2)],
-          if (showParents) ...[if (!showGrand) caption(l10n.pagesTreeParents), _TreeRow(parents), _TreeJoins(parents, 1)],
+          if (showGrand) ...[
+            _TreeLevel([for (final (i, n) in grand.indexed) _Person(n, sides[i ~/ 2], size: 40, hidden: readOnly && n == null)]),
+            _Branches([for (final n in grand) n != null || !readOnly], 2, width: 3),
+          ],
+          if (showParents) ...[
+            _TreeLevel([for (final (i, n) in parents.indexed) _Person(n, sides[i], size: 50, hidden: readOnly && n == null)]),
+            _Branches([for (final n in parents) n != null || !readOnly], 1, width: 4.5),
+          ],
+          // The baby, where the tree grows from, on a bit of grass.
           Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-              decoration: BoxDecoration(color: Kind.milestone.fill(c), borderRadius: BorderRadius.circular(14)),
-              child: Text(child.name, style: serifStyle(18, color: c.bandInk)),
+            child: Column(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Kind.milestone.fill(c),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: c.surface, width: 3),
+                    boxShadow: [BoxShadow(color: c.ink.withValues(alpha: 0.15), blurRadius: 6, offset: const Offset(0, 2))],
+                  ),
+                  child: Icon(Icons.child_care_rounded, size: 34, color: c.bandInk),
+                ),
+                const SizedBox(height: 4),
+                Text(child.name, style: serifStyle(18, color: Kind.milestone.on(c))),
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  width: 150,
+                  height: 10,
+                  decoration: BoxDecoration(color: Kind.diaper.fill(c).withValues(alpha: 0.7), borderRadius: const BorderRadius.all(Radius.elliptical(75, 5))),
+                ),
+              ],
             ),
           ),
           if (book['tree_siblings'] case final v?) _Block(l10n.pagesTreeSiblings, v),
@@ -642,100 +675,183 @@ class FamilyTreePage extends StatelessWidget {
   }
 }
 
-/// A row of the tree: one box per name, spread evenly (an empty one is a dashed spot to fill in,
-/// or nothing for a book viewer).
-class _TreeRow extends StatelessWidget {
-  const _TreeRow(this.names);
-  final List<String?> names;
+/// One level of the tree: its spots spread evenly across the page.
+class _TreeLevel extends StatelessWidget {
+  const _TreeLevel(this.spots);
+  final List<Widget> spots;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [for (final s in spots) Expanded(child: s)],
+  );
+}
+
+/// A round badge with the initials and the name under it (a "+" spot to fill in when empty, or
+/// nothing for a book viewer).
+class _Person extends StatelessWidget {
+  const _Person(this.name, this.side, {required this.size, this.hidden = false});
+  final String? name;
+  final Kind side;
+  final double size;
+  final bool hidden;
+
+  @override
+  Widget build(BuildContext context) {
+    if (hidden) return const SizedBox();
+    final c = context.pal;
+    final n = name;
+    return Column(
+      children: [
+        _Badge(n == null ? null : initials(n), side, size: size),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Text(
+            n ?? '',
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, height: 1.15, color: c.ink),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A grandparent's parents: two small badges side by side and their names under them.
+class _Couple extends StatelessWidget {
+  const _Couple(this.names, this.side, {this.hidden = false});
+  final List<String> names;
+  final Kind side;
+  final bool hidden;
+
+  @override
+  Widget build(BuildContext context) {
+    if (hidden) return const SizedBox();
+    final c = context.pal;
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _Badge(names.isEmpty ? null : initials(names.first), side, size: 28, small: true),
+            const SizedBox(width: 2),
+            _Badge(names.length < 2 ? null : initials(names[1]), side, size: 28, small: true),
+          ],
+        ),
+        const SizedBox(height: 3),
+        for (final n in names.take(2))
+          Text(
+            n,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 11, height: 1.2, color: c.ink),
+          ),
+      ],
+    );
+  }
+}
+
+/// A circle in the side's color with initials, or an outlined "+" when nobody is named yet.
+class _Badge extends StatelessWidget {
+  const _Badge(this.initials, this.side, {required this.size, this.small = false});
+  final String? initials;
+  final Kind side;
+  final double size;
+  final bool small;
 
   @override
   Widget build(BuildContext context) {
     final c = context.pal;
-    final readOnly = context.select<AppState, bool>((s) => s.bookOnly);
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final n in names)
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: n == null && readOnly
-                    ? const SizedBox()
-                    : Container(
-                        alignment: Alignment.center,
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: n == null ? null : Kind.milestone.fill(c).withValues(alpha: 0.35),
-                          border: n == null ? Border.all(color: c.line) : null,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          n ?? '?',
-                          textAlign: TextAlign.center,
-                          maxLines: 3,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13.5, height: 1.2, color: n == null ? c.muted : c.ink),
-                        ),
-                      ),
-              ),
+    final empty = initials == null;
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: empty ? c.surface : side.fill(c),
+        shape: BoxShape.circle,
+        border: Border.all(color: empty ? c.line : c.surface, width: small ? 1.5 : 2.5),
+      ),
+      child: empty
+          ? Icon(Icons.add_rounded, size: size * 0.5, color: c.muted)
+          : Text(
+              initials!,
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: size * 0.36, color: side.on(c)),
             ),
-        ],
+    );
+  }
+}
+
+/// The branches from a level down to the one under it ([to] spots): each spot's branch curves
+/// down to the one it belongs to (two grandparents → their child), with a leaf on the way.
+class _Branches extends StatelessWidget {
+  const _Branches(this.shown, this.to, {required this.width});
+  final List<bool> shown;
+  final int to;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.pal;
+    return SizedBox(
+      height: 28,
+      width: double.infinity,
+      child: CustomPaint(
+        painter: _BranchesPainter(shown, to, width, Kind.growth.on(c).withValues(alpha: c.isDark ? 0.75 : 0.6), Kind.diaper.fill(c)),
       ),
     );
   }
 }
 
-/// The lines from a row of the tree down to the row under it ([to] boxes): each box joins the
-/// one it belongs to (two grandparents → their child).
-class _TreeJoins extends StatelessWidget {
-  const _TreeJoins(this.names, this.to);
-  final List<String?> names;
-  final int to;
-
-  @override
-  Widget build(BuildContext context) {
-    final readOnly = context.select<AppState, bool>((s) => s.bookOnly);
-    return SizedBox(
-      height: 20,
-      width: double.infinity,
-      child: CustomPaint(painter: _JoinsPainter([for (final n in names) n != null || !readOnly], to, context.pal.line)),
-    );
-  }
-}
-
-class _JoinsPainter extends CustomPainter {
-  _JoinsPainter(this.shown, this.to, this.color);
+class _BranchesPainter extends CustomPainter {
+  _BranchesPainter(this.shown, this.to, this.width, this.wood, this.leaf);
   final List<bool> shown;
   final int to;
-  final Color color;
+  final double width;
+  final Color wood, leaf;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..strokeWidth = 1.5
+    final branch = Paint()
+      ..color = wood
+      ..strokeWidth = width
+      ..strokeCap = StrokeCap.round
       ..style = PaintingStyle.stroke;
-    final from = shown.length, per = from ~/ to;
-    for (var j = 0; j < to; j++) {
-      final below = Offset(size.width * (j + 0.5) / to, size.height);
-      final mid = size.height / 2;
-      final tops = [
-        for (var i = j * per; i < (j + 1) * per; i++)
-          if (shown[i]) size.width * (i + 0.5) / from,
-      ];
-      if (tops.isEmpty) continue;
-      for (final x in tops) {
-        canvas.drawLine(Offset(x, 0), Offset(x, mid), paint);
-      }
-      final left = math.min(tops.reduce(math.min), below.dx), right = math.max(tops.reduce(math.max), below.dx);
-      canvas.drawLine(Offset(left, mid), Offset(right, mid), paint);
-      canvas.drawLine(Offset(below.dx, mid), below, paint);
+    final leafPaint = Paint()..color = leaf;
+    final from = shown.length, per = from ~/ to, h = size.height;
+    for (var i = 0; i < from; i++) {
+      if (!shown[i]) continue;
+      final top = Offset(size.width * (i + 0.5) / from, 0);
+      final below = Offset(size.width * (i ~/ per + 0.5) / to, h);
+      final path = Path()
+        ..moveTo(below.dx, below.dy)
+        ..cubicTo(below.dx, h * 0.45, top.dx, h * 0.55, top.dx, top.dy);
+      canvas.drawPath(path, branch);
+      // A leaf halfway, leaning out from the branch.
+      final mid = Offset((top.dx + below.dx) / 2, h / 2);
+      final out = top.dx == below.dx ? (i.isEven ? -1.0 : 1.0) : (top.dx < below.dx ? -1.0 : 1.0);
+      canvas.save();
+      canvas.translate(mid.dx, mid.dy);
+      canvas.rotate(out * 0.9);
+      final s = 4.0 + width;
+      canvas.drawPath(
+        Path()
+          ..moveTo(0, 0)
+          ..quadraticBezierTo(s * 0.6, -s * 0.9, 0, -s * 2)
+          ..quadraticBezierTo(-s * 0.6, -s * 0.9, 0, 0),
+        leafPaint,
+      );
+      canvas.restore();
     }
   }
 
   @override
-  bool shouldRepaint(_JoinsPainter old) => old.color != color || old.to != to || old.shown.join() != shown.join();
+  bool shouldRepaint(_BranchesPainter old) =>
+      old.wood != wood || old.leaf != leaf || old.to != to || old.width != width || old.shown.join() != shown.join();
 }
 
 /// "A letter for later": up to two letters (from whom, and the letter), to read at 18.
@@ -909,9 +1025,10 @@ Future<void> editTreePage(BuildContext context, Child child) => _editPage(
   fields: [
     for (final n in const [1, 2]) ...[
       (key: 'tree_parent_$n', label: l10n.pagesTreeParent(n), hint: l10n.pagesHintName, long: false),
-      (key: 'tree_gp_${n}a', label: l10n.pagesTreeGrandparent(n), hint: l10n.pagesHintName, long: false),
-      (key: 'tree_gp_${n}b', label: l10n.pagesTreeGrandparent(n), hint: l10n.pagesHintName, long: false),
-      (key: 'tree_great_$n', label: l10n.pagesTreeGreatOf(n), hint: l10n.pagesHintNames, long: true),
+      for (final g in const ['a', 'b']) ...[
+        (key: 'tree_gp_$n$g', label: l10n.pagesTreeGrandparent(n), hint: l10n.pagesHintName, long: false),
+        (key: 'tree_ggp_$n$g', label: l10n.pagesTreeTheirParents, hint: l10n.pagesHintTwoNames, long: true),
+      ],
     ],
     (key: 'tree_siblings', label: l10n.pagesTreeSiblings, hint: l10n.pagesHintNames, long: true),
     (key: 'tree_others', label: l10n.pagesTreeOthers, hint: l10n.pagesHintNames, long: true),

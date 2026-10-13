@@ -3826,6 +3826,12 @@ abstract class AppLocalizations {
   /// **'The first cry, who was there, the weather…'**
   String get pagesHintRemember;
 
+  /// No description provided for @pagesHintTwoNames.
+  ///
+  /// In en, this message translates to:
+  /// **'Two names, one per line'**
+  String get pagesHintTwoNames;
+
   /// No description provided for @pagesHintWhy.
   ///
   /// In en, this message translates to:
@@ -4126,24 +4132,6 @@ abstract class AppLocalizations {
   /// **'Their parent (side {n})'**
   String pagesTreeGrandparent(int n);
 
-  /// No description provided for @pagesTreeGrandparents.
-  ///
-  /// In en, this message translates to:
-  /// **'Grandparents'**
-  String get pagesTreeGrandparents;
-
-  /// No description provided for @pagesTreeGreat.
-  ///
-  /// In en, this message translates to:
-  /// **'Great-grandparents'**
-  String get pagesTreeGreat;
-
-  /// No description provided for @pagesTreeGreatOf.
-  ///
-  /// In en, this message translates to:
-  /// **'Their grandparents (side {n})'**
-  String pagesTreeGreatOf(int n);
-
   /// No description provided for @pagesTreeOthers.
   ///
   /// In en, this message translates to:
@@ -4156,12 +4144,6 @@ abstract class AppLocalizations {
   /// **'Parent {n}'**
   String pagesTreeParent(int n);
 
-  /// No description provided for @pagesTreeParents.
-  ///
-  /// In en, this message translates to:
-  /// **'Parents'**
-  String get pagesTreeParents;
-
   /// No description provided for @pagesTreePrompt.
   ///
   /// In en, this message translates to:
@@ -4173,6 +4155,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Brothers and sisters'**
   String get pagesTreeSiblings;
+
+  /// No description provided for @pagesTreeTheirParents.
+  ///
+  /// In en, this message translates to:
+  /// **'Their parents'**
+  String get pagesTreeTheirParents;
 
   /// No description provided for @pagesTreeTitle.
   ///

@@ -914,6 +914,7 @@
   "pagesHintOthers": "The runners-up",
   "pagesHintPlace": "The hospital, home, the city",
   "pagesHintRemember": "The first cry, who was there, the weather…",
+  "pagesHintTwoNames": "Two names, one per line",
   "pagesHintWhy": "Who or what it comes from",
   "pagesHintWorldNote": "Anything else about that year",
   "pagesHospital": "At the hospital",
@@ -998,16 +999,6 @@
       }
     }
   },
-  "pagesTreeGrandparents": "Grandparents",
-  "pagesTreeGreat": "Great-grandparents",
-  "pagesTreeGreatOf": "Their grandparents (side {n})",
-  "@pagesTreeGreatOf": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
   "pagesTreeOthers": "Aunts, uncles and cousins",
   "pagesTreeParent": "Parent {n}",
   "@pagesTreeParent": {
@@ -1017,9 +1008,9 @@
       }
     }
   },
-  "pagesTreeParents": "Parents",
   "pagesTreePrompt": "Tap to write the names of the family.",
   "pagesTreeSiblings": "Brothers and sisters",
+  "pagesTreeTheirParents": "Their parents",
   "pagesTreeTitle": "Family tree",
   "pagesWeRemember": "We remember",
   "pagesWeighed": "Weighed",

@@ -2282,6 +2282,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pagesHintRemember => 'The first cry, who was there, the weather…';
 
   @override
+  String get pagesHintTwoNames => 'Two names, one per line';
+
+  @override
   String get pagesHintWhy => 'Who or what it comes from';
 
   @override
@@ -2456,17 +2459,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get pagesTreeGrandparents => 'Grandparents';
-
-  @override
-  String get pagesTreeGreat => 'Great-grandparents';
-
-  @override
-  String pagesTreeGreatOf(int n) {
-    return 'Their grandparents (side $n)';
-  }
-
-  @override
   String get pagesTreeOthers => 'Aunts, uncles and cousins';
 
   @override
@@ -2475,13 +2467,13 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get pagesTreeParents => 'Parents';
-
-  @override
   String get pagesTreePrompt => 'Tap to write the names of the family.';
 
   @override
   String get pagesTreeSiblings => 'Brothers and sisters';
+
+  @override
+  String get pagesTreeTheirParents => 'Their parents';
 
   @override
   String get pagesTreeTitle => 'Family tree';
