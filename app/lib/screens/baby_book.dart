@@ -21,6 +21,7 @@ import 'teeth_chart.dart';
 
 /// The book's chapters, in order (`BOOK_CHAPTERS` in src/model.rs).
 enum BookChapter {
+  family('family', Icons.family_restroom_rounded),
   waiting('waiting', Icons.pregnant_woman_rounded),
   hello('hello', Icons.child_friendly_rounded),
   firsts('firsts', Icons.auto_awesome_rounded),
@@ -34,6 +35,7 @@ enum BookChapter {
   final IconData icon;
 
   String get title => switch (this) {
+    family => l10n.bookChapterFamily,
     waiting => l10n.bookChapterWaiting,
     hello => l10n.bookChapterHello,
     firsts => l10n.bookChapterFirsts,
@@ -43,6 +45,7 @@ enum BookChapter {
 
   /// The short name on the contents tabs.
   String get tab => switch (this) {
+    family => l10n.bookTabFamily,
     waiting => l10n.bookTabWaiting,
     hello => l10n.bookTabHello,
     firsts => l10n.bookTabFirsts,
@@ -51,6 +54,7 @@ enum BookChapter {
   };
 
   String get subtitle => switch (this) {
+    family => l10n.bookChapterSubFamily,
     waiting => l10n.bookChapterSubWaiting,
     hello => l10n.bookChapterSubHello,
     firsts => l10n.bookChapterSubFirsts,
@@ -87,13 +91,21 @@ String _month(int month) => DateFormat.LLLL().format(DateTime(2000, month));
 
 /// Ideas for the baby book, by chapter, in about the order they come. Any other name works too.
 final milestoneIdeas = [
+  MilestoneIdea('How we met', (t) => t.bookIdeaHowWeMet, Icons.favorite_rounded, (t) => t.bookWhenBeforeYou, BookChapter.family),
+  MilestoneIdea('Our wedding', (t) => t.bookIdeaWedding, Icons.diamond_rounded, (t) => t.bookWhenBeforeYou, BookChapter.family),
+  MilestoneIdea(homeName, (t) => t.bookIdeaHome, Icons.house_rounded, (t) => t.bookWhenEachOne, BookChapter.family, true),
+  MilestoneIdea('Our car', (t) => t.bookIdeaCar, Icons.directions_car_filled_rounded, (t) => t.bookWhenEachOne, BookChapter.family, true),
+  MilestoneIdea('Our pets', (t) => t.bookIdeaPets, Icons.pets_rounded, (t) => t.bookWhenEachOne, BookChapter.family, true),
   MilestoneIdea('We found out', (t) => t.bookIdeaFoundOut, Icons.favorite_border_rounded, (t) => t.bookWhenTest, BookChapter.waiting),
   MilestoneIdea('First ultrasound', (t) => t.bookIdeaUltrasound, Icons.monitor_heart_rounded, (t) => t.bookWhenAroundWeeksRange(8, 12), BookChapter.waiting),
   MilestoneIdea('Heard the heartbeat', (t) => t.bookIdeaHeartbeat, Icons.graphic_eq_rounded, (t) => t.bookWhenAroundWeeksRange(10, 12), BookChapter.waiting),
   MilestoneIdea('Boy or girl?', (t) => t.bookIdeaBoyOrGirl, Icons.help_outline_rounded, (t) => t.bookWhenAroundWeeks(20), BookChapter.waiting),
   MilestoneIdea('The belly', (t) => t.bookIdeaBelly, Icons.pregnant_woman_rounded, (t) => t.bookWhenNowAndThen, BookChapter.waiting, true),
+  MilestoneIdea('The nursery', (t) => t.bookIdeaNursery, Icons.crib_rounded, (t) => t.bookWhenLastWeeks, BookChapter.waiting),
   MilestoneIdea('Baby shower', (t) => t.bookIdeaBabyShower, Icons.card_giftcard_rounded, (t) => t.bookWhenLastWeeks, BookChapter.waiting),
   MilestoneIdea('Came home', (t) => t.bookIdeaCameHome, Icons.home_rounded, (t) => t.bookWhenFirstDays, BookChapter.hello),
+  MilestoneIdea('Hand and footprints', (t) => t.bookIdeaPrints, Icons.back_hand_rounded, (t) => t.bookWhenFirstDays, BookChapter.hello),
+  MilestoneIdea('Met big brother or sister', (t) => t.bookIdeaSiblings, Icons.escalator_warning_rounded, (t) => t.bookWhenFirstDays, BookChapter.hello),
   MilestoneIdea('First bath', (t) => t.bookIdeaFirstBath, Icons.bathtub_rounded, (t) => t.bookWhenFirstWeeks, BookChapter.hello),
   MilestoneIdea('Met the grandparents', (t) => t.bookIdeaGrandparents, Icons.diversity_1_rounded, (t) => t.bookWhenFirstWeeks, BookChapter.hello),
   MilestoneIdea('First walk outside', (t) => t.bookIdeaFirstWalk, Icons.park_rounded, (t) => t.bookWhenFirstWeeks, BookChapter.hello),
@@ -124,12 +136,14 @@ final milestoneIdeas = [
   MilestoneIdea('First word', (t) => t.bookIdeaFirstWord, Icons.forum_rounded, (t) => t.bookWhenMonthsRange(10, 14)),
   MilestoneIdea('Stood alone', (t) => t.bookIdeaStoodAlone, Icons.man_rounded, (t) => t.bookWhenMonthsRange(10, 14)),
   MilestoneIdea('First steps', (t) => t.bookIdeaFirstSteps, Icons.directions_walk_rounded, (t) => t.bookWhenMonthsRange(9, 15)),
+  MilestoneIdea('First sentence', (t) => t.bookIdeaSentence, Icons.format_quote_rounded, (t) => t.bookWhenMonthsRange(18, 24)),
   MilestoneIdea('Fed self with a spoon', (t) => t.bookIdeaSpoon, Icons.soup_kitchen_rounded, (t) => t.bookWhenMonthsRange(12, 18)),
   MilestoneIdea('First dance', (t) => t.bookIdeaFirstDance, Icons.nightlife_rounded, (t) => t.bookWhenAnyTime),
   MilestoneIdea('First haircut', (t) => t.bookIdeaHaircut, Icons.content_cut_rounded, (t) => t.bookWhenAnyTime),
   MilestoneIdea('First swim', (t) => t.bookIdeaSwim, Icons.pool_rounded, (t) => t.bookWhenAnyTime),
   MilestoneIdea('First snow', (t) => t.bookIdeaSnow, Icons.ac_unit_rounded, (t) => t.bookWhenAnyTime),
   MilestoneIdea('First day at daycare', (t) => t.bookIdeaDaycare, Icons.school_rounded, (t) => t.bookWhenAnyTime),
+  MilestoneIdea('First cold', (t) => t.bookIdeaCold, Icons.sick_rounded, (t) => t.bookWhenAnyTime),
   MilestoneIdea('First tooth', (t) => t.bookIdeaFirstTooth, Icons.auto_awesome_rounded, (t) => t.bookWhenMonthsRange(6, 10), BookChapter.growing),
   MilestoneIdea('Up a diaper size', (t) => t.bookIdeaDiaperSize, Icons.baby_changing_station_rounded, (t) => t.bookWhenNowAndThen, BookChapter.growing, true),
   MilestoneIdea('Up a clothes size', (t) => t.bookIdeaClothesSize, Icons.checkroom_rounded, (t) => t.bookWhenNowAndThen, BookChapter.growing, true),
@@ -137,6 +151,7 @@ final milestoneIdeas = [
   MilestoneIdea('Own room', (t) => t.bookIdeaOwnRoom, Icons.bedroom_baby_rounded, (t) => t.bookWhenAnyTime, BookChapter.growing),
   MilestoneIdea('Forward-facing car seat', (t) => t.bookIdeaCarSeat, Icons.directions_car_rounded, (t) => t.bookWhenAfterYears(2), BookChapter.growing),
   MilestoneIdea('First shoes', (t) => t.bookIdeaFirstShoes, Icons.directions_run_rounded, (t) => t.bookWhenWithFirstSteps, BookChapter.growing),
+  MilestoneIdea(diaryName, (t) => t.bookIdeaDiary, Icons.menu_book_rounded, (t) => t.bookWhenNowAndThen, BookChapter.growing, true),
   MilestoneIdea('First Christmas', (t) => t.bookIdeaChristmas, Icons.park_rounded, (t) => _month(12), BookChapter.celebrations),
   MilestoneIdea('First Halloween', (t) => t.bookIdeaHalloween, Icons.dark_mode_rounded, (t) => _month(10), BookChapter.celebrations),
   MilestoneIdea('First Easter', (t) => t.bookIdeaEaster, Icons.egg_rounded, (t) => t.bookWhenSpring, BookChapter.celebrations),
@@ -146,6 +161,15 @@ final milestoneIdeas = [
   MilestoneIdea('First trip', (t) => t.bookIdeaTrip, Icons.luggage_rounded, (t) => t.bookWhenAnyTime, BookChapter.celebrations),
   MilestoneIdea('First birthday', (t) => t.bookIdeaBirthday, Icons.cake_rounded, (t) => t.ageYears(1), BookChapter.celebrations),
 ];
+
+/// "Our home": the book says how long you've lived there, up to the next one.
+const homeName = 'Our home';
+
+/// A diary page: how the days go right now (its note starts with the schedule of the past week),
+/// shown in Growing up's Diary rather than among the memories.
+const diaryName = 'Diary';
+
+bool isDiary(Event e) => ideaFor(e['name'] as String?)?.id == diaryName;
 
 String _key(String name) => name.trim().toLowerCase();
 
@@ -322,10 +346,12 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
     // Teeth are on the chart; only the first one is a memory of its own.
     final list = memories?.where((e) => e['tooth'] == null || isFirstTooth(e['name'] as String?)).toList();
     final byChapter = {for (final c in BookChapter.values) c: <Event>[]};
-    final bananas = <Event>[];
+    final bananas = <Event>[], diary = <Event>[];
     for (final e in list ?? const <Event>[]) {
-      (isBanana(e) ? bananas : byChapter[chapterOf(e, birth: child.birthDate)]!).add(e);
+      (isBanana(e) ? bananas : isDiary(e) ? diary : byChapter[chapterOf(e, birth: child.birthDate)]!).add(e);
     }
+    final homes = homeSpans(list ?? const []);
+    final cameHome = list?.where((e) => ideaFor(e['name'] as String?)?.id == 'Came home').firstOrNull?.start;
     final logged = loggedIdeas;
     // Book viewers (e.g. grandparents) read it: no ideas, nothing to add or edit.
     final readOnly = s.bookOnly;
@@ -342,14 +368,15 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
             out.add(_ChapterTitle(a));
           }
         }
-        out.add(_MemoryCard(event: e, child: child, index: printIndex++));
+        out.add(_MemoryCard(event: e, child: child, index: printIndex++, extra: homes[e.id]));
       }
       return out;
     }
 
     Widget ideas(BookChapter chapter) {
       if (readOnly) return const SizedBox.shrink();
-      final left = milestoneIdeas.where((i) => i.chapter == chapter && (i.repeats || !logged.contains(i.id))).toList();
+      // The diary has its own button.
+      final left = milestoneIdeas.where((i) => i.chapter == chapter && i.id != diaryName && (i.repeats || !logged.contains(i.id))).toList();
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -395,6 +422,11 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
         : null;
 
     final rows = <Widget>[
+      // About your family
+      heading(BookChapter.family),
+      if (!readOnly || FamilyTreePage.hasText(child)) FamilyTreePage(child: child),
+      ...prints(byChapter[BookChapter.family]!),
+      ideas(BookChapter.family),
       // Waiting for you (the pregnancy)
       heading(BookChapter.waiting),
       if (!readOnly || child.book['due_date'] != null) _DueDate(child: child),
@@ -403,6 +435,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
       // Hello, world
       heading(BookChapter.hello),
       BornPage(child: child, growth: growth),
+      if (!readOnly || BirthStoryPage.hasText(child)) BirthStoryPage(child: child, cameHome: cameHome),
       NamePage(child: child),
       if (!readOnly || WorldPage.hasText(child)) WorldPage(child: child),
       ...?loading,
@@ -426,11 +459,40 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
       ],
       ...prints(byChapter[BookChapter.growing]!),
       if (!readOnly || growth.isNotEmpty) GrowthPage(child: child, growth: growth),
+      if (!readOnly || diary.isNotEmpty) ...[
+        SectionTitle(
+          '${l10n.bookIdeaDiary} 📔',
+          trailing: readOnly || diary.isEmpty
+              ? null
+              : TextButton.icon(
+                  onPressed: () => showMemoryForm(context, name: l10n.bookIdeaDiary),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: Text(l10n.bookDiaryNew),
+                ),
+        ),
+        if (!readOnly)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 8),
+            child: Text(l10n.bookDiaryIntro(child.name), style: TextStyle(color: context.pal.muted, height: 1.35)),
+          ),
+        ...prints(diary),
+        if (!readOnly && diary.isEmpty)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.tonalIcon(
+              onPressed: () => showMemoryForm(context, name: l10n.bookIdeaDiary),
+              icon: const Icon(Icons.edit_note_rounded),
+              label: Text(l10n.bookDiaryFirst),
+            ),
+          ),
+      ],
       ideas(BookChapter.growing),
       // Celebrations
       heading(BookChapter.celebrations),
       ...prints(byChapter[BookChapter.celebrations]!),
       ideas(BookChapter.celebrations),
+      // The last page
+      if (!readOnly || LetterPage.hasText(child)) LetterPage(child: child),
     ];
 
     return Scaffold(
@@ -801,6 +863,24 @@ class _ChapterHeading extends StatelessWidget {
   }
 }
 
+/// How long you've lived in each "Our home" (until the next one, or until now), by entry id:
+/// "Here for 4 years", "Lived here 2 years".
+Map<String, String> homeSpans(List<Event> memories, {DateTime? now}) {
+  final homes = memories.where((e) => ideaFor(e['name'] as String?)?.id == homeName).toList()..sort((a, b) => a.start.compareTo(b.start));
+  final today = now ?? DateTime.now();
+  return {
+    for (final (i, e) in homes.indexed)
+      if (!e.start.isAfter(today)) e.id: i + 1 < homes.length ? l10n.bookLivedHere(_span(e.start, homes[i + 1].start)) : l10n.bookHereFor(_span(e.start, today)),
+  };
+}
+
+/// "4 years", "7 months" (at least a month).
+String _span(DateTime from, DateTime to) {
+  var months = (to.year - from.year) * 12 + to.month - from.month;
+  if (to.day < from.day) months--;
+  return months >= 12 ? l10n.ageYears(months ~/ 12) : l10n.ageMonths(math.max(months, 1));
+}
+
 /// Chapter of the book a day falls in: "Newborn", "3 months", "2 years" (or the month, without
 /// a birth date).
 String _chapter(Child child, DateTime day) {
@@ -833,6 +913,8 @@ String? pregnancyWeeks(Child child, DateTime day) {
     if (weeks >= 1 && weeks <= 44) return l10n.bookWeeksAlong(weeks);
   }
   final before = born.difference(d).inDays ~/ 7;
+  // Long before (a wedding, a first home): the date says it.
+  if (before > 44) return null;
   return before == 0 ? l10n.bookDaysBeforeBirth : l10n.bookWeeksBeforeBirth(before);
 }
 
@@ -1042,10 +1124,13 @@ class _EmptyBook extends StatelessWidget {
 /// A memory as a scrapbook page: a photo print taped in (slightly tilted, alternating sides),
 /// the title, the day with the baby's age, and the story.
 class _MemoryCard extends StatelessWidget {
-  const _MemoryCard({required this.event, required this.child, required this.index});
+  const _MemoryCard({required this.event, required this.child, required this.index, this.extra});
   final Event event;
   final Child child;
   final int index;
+
+  /// A line under the date ("Here for 4 years").
+  final String? extra;
 
   @override
   Widget build(BuildContext context) {
@@ -1110,6 +1195,7 @@ class _MemoryCard extends StatelessWidget {
                         Text(name, style: serifStyle(21)),
                         const SizedBox(height: 2),
                         Text(_dateLine(child, event.start), style: TextStyle(color: c.muted, fontSize: 13.5)),
+                        if (extra != null) Text(extra!, style: TextStyle(color: k.on(c), fontSize: 13.5, fontWeight: FontWeight.w600)),
                         if (toothFor(event['tooth'] as String?) case final tooth?)
                           Text(
                             tooth.name,
@@ -1215,7 +1301,23 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
   @override
   void initState() {
     super.initState();
-    _name.addListener(() => setState(() {}));
+    _name.addListener(() {
+      setState(() {});
+      _startDiary();
+    });
+    _startDiary();
+  }
+
+  bool _diaryStarted = false;
+
+  /// A new diary page starts with the schedule of the past week (once, on an empty story).
+  Future<void> _startDiary() async {
+    if (e != null || _diaryStarted || ideaFor(_name.text)?.id != diaryName || _note.text.trim().isNotEmpty) return;
+    _diaryStarted = true;
+    final s = context.read<AppState>();
+    final text = await diarySchedule(s).catchError((_) => null);
+    if (!mounted || text == null || _note.text.trim().isNotEmpty) return;
+    _note.text = '$text\n\n';
   }
 
   Future<void> _choosePhoto() async {

@@ -64,6 +64,12 @@ class Child {
 
   /// Changes when the profile picture does; null without one.
   int? get photoVersion => toInt(json['photo_version']);
+
+  /// The book pages' photos (`tree_parent_1`…), key → version.
+  Map<String, int> get bookPhotos => {
+    for (final MapEntry(:key, :value) in ((json['book_photos'] as Map?) ?? const {}).entries)
+      key as String: ?toInt(value),
+  };
   String? get sex => json['sex'];
   DateTime? get birthDate => json['birth_date'] is String ? DateTime.tryParse(json['birth_date']) : null;
 

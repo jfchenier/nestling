@@ -16,7 +16,8 @@ import 'store.dart';
 /// Per family: the CSV export (`server-<family>.csv`, the layout the import reads), a small JSON
 /// with what the CSV leaves out (time zone, day hours, each child's medicines, reminders, book
 /// pages and profile picture) and the baby book's photos, one file each, sent once
-/// (`server-<family>-photo-<entry>-<version>`).
+/// (`server-<family>-photo-<entry>-<version>`; the book pages' photos as
+/// `server-<family>-page-<child>-<key>-<version>`).
 ///
 /// [restore] brings a copy back into a family on any server, or into serverless mode, through the
 /// API: the CSV goes through the import (so restoring twice updates instead of duplicating), then
@@ -106,9 +107,18 @@ class ServerBackup implements Backup {
         if (!existing.containsKey(photo)) await d.put(photo, await api.getBytes('/children/${c['id']}/photo'), null);
         keep.add(photo);
       }
+      // The book pages' photos (the family tree's faces), by key.
+      final pages = <String, String>{};
+      for (final MapEntry(:key, value: v) in ((c['book_photos'] as Map?) ?? const {}).entries) {
+        final name = '$base-page-${c['id']}-$key-$v';
+        if (!existing.containsKey(name)) await d.put(name, await api.getBytes('/children/${c['id']}/book-photos/$key'), null);
+        keep.add(name);
+        pages[key as String] = name;
+      }
       children.add({
         for (final k in const ['id', 'name', 'birth_date', 'sex', 'medicines', 'reminders', 'book']) k: c[k],
         'photo': photo,
+        'book_photos': pages,
       });
     }
 
@@ -124,7 +134,7 @@ class ServerBackup implements Backup {
 
     // Photos that were replaced or removed since.
     for (final MapEntry(key: name, value: id) in existing.entries) {
-      if ((name.startsWith('$base-photo-') || name.startsWith('$base-child-')) && !keep.contains(name)) {
+      if ((name.startsWith('$base-photo-') || name.startsWith('$base-child-') || name.startsWith('$base-page-')) && !keep.contains(name)) {
         await d.delete(id);
       }
     }
@@ -215,6 +225,14 @@ class ServerBackup implements Backup {
       if (target['photo_version'] == null && file != null) {
         final bytes = await d.get(file);
         await api.putBytes('/children/${target['id']}/photo', bytes, contentType: _imageType(bytes));
+        photos++;
+      }
+      final had = (target['book_photos'] as Map?) ?? const {};
+      for (final MapEntry(:key, value: name) in ((c['book_photos'] as Map?) ?? const {}).entries) {
+        final file = copy._files[name];
+        if (had.containsKey(key) || file == null) continue;
+        final bytes = await d.get(file);
+        await api.putBytes('/children/${target['id']}/book-photos/$key', bytes, contentType: _imageType(bytes));
         photos++;
       }
     }

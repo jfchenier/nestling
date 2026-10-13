@@ -682,6 +682,52 @@ paths:
         "204": { description: Removed }
         "404": { $ref: "#/components/responses/NotFound" }
 
+  /children/{id}/book-photos/{key}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+      - name: key
+        in: path
+        required: true
+        description: The app's name for the photo (1-40 lowercase letters, digits or `_`), e.g. `tree_parent_1`.
+        schema: { type: string, pattern: '^[a-z0-9_]{1,40}$' }
+    get:
+      tags: [children]
+      operationId: getBookPhoto
+      summary: A photo on one of the baby book's pages (book viewers too)
+      responses:
+        "200":
+          description: The image
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [children]
+      operationId: putBookPhoto
+      summary: Set a book page's photo (raw JPEG, PNG or WebP, at most 5 MB; 60 per child)
+      description: The child's `book_photos` gets the key with a new version.
+      requestBody:
+        required: true
+        content:
+          image/jpeg: { schema: { type: string, format: binary } }
+          image/png: { schema: { type: string, format: binary } }
+          image/webp: { schema: { type: string, format: binary } }
+      responses:
+        "200":
+          description: The child
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Child" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    delete:
+      tags: [children]
+      operationId: deleteBookPhoto
+      responses:
+        "204": { description: Removed (or there was none) }
+        "404": { $ref: "#/components/responses/NotFound" }
+
   # ---------------------------------------------------------------- events
   /children/{id}/events:
     parameters:
@@ -1485,7 +1531,7 @@ components:
           items: { $ref: "#/components/schemas/Child" }
     Child:
       type: object
-      required: [id, family_id, name, birth_date, sex, created_at, updated_at, photo_version, medicines, reminders, book]
+      required: [id, family_id, name, birth_date, sex, created_at, updated_at, photo_version, medicines, reminders, book, book_photos]
       properties:
         id: { type: string }
         family_id: { type: string }
@@ -1506,6 +1552,10 @@ components:
           type: array
           items: { $ref: "#/components/schemas/Reminder" }
         book: { $ref: "#/components/schemas/Book" }
+        book_photos:
+          type: object
+          description: The book pages' photos, key → version (changes with the photo); fetch one from `/children/{id}/book-photos/{key}`.
+          additionalProperties: { type: integer, format: int64 }
     Book:
       type: object
       description: >-
@@ -1676,7 +1726,7 @@ components:
           type: string
           pattern: '^[a-z][a-z0-9_]{0,31}$'
           description: >-
-            The baby book chapter it goes in, an id of the app's (today `waiting`, `hello`, `firsts`,
+            The baby book chapter it goes in, an id of the app's (today `family`, `waiting`, `hello`, `firsts`,
             `growing`, `celebrations`); when absent the app picks one from the name.
     NoteDetails:
       type: object

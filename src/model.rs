@@ -175,7 +175,7 @@ pub struct Milestone {
     /// lower left second molar … `T` lower right second molar).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tooth: Option<String>,
-    /// The baby book chapter it goes in, an id of the app's (`waiting`, `hello`, `firsts`,
+    /// The baby book chapter it goes in, an id of the app's (`family`, `waiting`, `hello`, `firsts`,
     /// `growing`, `celebrations` today); none: the app picks one from the name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub chapter: Option<String>,

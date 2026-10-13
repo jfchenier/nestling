@@ -5,15 +5,16 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 
-/// Let the user pick a picture and turn it into a centered square of at most [size] px (PNG),
-/// small enough to upload and quick to show in the round avatars. Null if cancelled.
-Future<Uint8List?> pickSquarePhoto({int size = 512}) async {
+/// Let the user pick a picture and turn it into a centered square of at most [size] px (PNG, or
+/// a lighter JPEG with [jpeg]), small enough to upload and quick to show in the round avatars.
+/// Null if cancelled.
+Future<Uint8List?> pickSquarePhoto({int size = 512, bool jpeg = false}) async {
   final files = await FilePicker.pickFiles(type: FileType.image);
   if (files.isEmpty) return null;
-  return squarePhoto(await files.first.xFile.readAsBytes(), size: size);
+  return squarePhoto(await files.first.xFile.readAsBytes(), size: size, jpeg: jpeg);
 }
 
-Future<Uint8List> squarePhoto(Uint8List bytes, {int size = 512}) async {
+Future<Uint8List> squarePhoto(Uint8List bytes, {int size = 512, bool jpeg = false}) async {
   // Plain decode (ImageDescriptor isn't available on the web); drawImageRect below does the
   // cropping and scaling.
   final codec = await ui.instantiateImageCodec(bytes);
@@ -28,6 +29,10 @@ Future<Uint8List> squarePhoto(Uint8List bytes, {int size = 512}) async {
     ui.Paint()..filterQuality = ui.FilterQuality.high,
   );
   final square = await recorder.endRecording().toImage(out.round(), out.round());
+  if (jpeg) {
+    final rgba = await square.toByteData(format: ui.ImageByteFormat.rawStraightRgba);
+    return compute(_jpeg, (rgba!.buffer.asUint8List(), out.round(), out.round()));
+  }
   final png = await square.toByteData(format: ui.ImageByteFormat.png);
   return png!.buffer.asUint8List();
 }

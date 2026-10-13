@@ -154,6 +154,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bookChapterCelebrations => 'Celebrations';
 
   @override
+  String get bookChapterFamily => 'About your family';
+
+  @override
   String get bookChapterFirsts => 'Firsts';
 
   @override
@@ -169,6 +172,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bookChapterSubCelebrations => 'Holidays and special days';
+
+  @override
+  String get bookChapterSubFamily => 'Before you, there was us';
 
   @override
   String get bookChapterSubFirsts => 'Every new thing, month by month';
@@ -196,6 +202,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bookDeleteTitle => 'Delete this memory?';
 
   @override
+  String get bookDiaryFirst => 'Write the first page';
+
+  @override
+  String bookDiaryIntro(Object name) {
+    return 'Now and then, a page on how $name\'s days go. The schedule is filled in from the last 7 days.';
+  }
+
+  @override
+  String get bookDiaryNew => 'New page';
+
+  @override
   String get bookDueDate => 'Due date';
 
   @override
@@ -215,6 +232,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bookEmptyTitle => 'The first page is waiting';
+
+  @override
+  String bookHereFor(Object time) {
+    return 'Here for $time';
+  }
 
   @override
   String get bookIdeaBabyShower => 'Baby shower';
@@ -238,6 +260,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bookIdeaCameHome => 'Came home';
 
   @override
+  String get bookIdeaCar => 'Our car';
+
+  @override
   String get bookIdeaCarSeat => 'Forward-facing car seat';
 
   @override
@@ -248,6 +273,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bookIdeaClothesSize => 'Up a clothes size';
+
+  @override
+  String get bookIdeaCold => 'First cold';
 
   @override
   String get bookIdeaCooed => 'Cooed';
@@ -266,6 +294,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bookIdeaDiaperSize => 'Up a diaper size';
+
+  @override
+  String get bookIdeaDiary => 'Diary';
 
   @override
   String get bookIdeaEaster => 'First Easter';
@@ -331,6 +362,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bookIdeaHeldHead => 'Held head up';
 
   @override
+  String get bookIdeaHome => 'Our home';
+
+  @override
+  String get bookIdeaHowWeMet => 'How we met';
+
+  @override
   String get bookIdeaKiss => 'Gave a kiss';
 
   @override
@@ -340,6 +377,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bookIdeaMothersDay => 'First Mother\'s Day';
 
   @override
+  String get bookIdeaNursery => 'The nursery';
+
+  @override
   String get bookIdeaOwnBottle => 'Held own bottle';
 
   @override
@@ -347,6 +387,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bookIdeaOwnRoom => 'Own room';
+
+  @override
+  String get bookIdeaPets => 'Our pets';
+
+  @override
+  String get bookIdeaPrints => 'Hand and footprints';
 
   @override
   String get bookIdeaPulledStand => 'Pulled to stand';
@@ -359,6 +405,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bookIdeaSatUp => 'Sat up alone';
+
+  @override
+  String get bookIdeaSentence => 'First sentence';
+
+  @override
+  String get bookIdeaSiblings => 'Met big brother or sister';
 
   @override
   String get bookIdeaSleptNight => 'Slept through the night';
@@ -388,6 +440,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get bookIdeaWaved => 'Waved bye-bye';
 
   @override
+  String get bookIdeaWedding => 'Our wedding';
+
+  @override
   String get bookIdeasForChapter => 'Ideas for this chapter';
 
   @override
@@ -397,6 +452,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bookIdeasToRemember => 'Ideas to remember';
+
+  @override
+  String bookLivedHere(Object time) {
+    return 'Lived here $time';
+  }
 
   @override
   String bookMemoryCount(num count) {
@@ -476,6 +536,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bookTabCelebrations => 'Celebrations';
+
+  @override
+  String get bookTabFamily => 'Family';
 
   @override
   String get bookTabFirsts => 'Firsts';
@@ -559,6 +622,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String bookWhenAroundWeeksRange(Object from, Object to) {
     return 'around $from–$to weeks';
   }
+
+  @override
+  String get bookWhenBeforeYou => 'before you';
+
+  @override
+  String get bookWhenEachOne => 'one for each';
 
   @override
   String get bookWhenFirstDays => 'first days';
@@ -760,6 +829,46 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get delete => 'Delete';
+
+  @override
+  String diaryBedtime(Object time) {
+    return 'Bedtime around $time';
+  }
+
+  @override
+  String diaryFeeds(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count feeds a day',
+      one: '1 feed a day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String diaryNaps(int count, String time) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count naps a day ($time in all)',
+      one: '1 nap a day ($time in all)',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String diaryNightSleep(Object time) {
+    return '$time of sleep at night';
+  }
+
+  @override
+  String get diarySchedule => 'Our days right now:';
+
+  @override
+  String diaryWakesUp(Object time) {
+    return 'Wakes up around $time';
+  }
 
   @override
   String get dirty => 'Dirty';
@@ -2095,6 +2204,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Birth weight and length come from a Growth entry on the birth day.';
 
   @override
+  String get pagesBirthPeople => 'Who was there';
+
+  @override
   String get pagesBorn => 'Born';
 
   @override
@@ -2129,13 +2241,40 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pagesHead => 'Head';
 
   @override
+  String get pagesHintBirthPeople => 'Both parents, the midwife…';
+
+  @override
   String get pagesHintEyes => 'Deep blue';
 
   @override
   String get pagesHintHair => 'Dark and lots of it';
 
   @override
+  String get pagesHintHospital => 'Worked out from “Came home” if left empty';
+
+  @override
+  String get pagesHintLabourStarted => 'Tuesday night, around 11 pm';
+
+  @override
+  String get pagesHintLabourStory =>
+      'The long night, the drive, the first cry…';
+
+  @override
+  String pagesHintLetter(Object name) {
+    return '$name, when you read this…';
+  }
+
+  @override
+  String get pagesHintLetterFrom => 'Who writes it';
+
+  @override
   String get pagesHintMeaning => 'Its meaning or origin';
+
+  @override
+  String get pagesHintName => 'A name';
+
+  @override
+  String get pagesHintNames => 'Names, one per line';
 
   @override
   String get pagesHintNicknames => 'What we call you at home';
@@ -2150,13 +2289,67 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pagesHintRemember => 'The first cry, who was there, the weather…';
 
   @override
+  String get pagesHintTwoNames => 'Two names, one per line';
+
+  @override
   String get pagesHintWhy => 'Who or what it comes from';
 
   @override
   String get pagesHintWorldNote => 'Anything else about that year';
 
   @override
+  String get pagesHospital => 'At the hospital';
+
+  @override
+  String pagesHospitalDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count days',
+      one: '1 day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get pagesHospitalSameDay => 'Home the same day';
+
+  @override
+  String get pagesLabourStarted => 'Labour started';
+
+  @override
+  String get pagesLabourStory => 'How it went';
+
+  @override
   String get pagesLength => 'Length';
+
+  @override
+  String pagesLetterFrom(Object name) {
+    return 'From $name';
+  }
+
+  @override
+  String pagesLetterFromNumber(int n) {
+    return 'Letter $n: from';
+  }
+
+  @override
+  String pagesLetterNumber(int n) {
+    return 'Letter $n';
+  }
+
+  @override
+  String pagesLetterOpenOn(Object date) {
+    return 'To read on $date, at 18';
+  }
+
+  @override
+  String pagesLetterPrompt(Object name) {
+    return 'Write $name a letter to read at 18.';
+  }
+
+  @override
+  String get pagesLetterTitle => 'A letter for later';
 
   @override
   String get pagesMeasured => 'Measured';
@@ -2254,12 +2447,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String get pagesSetTime => 'Set';
 
   @override
+  String get pagesStoryPrompt => 'Tap to tell how the big day went.';
+
+  @override
+  String get pagesStoryTitle => 'Your birth story';
+
+  @override
   String pagesTapToEdit(Object title) {
     return '$title. Tap to edit.';
   }
 
   @override
   String get pagesTimeOfBirth => 'Time of birth';
+
+  @override
+  String pagesTreeGrandparent(int n) {
+    return 'Their parent (side $n)';
+  }
+
+  @override
+  String get pagesTreeOthers => 'Aunts, uncles and cousins';
+
+  @override
+  String pagesTreeParent(int n) {
+    return 'Parent $n';
+  }
+
+  @override
+  String get pagesTreePrompt => 'Tap to write the names of the family.';
+
+  @override
+  String get pagesTreeSiblings => 'Brothers and sisters';
+
+  @override
+  String get pagesTreeTheirParents => 'Their parents';
+
+  @override
+  String get pagesTreeTitle => 'Family tree';
 
   @override
   String get pagesWeRemember => 'We remember';
@@ -2324,6 +2548,29 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pagesWorldTitle => 'The world you were born into';
+
+  @override
+  String get pagesZodiac => 'Sign';
+
+  @override
+  String pagesZodiacSign(String sign) {
+    String _temp0 = intl.Intl.selectLogic(sign, {
+      'aries': 'Aries',
+      'taurus': 'Taurus',
+      'gemini': 'Gemini',
+      'cancer': 'Cancer',
+      'leo': 'Leo',
+      'virgo': 'Virgo',
+      'libra': 'Libra',
+      'scorpio': 'Scorpio',
+      'sagittarius': 'Sagittarius',
+      'capricorn': 'Capricorn',
+      'aquarius': 'Aquarius',
+      'pisces': 'Pisces',
+      'other': '$sign',
+    });
+    return '$_temp0';
+  }
 
   @override
   String get pairingCodeCopied =>

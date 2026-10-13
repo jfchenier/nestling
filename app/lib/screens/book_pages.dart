@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -10,10 +11,12 @@ import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/photo.dart';
+import 'growth_chart.dart';
 
-/// The baby book's own pages: the day they were born, their name, the world they were born into,
-/// and growth month by month. The texts are kept on the child (`book`), the measurements come
-/// from the Growth entries.
+/// The baby book's own pages: the family tree, the day they were born and its story, their name,
+/// the world they were born into, growth month by month and a letter for later. The texts are kept
+/// on the child (`book`), the measurements come from the Growth entries.
 
 /// The moon on a day: its phase name and how lit it is (0 new … 1 full), from the mean synodic
 /// month counted from the new moon of 6 January 2000, 18:14 UTC (good to about a day).
@@ -35,6 +38,44 @@ import '../widgets/common.dart';
   final name = names[((age / month) * 8 + 0.5).floor() % 8];
   return (name: name, lit: (1 - math.cos(2 * math.pi * age / month)) / 2, age: age);
 }
+
+/// The Western zodiac sign of a birthday, as an English id (`libra`); shown with `pagesZodiacSign`.
+String zodiacSign(DateTime day) {
+  const starts = [
+    (1, 20, 'aquarius'),
+    (2, 19, 'pisces'),
+    (3, 21, 'aries'),
+    (4, 20, 'taurus'),
+    (5, 21, 'gemini'),
+    (6, 21, 'cancer'),
+    (7, 23, 'leo'),
+    (8, 23, 'virgo'),
+    (9, 23, 'libra'),
+    (10, 23, 'scorpio'),
+    (11, 22, 'sagittarius'),
+    (12, 22, 'capricorn'),
+  ];
+  var sign = 'capricorn';
+  for (final (month, from, id) in starts) {
+    if (day.month > month || (day.month == month && day.day >= from)) sign = id;
+  }
+  return sign;
+}
+
+const _zodiacSymbols = {
+  'aries': '♈',
+  'taurus': '♉',
+  'gemini': '♊',
+  'cancer': '♋',
+  'leo': '♌',
+  'virgo': '♍',
+  'libra': '♎',
+  'scorpio': '♏',
+  'sagittarius': '♐',
+  'capricorn': '♑',
+  'aquarius': '♒',
+  'pisces': '♓',
+};
 
 /// When the baby was born, as a local time (noon without a `birth_time`), or null without a
 /// birth date.
@@ -256,6 +297,7 @@ class BornPage extends StatelessWidget {
           if (book['hair'] case final h?) _Line(l10n.pagesHair, h),
           if (book['eyes'] case final e?) _Line(l10n.pagesEyes, e),
           if (moon != null) _Line(l10n.pagesMoon, moon.name, icon: moon.lit > 0.5 ? Icons.circle : Icons.dark_mode_rounded),
+          if (child.birthDate case final d?) _Line(l10n.pagesZodiac, '${l10n.pagesZodiacSign(zodiacSign(d))} ${_zodiacSymbols[zodiacSign(d)]}'),
           if (book['birth_note'] case final n?) _Block(l10n.pagesWeRemember, n),
           if (born == null && !readOnly) _Prompt(l10n.pagesBornNoDate),
           if (!filled) _Prompt(l10n.pagesBornPrompt),
@@ -424,6 +466,12 @@ class GrowthPage extends StatelessWidget {
                 const BlobIcon(Kind.growth, size: 40, icon: Icons.straighten_rounded),
                 const SizedBox(width: 12),
                 Expanded(child: Text(l10n.pagesMonthByMonth, style: serifStyle(21))),
+                if (rows.isNotEmpty)
+                  TextButton.icon(
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const GrowthChartScreen())),
+                    icon: const Icon(Icons.show_chart_rounded, size: 18),
+                    label: Text(l10n.homeChartsShort),
+                  ),
               ],
             ),
           ),
@@ -474,6 +522,458 @@ class GrowthPage extends StatelessWidget {
   }
 }
 
+/// The birth story's texts: key (saved in the book).
+const _storyKeys = ['labour_start', 'labour_story', 'birth_people', 'hospital_stay'];
+
+/// "Your birth story": when labour started, how it went, who was there and the time at the
+/// hospital (typed, else from the birth date to the "Came home" memory).
+class BirthStoryPage extends StatelessWidget {
+  const BirthStoryPage({super.key, required this.child, this.cameHome});
+  final Child child;
+
+  /// The day of the "Came home" memory, if there is one.
+  final DateTime? cameHome;
+
+  static bool hasText(Child child) => child.book.keys.any(_storyKeys.contains);
+
+  /// "3 days" at the hospital, from the birth date to [cameHome].
+  static String? hospitalStay(Child child, DateTime? cameHome) {
+    final b = child.birthDate;
+    if (b == null || cameHome == null) return null;
+    final days = DateTime(cameHome.year, cameHome.month, cameHome.day).difference(DateTime(b.year, b.month, b.day)).inDays;
+    if (days < 0 || days > 120) return null;
+    return days == 0 ? l10n.pagesHospitalSameDay : l10n.pagesHospitalDays(days);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final book = child.book;
+    final readOnly = context.select<AppState, bool>((s) => s.bookOnly);
+    final stay = book['hospital_stay'] ?? hospitalStay(child, cameHome);
+    return TapedPaper(
+      tilt: 0.006,
+      semanticLabel: readOnly ? l10n.pagesStoryTitle : l10n.pagesTapToEdit(l10n.pagesStoryTitle),
+      onTap: readOnly ? null : () => editStoryPage(context, child),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PageHead(l10n.pagesStoryTitle, Icons.local_hospital_rounded),
+          if (book['labour_start'] case final v?) _Line(l10n.pagesLabourStarted, v),
+          if (book['birth_people'] case final v?) _Line(l10n.pagesBirthPeople, v),
+          if (stay != null) _Line(l10n.pagesHospital, stay),
+          if (book['labour_story'] case final v?) _Block(l10n.pagesLabourStory, v),
+          if (!hasText(child)) _Prompt(l10n.pagesStoryPrompt),
+        ],
+      ),
+    );
+  }
+}
+
+/// The family tree's names: parents (1, 2), each one's parents, theirs (two names on two lines),
+/// brothers and sisters, aunts, uncles and cousins.
+const _treeKeys = [
+  'tree_parent_1',
+  'tree_parent_2',
+  'tree_gp_1a',
+  'tree_gp_1b',
+  'tree_gp_2a',
+  'tree_gp_2b',
+  'tree_ggp_1a',
+  'tree_ggp_1b',
+  'tree_ggp_2a',
+  'tree_ggp_2b',
+  'tree_siblings',
+  'tree_others',
+];
+
+/// The names on a few lines ("Henri Roy\nMarie Roy"), empty lines dropped.
+List<String> _names(String? text) => [
+  for (final l in (text ?? '').split('\n'))
+    if (l.trim().isNotEmpty) l.trim(),
+];
+
+/// "AM" for "Alex Martin", "N" for "Noah".
+String initials(String name) {
+  final words = name.trim().split(RegExp(r'[\s-]+')).where((w) => w.isNotEmpty).toList();
+  return words.take(2).map((w) => w.characters.first.toUpperCase()).join();
+}
+
+/// "Family tree": a little tree growing from the baby, with the parents on its branches, then the
+/// grandparents, then each grandparent's parents as a couple; one side lilac, the other seafoam.
+/// Brothers and sisters and the rest of the family are listed under it.
+class FamilyTreePage extends StatelessWidget {
+  const FamilyTreePage({super.key, required this.child});
+  final Child child;
+
+  static bool hasText(Child child) => child.book.keys.any(_treeKeys.contains);
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.pal;
+    final book = child.book;
+    final s = context.watch<AppState>();
+    final readOnly = s.bookOnly;
+    Uint8List? photo(String key) => s.bookPhoto(child, key);
+    const greatKeys = ['tree_ggp_1a', 'tree_ggp_1b', 'tree_ggp_2a', 'tree_ggp_2b'], grandKeys = ['tree_gp_1a', 'tree_gp_1b', 'tree_gp_2a', 'tree_gp_2b'];
+    final great = [for (final k in greatKeys) _names(book[k])];
+    final grand = [book['tree_gp_1a'], book['tree_gp_1b'], book['tree_gp_2a'], book['tree_gp_2b']];
+    final parents = [book['tree_parent_1'], book['tree_parent_2']];
+    const sides = [Kind.sleep, Kind.activity];
+    // Book viewers see only the levels with names.
+    final showGreat = great.any((g) => g.isNotEmpty) || (!readOnly && grand.any((n) => n != null));
+    final showGrand = !readOnly || grand.any((n) => n != null) || showGreat;
+    final showParents = !readOnly || parents.any((n) => n != null) || showGrand;
+
+    return TapedPaper(
+      tilt: -0.006,
+      semanticLabel: readOnly ? l10n.pagesTreeTitle : l10n.pagesTapToEdit(l10n.pagesTreeTitle),
+      onTap: readOnly ? null : () => editTreePage(context, child),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PageHead(l10n.pagesTreeTitle, Icons.account_tree_rounded),
+          if (showGreat) ...[
+            _TreeLevel([
+              for (final (i, g) in great.indexed)
+                _Couple(g, sides[i ~/ 2], photos: [photo('${greatKeys[i]}_1'), photo('${greatKeys[i]}_2')], hidden: readOnly && g.isEmpty),
+            ]),
+            _Branches([for (final g in great) g.isNotEmpty || !readOnly], 4, width: 2),
+          ],
+          if (showGrand) ...[
+            _TreeLevel([for (final (i, n) in grand.indexed) _Person(n, sides[i ~/ 2], size: 40, photo: photo(grandKeys[i]), hidden: readOnly && n == null)]),
+            _Branches([for (final n in grand) n != null || !readOnly], 2, width: 3),
+          ],
+          if (showParents) ...[
+            _TreeLevel([for (final (i, n) in parents.indexed) _Person(n, sides[i], size: 50, photo: photo('tree_parent_${i + 1}'), hidden: readOnly && n == null)]),
+            _Branches([for (final n in parents) n != null || !readOnly], 1, width: 4.5),
+          ],
+          // The baby, where the tree grows from, on a bit of grass.
+          Center(
+            child: Column(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Kind.milestone.fill(c),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: c.surface, width: 3),
+                    boxShadow: [BoxShadow(color: c.ink.withValues(alpha: 0.15), blurRadius: 6, offset: const Offset(0, 2))],
+                  ),
+                  child: Icon(Icons.child_care_rounded, size: 34, color: c.bandInk),
+                ),
+                const SizedBox(height: 4),
+                Text(child.name, style: serifStyle(18, color: Kind.milestone.on(c))),
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  width: 150,
+                  height: 10,
+                  decoration: BoxDecoration(color: Kind.diaper.fill(c).withValues(alpha: 0.7), borderRadius: const BorderRadius.all(Radius.elliptical(75, 5))),
+                ),
+              ],
+            ),
+          ),
+          if (book['tree_siblings'] case final v?) _Block(l10n.pagesTreeSiblings, v),
+          if (book['tree_others'] case final v?) _Block(l10n.pagesTreeOthers, v),
+          if (!hasText(child)) _Prompt(l10n.pagesTreePrompt),
+        ],
+      ),
+    );
+  }
+}
+
+/// One level of the tree: its spots spread evenly across the page.
+class _TreeLevel extends StatelessWidget {
+  const _TreeLevel(this.spots);
+  final List<Widget> spots;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [for (final s in spots) Expanded(child: s)],
+  );
+}
+
+/// A round badge with the initials and the name under it (a "+" spot to fill in when empty, or
+/// nothing for a book viewer).
+class _Person extends StatelessWidget {
+  const _Person(this.name, this.side, {required this.size, this.photo, this.hidden = false});
+  final String? name;
+  final Kind side;
+  final double size;
+  final Uint8List? photo;
+  final bool hidden;
+
+  @override
+  Widget build(BuildContext context) {
+    if (hidden) return const SizedBox();
+    final c = context.pal;
+    final n = name;
+    return Column(
+      children: [
+        _Badge(n == null ? null : initials(n), side, size: size, photo: photo),
+        const SizedBox(height: 4),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Text(
+            n ?? '',
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, height: 1.15, color: c.ink),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A grandparent's parents: two small badges side by side and their names under them.
+class _Couple extends StatelessWidget {
+  const _Couple(this.names, this.side, {this.photos = const [null, null], this.hidden = false});
+  final List<String> names;
+  final Kind side;
+  final List<Uint8List?> photos;
+  final bool hidden;
+
+  @override
+  Widget build(BuildContext context) {
+    if (hidden) return const SizedBox();
+    final c = context.pal;
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _Badge(names.isEmpty ? null : initials(names.first), side, size: 28, small: true, photo: photos[0]),
+            const SizedBox(width: 2),
+            _Badge(names.length < 2 ? null : initials(names[1]), side, size: 28, small: true, photo: photos[1]),
+          ],
+        ),
+        const SizedBox(height: 3),
+        for (final n in names.take(2))
+          Text(
+            n,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 11, height: 1.2, color: c.ink),
+          ),
+      ],
+    );
+  }
+}
+
+/// A circle with the person's photo, else their initials in the side's color, or an outlined "+"
+/// when nobody is named yet.
+class _Badge extends StatelessWidget {
+  const _Badge(this.initials, this.side, {required this.size, this.small = false, this.photo});
+  final String? initials;
+  final Kind side;
+  final double size;
+  final bool small;
+  final Uint8List? photo;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.pal;
+    final empty = initials == null && photo == null;
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: empty ? c.surface : side.fill(c),
+        shape: BoxShape.circle,
+        border: Border.all(color: empty ? c.line : (photo != null ? side.fill(c) : c.surface), width: small ? 1.5 : 2.5),
+        image: photo == null ? null : DecorationImage(image: MemoryImage(photo!), fit: BoxFit.cover),
+      ),
+      child: photo != null
+          ? null
+          : empty
+          ? Icon(Icons.add_rounded, size: size * 0.5, color: c.muted)
+          : Text(
+              initials!,
+              style: TextStyle(fontWeight: FontWeight.w800, fontSize: size * 0.36, color: side.on(c)),
+            ),
+    );
+  }
+}
+
+/// The branches from a level down to the one under it ([to] spots): each spot's branch curves
+/// down to the one it belongs to (two grandparents → their child), with a leaf on the way.
+class _Branches extends StatelessWidget {
+  const _Branches(this.shown, this.to, {required this.width});
+  final List<bool> shown;
+  final int to;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.pal;
+    return SizedBox(
+      height: 28,
+      width: double.infinity,
+      child: CustomPaint(
+        painter: _BranchesPainter(shown, to, width, Kind.growth.on(c).withValues(alpha: c.isDark ? 0.75 : 0.6), Kind.diaper.fill(c)),
+      ),
+    );
+  }
+}
+
+class _BranchesPainter extends CustomPainter {
+  _BranchesPainter(this.shown, this.to, this.width, this.wood, this.leaf);
+  final List<bool> shown;
+  final int to;
+  final double width;
+  final Color wood, leaf;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final branch = Paint()
+      ..color = wood
+      ..strokeWidth = width
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    final leafPaint = Paint()..color = leaf;
+    final from = shown.length, per = from ~/ to, h = size.height;
+    for (var i = 0; i < from; i++) {
+      if (!shown[i]) continue;
+      final top = Offset(size.width * (i + 0.5) / from, 0);
+      final below = Offset(size.width * (i ~/ per + 0.5) / to, h);
+      final path = Path()
+        ..moveTo(below.dx, below.dy)
+        ..cubicTo(below.dx, h * 0.45, top.dx, h * 0.55, top.dx, top.dy);
+      canvas.drawPath(path, branch);
+      // A leaf halfway, leaning out from the branch.
+      final mid = Offset((top.dx + below.dx) / 2, h / 2);
+      final out = top.dx == below.dx ? (i.isEven ? -1.0 : 1.0) : (top.dx < below.dx ? -1.0 : 1.0);
+      canvas.save();
+      canvas.translate(mid.dx, mid.dy);
+      canvas.rotate(out * 0.9);
+      final s = 4.0 + width;
+      canvas.drawPath(
+        Path()
+          ..moveTo(0, 0)
+          ..quadraticBezierTo(s * 0.6, -s * 0.9, 0, -s * 2)
+          ..quadraticBezierTo(-s * 0.6, -s * 0.9, 0, 0),
+        leafPaint,
+      );
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BranchesPainter old) =>
+      old.wood != wood || old.leaf != leaf || old.to != to || old.width != width || old.shown.join() != shown.join();
+}
+
+/// "A letter for later": up to two letters (from whom, and the letter), to read at 18.
+class LetterPage extends StatelessWidget {
+  const LetterPage({super.key, required this.child});
+  final Child child;
+
+  static bool hasText(Child child) => child.book['letter_1'] != null || child.book['letter_2'] != null;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.pal;
+    final book = child.book;
+    final b = child.birthDate;
+    final readOnly = context.select<AppState, bool>((s) => s.bookOnly);
+    return TapedPaper(
+      tilt: 0.007,
+      semanticLabel: readOnly ? l10n.pagesLetterTitle : l10n.pagesTapToEdit(l10n.pagesLetterTitle),
+      onTap: readOnly ? null : () => editLetterPage(context, child),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PageHead(l10n.pagesLetterTitle, Icons.mail_rounded, subtitle: b == null ? null : l10n.pagesLetterOpenOn(DateFormat.yMMMMd().format(DateTime(b.year + 18, b.month, b.day)))),
+          for (final n in const [1, 2])
+            if (book['letter_$n'] case final text?)
+              Padding(
+                padding: const EdgeInsets.only(top: 8, bottom: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (book['letter_from_$n'] case final from?) Text(l10n.pagesLetterFrom(from), style: serifStyle(17, color: Kind.milestone.on(c))),
+                    const SizedBox(height: 4),
+                    Text(
+                      text,
+                      style: TextStyle(color: c.ink, fontSize: 15.5, height: 1.45, fontStyle: FontStyle.italic),
+                    ),
+                  ],
+                ),
+              ),
+          if (!hasText(child)) _Prompt(l10n.pagesLetterPrompt(child.name)),
+        ],
+      ),
+    );
+  }
+}
+
+/// A diary page's start: the schedule of the past 7 days (wake-up and bedtime from the sleep
+/// entries, naps, night sleep and feeds from the trends), or null with nothing logged.
+Future<String?> diarySchedule(AppState s) async {
+  final api = s.api, id = s.childId;
+  if (api == null || id == null) return null;
+  final now = DateTime.now();
+  final sleeps = await api.get('/children/$id/events', {'type': 'sleep', 'from': formatTime(now.subtract(const Duration(days: 7))), 'limit': '1000'});
+  final trends = await api.get('/children/$id/trends', {'days': '7'});
+  final lines = scheduleLines(
+    [for (final e in (sleeps as Map)['events'] as List) Event(e)],
+    ((trends as Map)['averages'] as Map?)?.cast<String, dynamic>() ?? const {},
+    dayStart: s.family?.dayStart ?? '06:00',
+    dayEnd: s.family?.dayEnd ?? '18:00',
+  );
+  return lines.isEmpty ? null : [l10n.diarySchedule, for (final l in lines) '• $l'].join('\n');
+}
+
+/// The schedule's lines: usual wake-up, naps, bedtime, night sleep and feeds a day. Bedtime is the
+/// usual start of the first long sleep (90 min or more) of each evening (from an hour before
+/// [dayEnd], so a late nap isn't bedtime), wake-up the usual end of each night's last sleep before noon.
+List<String> scheduleLines(List<Event> sleeps, Map<String, dynamic> averages, {String dayStart = '06:00', String dayEnd = '18:00'}) {
+  int minutes(String hhmm) {
+    final p = hhmm.split(':');
+    return int.parse(p[0]) * 60 + int.parse(p.length > 1 ? p[1] : '0');
+  }
+
+  // Minutes since noon, so a night doesn't wrap around midnight.
+  int sinceNoon(DateTime t) => (t.hour * 60 + t.minute - 720) % 1440;
+  final evening = (minutes(dayEnd) - 60 - 720) % 1440, morning = (minutes(dayStart) - 720) % 1440;
+  final bed = <String, int>{}, wake = <String, int>{};
+  for (final e in sleeps) {
+    final end = e.end;
+    if (end == null) continue;
+    final start = sinceNoon(e.start);
+    if (start < evening || start >= morning) continue;
+    final day = e.start.hour >= 12 ? e.start : e.start.subtract(const Duration(days: 1));
+    final night = '${day.year}-${day.month}-${day.day}';
+    if (end.difference(e.start).inMinutes >= 90 && start < (bed[night] ?? 1440)) bed[night] = start;
+    final stop = sinceNoon(end);
+    if (stop >= 720 && end.difference(e.start).inHours < 16 && stop > (wake[night] ?? -1)) wake[night] = stop;
+  }
+  String? usual(Iterable<int> values) {
+    if (values.isEmpty) return null;
+    final sorted = values.toList()..sort();
+    final m = (sorted[sorted.length ~/ 2] / 5).round() * 5;
+    final t = (m + 720) % 1440;
+    return timeOfDay(DateTime(2000, 1, 1, t ~/ 60, t % 60));
+  }
+
+  double avg(String k) => toDouble(averages[k]) ?? 0;
+  final naps = avg('naps_per_day').round(), feeds = avg('feeds_per_day').round();
+  final nightSleep = avg('night_sleep_seconds_per_day').round();
+  return [
+    if (usual(wake.values) case final t?) l10n.diaryWakesUp(t),
+    if (naps > 0) l10n.diaryNaps(naps, duration(avg('day_sleep_seconds_per_day').round())),
+    if (usual(bed.values) case final t?) l10n.diaryBedtime(t),
+    if (nightSleep > 0) l10n.diaryNightSleep(duration(nightSleep)),
+    if (feeds > 0) l10n.diaryFeeds(feeds),
+  ];
+}
+
 // ---- editing ----
 
 /// One field of a page's form: key in the book, label, hint, several lines or not.
@@ -519,6 +1019,63 @@ Future<void> editWorldPage(BuildContext context, Child child) => _editPage(
   ],
 );
 
+Future<void> editStoryPage(BuildContext context, Child child) => _editPage(
+  context,
+  child,
+  title: l10n.pagesStoryTitle,
+  icon: Icons.local_hospital_rounded,
+  fields: [
+    (key: 'labour_start', label: l10n.pagesLabourStarted, hint: l10n.pagesHintLabourStarted, long: false),
+    (key: 'labour_story', label: l10n.pagesLabourStory, hint: l10n.pagesHintLabourStory, long: true),
+    (key: 'birth_people', label: l10n.pagesBirthPeople, hint: l10n.pagesHintBirthPeople, long: false),
+    (key: 'hospital_stay', label: l10n.pagesHospital, hint: l10n.pagesHintHospital, long: false),
+  ],
+);
+
+/// The family tree's photos: each name field's photo key(s), the same as the field's key (two for
+/// a couple: `<key>_1`, `<key>_2`). Saved with `/children/{id}/book-photos/{key}`.
+Map<String, List<String>> get _treePhotos => {
+  for (final n in const [1, 2]) ...{
+    'tree_parent_$n': ['tree_parent_$n'],
+    for (final g in const ['a', 'b']) ...{
+      'tree_gp_$n$g': ['tree_gp_$n$g'],
+      'tree_ggp_$n$g': ['tree_ggp_$n${g}_1', 'tree_ggp_$n${g}_2'],
+    },
+  },
+};
+
+Future<void> editTreePage(BuildContext context, Child child) => _editPage(
+  context,
+  child,
+  title: l10n.pagesTreeTitle,
+  icon: Icons.account_tree_rounded,
+  photos: _treePhotos,
+  fields: [
+    for (final n in const [1, 2]) ...[
+      (key: 'tree_parent_$n', label: l10n.pagesTreeParent(n), hint: l10n.pagesHintName, long: false),
+      for (final g in const ['a', 'b']) ...[
+        (key: 'tree_gp_$n$g', label: l10n.pagesTreeGrandparent(n), hint: l10n.pagesHintName, long: false),
+        (key: 'tree_ggp_$n$g', label: l10n.pagesTreeTheirParents, hint: l10n.pagesHintTwoNames, long: true),
+      ],
+    ],
+    (key: 'tree_siblings', label: l10n.pagesTreeSiblings, hint: l10n.pagesHintNames, long: true),
+    (key: 'tree_others', label: l10n.pagesTreeOthers, hint: l10n.pagesHintNames, long: true),
+  ],
+);
+
+Future<void> editLetterPage(BuildContext context, Child child) => _editPage(
+  context,
+  child,
+  title: l10n.pagesLetterTitle,
+  icon: Icons.mail_rounded,
+  fields: [
+    for (final n in const [1, 2]) ...[
+      (key: 'letter_from_$n', label: l10n.pagesLetterFromNumber(n), hint: l10n.pagesHintLetterFrom, long: false),
+      (key: 'letter_$n', label: l10n.pagesLetterNumber(n), hint: l10n.pagesHintLetter(child.name), long: true),
+    ],
+  ],
+);
+
 Future<void> _editPage(
   BuildContext context,
   Child child, {
@@ -526,12 +1083,13 @@ Future<void> _editPage(
   required IconData icon,
   required List<_Field> fields,
   bool time = false,
+  Map<String, List<String>> photos = const {},
 }) => showModalBottomSheet(
   context: context,
   isScrollControlled: true,
   useSafeArea: true,
   backgroundColor: context.pal.background,
-  builder: (_) => _PageForm(child: child, title: title, icon: icon, fields: fields, time: time),
+  builder: (_) => _PageForm(child: child, title: title, icon: icon, fields: fields, time: time, photos: photos),
 );
 
 class _PageForm extends StatefulWidget {
@@ -541,12 +1099,16 @@ class _PageForm extends StatefulWidget {
     required this.icon,
     required this.fields,
     required this.time,
+    this.photos = const {},
   });
   final Child child;
   final String title;
   final IconData icon;
   final List<_Field> fields;
   final bool time;
+
+  /// Fields with photos next to them: field key → the photos' keys (`book_photos`).
+  final Map<String, List<String>> photos;
 
   @override
   State<_PageForm> createState() => _PageFormState();
@@ -558,6 +1120,31 @@ class _PageFormState extends State<_PageForm> {
   };
   late String? _time = widget.child.book['birth_time'];
   bool _busy = false;
+
+  /// Photos picked (bytes) or removed (null) here, saved with the page.
+  final Map<String, Uint8List?> _photos = {};
+
+  Future<void> _pickPhoto(String key) async {
+    final had = _photos.containsKey(key) ? _photos[key] != null : widget.child.bookPhotos.containsKey(key);
+    if (had) {
+      final choice = await showModalBottomSheet<String>(
+        context: context,
+        builder: (sheet) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(leading: const Icon(Icons.photo_library_rounded), title: Text(l10n.bookChangePhoto), onTap: () => Navigator.pop(sheet, 'change')),
+              ListTile(leading: const Icon(Icons.delete_outline_rounded), title: Text(l10n.remove), onTap: () => Navigator.pop(sheet, 'remove')),
+            ],
+          ),
+        ),
+      );
+      if (choice == null || !mounted) return;
+      if (choice == 'remove') return setState(() => _photos[key] = null);
+    }
+    final photo = await guard(context, () => pickSquarePhoto(size: 400, jpeg: true));
+    if (photo != null && mounted) setState(() => _photos[key] = photo);
+  }
 
   Future<void> _pickTime() async {
     final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(_time ?? '');
@@ -583,10 +1170,27 @@ class _PageFormState extends State<_PageForm> {
     }
     if (widget.time) book['birth_time'] = _time;
     book.removeWhere((_, v) => v == null || (v is String && v.isEmpty));
-    final ok = await guard(
+    var ok = await guard(
       context,
       () => s.act((api) => api.patch('/children/${widget.child.id}', {'book': book}), families: true).then((_) => true),
     );
+    final id = widget.child.id;
+    for (final MapEntry(:key, value: bytes) in _photos.entries) {
+      if (ok != true || !mounted) break;
+      final path = '/children/$id/book-photos/$key';
+      if (bytes == null) {
+        if (!widget.child.bookPhotos.containsKey(key)) continue;
+        ok = await guard(context, () => s.act((api) => api.delete(path), families: true).then((_) => true));
+      } else {
+        ok = await guard(
+          context,
+          () => s.act((api) => api.putBytes(path, bytes, contentType: 'image/jpeg'), families: true).then((res) {
+            if (res is Map<String, dynamic>) s.rememberBookPhoto(res, key, bytes);
+            return true;
+          }),
+        );
+      }
+    }
     if (!mounted) return;
     if (ok == true) {
       Navigator.pop(context);
@@ -634,12 +1238,26 @@ class _PageFormState extends State<_PageForm> {
                   for (final f in widget.fields)
                     FormRow(
                       label: f.label,
-                      below: TextField(
-                        controller: _text[f.key],
-                        maxLines: f.long ? null : 1,
-                        minLines: 1,
-                        textCapitalization: TextCapitalization.sentences,
-                        decoration: InputDecoration(hintText: f.hint),
+                      below: Row(
+                        children: [
+                          for (final key in widget.photos[f.key] ?? const <String>[]) ...[
+                            _PhotoSpot(
+                              photo: _photos.containsKey(key) ? _photos[key] : context.watch<AppState>().bookPhoto(widget.child, key),
+                              has: _photos.containsKey(key) ? _photos[key] != null : widget.child.bookPhotos.containsKey(key),
+                              onTap: () => _pickPhoto(key),
+                            ),
+                            const SizedBox(width: 8),
+                          ],
+                          Expanded(
+                            child: TextField(
+                              controller: _text[f.key],
+                              maxLines: f.long ? null : 1,
+                              minLines: 1,
+                              textCapitalization: TextCapitalization.sentences,
+                              decoration: InputDecoration(hintText: f.hint),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                 ],
@@ -671,5 +1289,40 @@ class _PageFormState extends State<_PageForm> {
       t.dispose();
     }
     super.dispose();
+  }
+}
+
+/// A round photo spot next to a name in a page's form: the photo, or a camera to add one.
+class _PhotoSpot extends StatelessWidget {
+  const _PhotoSpot({required this.photo, required this.has, required this.onTap});
+  final Uint8List? photo;
+
+  /// A photo is set (it may still be loading).
+  final bool has;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.pal;
+    final k = Kind.milestone;
+    return Semantics(
+      button: true,
+      label: has ? l10n.bookChangePhoto : l10n.bookAddPhoto,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: k.fill(c).withValues(alpha: 0.35),
+            border: Border.all(color: k.on(c).withValues(alpha: 0.45), width: 1.5),
+            image: photo == null ? null : DecorationImage(image: MemoryImage(photo!), fit: BoxFit.cover),
+          ),
+          child: photo != null ? null : Icon(has ? Icons.photo_rounded : Icons.add_a_photo_rounded, size: 20, color: k.on(c)),
+        ),
+      ),
+    );
   }
 }

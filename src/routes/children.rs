@@ -16,10 +16,10 @@ use crate::{
     util::{fmt_time, new_id, now_ms},
 };
 
-type ChildRow = (String, String, String, Option<String>, Option<String>, i64, i64, Option<i64>, String, String, String);
+type ChildRow = (String, String, String, Option<String>, Option<String>, i64, i64, Option<i64>, String, String, String, Option<String>);
 
 fn child_value(row: ChildRow, tz: Tz) -> Value {
-    let (id, family_id, name, birth_date, sex, created_at, updated_at, photo_version, medicines, reminders, book) = row;
+    let (id, family_id, name, birth_date, sex, created_at, updated_at, photo_version, medicines, reminders, book, book_photos) = row;
     json!({
         "id": id, "family_id": family_id, "name": name, "birth_date": birth_date, "sex": sex,
         "created_at": fmt_time(created_at, tz), "updated_at": fmt_time(updated_at, tz),
@@ -28,6 +28,8 @@ fn child_value(row: ChildRow, tz: Tz) -> Value {
         "medicines": parse_medicines(&medicines),
         "reminders": parse_reminders(&reminders),
         "book": parse_book(&book),
+        // The book pages' photos: key → version; fetch one from /children/{id}/book-photos/{key}.
+        "book_photos": book_photos.as_deref().map(parse_book).unwrap_or_else(|| json!({})),
     })
 }
 
@@ -40,7 +42,8 @@ pub fn book_view(child: &mut Value) {
 }
 
 const CHILD_COLS: &str = "id, family_id, name, birth_date, sex, created_at, updated_at, \
-    (SELECT p.updated_at FROM child_photos p WHERE p.child_id = children.id) AS photo_version, medicines, reminders, book";
+    (SELECT p.updated_at FROM child_photos p WHERE p.child_id = children.id) AS photo_version, medicines, reminders, book, \
+    (SELECT json_group_object(b.key, b.updated_at) FROM book_photos b WHERE b.child_id = children.id) AS book_photos";
 
 pub async fn children_json(state: &AppState, family_id: &str, tz: Tz) -> AppResult<Vec<Value>> {
     let rows: Vec<ChildRow> = sqlx::query_as(&format!("SELECT {CHILD_COLS} FROM children WHERE family_id = ? ORDER BY created_at"))
@@ -295,6 +298,78 @@ pub async fn delete_photo(State(state): State<AppState>, user: AuthUser, Path(ch
     sqlx::query("DELETE FROM child_photos WHERE child_id = ?").bind(&child_id).execute(&state.db).await?;
     let json = child_json(&state, &child_id, ctx.tz).await?;
     state.publish(&ctx.family_id, "child", "updated", json);
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// Most photos a child's book pages keep (a family tree has 14 people).
+pub const BOOK_PHOTO_COUNT: i64 = 60;
+
+/// A book photo key: like a book page key (1-40 lowercase letters, digits or `_`).
+fn check_book_key(key: &str) -> AppResult<()> {
+    if key.is_empty() || key.len() > 40 || !key.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_') {
+        return bad(format!("book photo key '{key}' must be 1-40 lowercase letters, digits or _"));
+    }
+    Ok(())
+}
+
+/// Set a book page's photo under `key` (e.g. `tree_parent_1`): the raw image as the body. The
+/// child's `book_photos` gets the key with a new version.
+pub async fn put_book_photo(
+    State(state): State<AppState>,
+    user: AuthUser,
+    Path((child_id, key)): Path<(String, String)>,
+    body: axum::body::Bytes,
+) -> AppResult<Json<Value>> {
+    let ctx = child_access(&state.db, &child_id, &user.id).await?;
+    check_book_key(&key)?;
+    let Some(content_type) = image_type(&body) else {
+        return bad("the photo must be a JPEG, PNG or WebP image");
+    };
+    let (count,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM book_photos WHERE child_id = ? AND key <> ?")
+        .bind(&child_id)
+        .bind(&key)
+        .fetch_one(&state.db)
+        .await?;
+    if count >= BOOK_PHOTO_COUNT {
+        return bad(format!("the book has too many photos ({BOOK_PHOTO_COUNT} at most)"));
+    }
+    sqlx::query(
+        "INSERT INTO book_photos (child_id, key, content_type, data, updated_at) VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(child_id, key) DO UPDATE SET content_type = excluded.content_type, data = excluded.data, updated_at = excluded.updated_at",
+    )
+    .bind(&child_id)
+    .bind(&key)
+    .bind(content_type)
+    .bind(body.as_ref())
+    .bind(now_ms())
+    .execute(&state.db)
+    .await?;
+    let json = child_json(&state, &child_id, ctx.tz).await?;
+    state.publish(&ctx.family_id, "child", "updated", json.clone());
+    Ok(Json(json))
+}
+
+pub async fn get_book_photo(State(state): State<AppState>, user: AuthUser, Path((child_id, key)): Path<(String, String)>) -> AppResult<axum::response::Response> {
+    use axum::{http::header, response::IntoResponse};
+    child_book_access(&state.db, &child_id, &user.id).await?;
+    let row: Option<(String, Vec<u8>)> = sqlx::query_as("SELECT content_type, data FROM book_photos WHERE child_id = ? AND key = ?")
+        .bind(&child_id)
+        .bind(&key)
+        .fetch_optional(&state.db)
+        .await?;
+    let Some((content_type, data)) = row else {
+        return Err(crate::error::AppError::NotFound("photo"));
+    };
+    Ok(([(header::CONTENT_TYPE, content_type), (header::CACHE_CONTROL, "private, no-cache".to_string())], data).into_response())
+}
+
+pub async fn delete_book_photo(State(state): State<AppState>, user: AuthUser, Path((child_id, key)): Path<(String, String)>) -> AppResult<StatusCode> {
+    let ctx = child_access(&state.db, &child_id, &user.id).await?;
+    let gone = sqlx::query("DELETE FROM book_photos WHERE child_id = ? AND key = ?").bind(&child_id).bind(&key).execute(&state.db).await?;
+    if gone.rows_affected() > 0 {
+        let json = child_json(&state, &child_id, ctx.tz).await?;
+        state.publish(&ctx.family_id, "child", "updated", json);
+    }
     Ok(StatusCode::NO_CONTENT)
 }
 

@@ -6,6 +6,7 @@ import 'package:cryptography/dart.dart';
 import '../api/api.dart';
 import '../models.dart';
 import 'domain.dart';
+import 'merge.dart' show syncBookPhotos;
 import 'nara_csv.dart';
 import 'schedule.dart';
 import 'store.dart';
@@ -42,6 +43,7 @@ class LocalEngine {
     ('PATCH|DELETE', RegExp(r'^/children/([^/]+)$')),
     ('PUT|DELETE', RegExp(r'^/children/([^/]+)/photo$')),
     ('PUT|DELETE', RegExp(r'^/events/([^/]+)/photo$')),
+    ('PUT|DELETE', RegExp(r'^/children/([^/]+)/book-photos/([a-z0-9_]+)$')),
     ('POST', RegExp(r'^/families/([^/]+)/import/nara-csv$')),
   ];
 
@@ -129,6 +131,10 @@ class LocalEngine {
           return putPhoto(id, body as List<int>, query?['content_type'] ?? 'image/png');
         case ('DELETE', ['children', final id, 'photo']):
           return deletePhoto(id);
+        case ('PUT', ['children', final id, 'book-photos', final key]):
+          return putBookPhoto(id, key, body as List<int>, query?['content_type'] ?? 'image/jpeg');
+        case ('DELETE', ['children', final id, 'book-photos', final key]):
+          return deleteBookPhoto(id, key);
         case ('PUT', ['events', final id, 'photo']):
           return putEventPhoto(id, body as List<int>, query?['content_type'] ?? 'image/jpeg');
         case ('DELETE', ['events', final id, 'photo']):
@@ -248,6 +254,7 @@ class LocalEngine {
       'medicines': <dynamic>[],
       'reminders': <dynamic>[],
       'book': <String, dynamic>{},
+      'book_photos': <String, dynamic>{},
     };
     (f['children'] as List).add(child);
     store.markChanged('c:${child['id']}');
@@ -604,6 +611,45 @@ class LocalEngine {
     store.markChanged('e:$id');
     if (store.eventPhotos[id]?['version'] != null) _dropEventPhoto(id);
     return null;
+  }
+
+  // ---- serverless: photos on the book's own pages ----
+
+  /// `PUT /children/{id}/book-photos/{key}` (60 per child, like the server). Only the photo record
+  /// changes (`bp:<child id>/<key>`); the child's `book_photos` follows the records on every phone
+  /// (see `mergeFamily`).
+  Map<String, dynamic> putBookPhoto(String childId, String key, List<int> bytes, String contentType) {
+    final c = _child(childId);
+    if (!RegExp(r'^[a-z0-9_]{1,40}$').hasMatch(key)) throw badRequest("book photo key '$key' must be 1-40 lowercase letters, digits or _");
+    if (bytes.length > 5 * 1024 * 1024) throw badRequest('the photo is too large (5 MB at most)');
+    final id = '$childId/$key';
+    final count = store.bookPhotos.entries.where((e) => e.key.startsWith('$childId/') && e.key != id && e.value['version'] != null).length;
+    if (count >= 60) throw badRequest('the book has too many photos (60 at most)');
+    final version = math.max(nowMs(), (toInt(store.bookPhotos[id]?['version']) ?? 0) + 1);
+    store.bookPhotos[id] = {'version': version, 'type': contentType, 'data': base64Encode(bytes)};
+    store.markChanged('bp:$id');
+    store.bookPhotosChanged();
+    syncBookPhotos(store, c);
+    return c;
+  }
+
+  /// `DELETE /children/{id}/book-photos/{key}`.
+  dynamic deleteBookPhoto(String childId, String key) {
+    final c = _child(childId);
+    final id = '$childId/$key';
+    if (store.bookPhotos[id]?['version'] == null) return null;
+    store.bookPhotos[id] = {'version': null};
+    store.markChanged('bp:$id');
+    store.bookPhotosChanged();
+    syncBookPhotos(store, c);
+    return null;
+  }
+
+  /// A book page photo's bytes (serverless mode).
+  List<int> bookPhotoBytes(String childId, String key) {
+    final data = store.bookPhotos['$childId/$key']?['data'];
+    if (data is! String) throw notFound('photo');
+    return base64Decode(data);
   }
 
   // ---- serverless: photos on entries (the baby book) ----

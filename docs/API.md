@@ -71,6 +71,8 @@ can still leave the family. Their phones get no timer or reminder notifications.
 | `GET / PATCH / DELETE /children/{id}` | | `null` clears `birth_date`/`sex` |
 | `PUT /children/{id}/photo` | raw JPEG, PNG or WebP (≤ 5 MB) | profile picture; the child's `photo_version` changes (null: no photo) |
 | `GET / DELETE /children/{id}/photo` | | the image (`404` without one) / remove it |
+| `PUT /children/{id}/book-photos/{key}` | raw JPEG, PNG or WebP (≤ 5 MB) | a photo on one of the baby book's pages under a key of the app's (1-40 lowercase letters, digits or `_`, e.g. `tree_parent_1`; 60 per child); the child's `book_photos` (key → version) changes |
+| `GET / DELETE /children/{id}/book-photos/{key}` | | the image (book viewers too; `404` without one) / remove it |
 
 ### Medicine schedules and reminders
 
@@ -152,7 +154,7 @@ from, which the CSV export writes as `_activityKey`).
 | `growth` | `weight_g`, `length_cm`, `head_cm` (at least one) |
 | `health` | `kind`: `medicine` (`name`, `dose`, `dose_unit`) \| `temperature` (`temperature_c`) \| `vaccine` (`name`) \| `appointment` (`name` = doctor) \| `symptom` (`name`) |
 | `activity` | `kind`: free text, e.g. `bath`, `tummy_time`, `outdoor`, `play`, `read`, `nail_trim`, `vitamin` |
-| `milestone` | `name`; `tooth`: `A`–`T` for a baby tooth that came in (the usual primary-teeth letters: `A`–`J` upper, right to left; `K`–`T` lower, left to right); `chapter`: the baby book chapter, an id of the app's (`waiting`, `hello`, `firsts`, `growing`, `celebrations` today; any lowercase id of up to 32 letters, digits or `_` is kept; absent: the app picks one from the name) |
+| `milestone` | `name`; `tooth`: `A`–`T` for a baby tooth that came in (the usual primary-teeth letters: `A`–`J` upper, right to left; `K`–`T` lower, left to right); `chapter`: the baby book chapter, an id of the app's (`family`, `waiting`, `hello`, `firsts`, `growing`, `celebrations` today; any lowercase id of up to 32 letters, digits or `_` is kept; absent: the app picks one from the name) |
 | `note` | just `note` |
 
 Examples:

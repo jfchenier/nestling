@@ -57,6 +57,20 @@ Map<String, dynamic> exportFamily(LocalStore store, String familyId, {int since 
             '_clock': clock('ep:$key'),
           },
     },
+    // The book pages' photos are small squares: they travel with their bytes.
+    'book_photos': {
+      for (final MapEntry(:key, :value) in store.bookPhotos.entries)
+        if (kids.contains(key.split('/').first) && fresh('bp:$key')) key: {...value, '_clock': clock('bp:$key')},
+    },
+  };
+}
+
+/// Sets the child's `book_photos` (key → version) from the photo records on this device.
+void syncBookPhotos(LocalStore store, Map<String, dynamic> child) {
+  final prefix = '${child['id']}/';
+  child['book_photos'] = {
+    for (final MapEntry(:key, :value) in store.bookPhotos.entries)
+      if (key.startsWith(prefix) && value['version'] != null) key.substring(prefix.length): value['version'],
   };
 }
 
@@ -154,6 +168,18 @@ bool mergeFamily(LocalStore store, Map<String, dynamic> snap) {
     photosChanged = true;
   });
   if (photosChanged) store.eventPhotosChanged();
+
+  // Photos on the book's own pages; the children's `book_photos` follow them.
+  var pagesChanged = false;
+  (snap['book_photos'] as Map? ?? {}).forEach((id, p) {
+    if (!newer('bp:$id', p['_clock'], exists: store.bookPhotos.containsKey(id))) return;
+    store.bookPhotos[id] = Map<String, dynamic>.from(p)..remove('_clock');
+    pagesChanged = true;
+  });
+  if (pagesChanged) store.bookPhotosChanged();
+  for (final c in kids) {
+    if (c is Map<String, dynamic>) syncBookPhotos(store, c);
+  }
   // An entry's photo_version always follows its photo record (whichever phone changed what).
   for (final id in {for (final e in (snap['events'] as List? ?? [])) e['id'] as String, ...(snap['event_photos'] as Map? ?? {}).keys.cast<String>()}) {
     final e = store.events[id];
