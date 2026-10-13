@@ -19,6 +19,9 @@ import 'models.dart';
 import 'push.dart';
 import 'timer_notifications.dart';
 
+/// The app's navigator, so signing out can close every open screen.
+final navigatorKey = GlobalKey<NavigatorState>();
+
 /// Default server: on the web the app is usually served by the Nestling server itself.
 String defaultServer() => kIsWeb && Uri.base.scheme.startsWith('http') ? Uri.base.origin : '';
 
@@ -446,9 +449,24 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Removes every screen opened over the home one, at once (no closing animation): they need
+  /// an account, so after signing out the app goes straight to sign-in.
+  void _closeScreens() {
+    final nav = navigatorKey.currentState;
+    while (nav != null && nav.canPop()) {
+      Route<dynamic>? top;
+      nav.popUntil((r) {
+        top = r;
+        return true;
+      });
+      nav.removeRoute(top!);
+    }
+  }
+
   /// Signs out. [forget] also removes this device's copy of the data (kept when the session
   /// merely expired, so changes made offline still sync after signing in again).
   Future<void> signOut({bool forget = true}) async {
+    _closeScreens();
     try {
       await api?.post('/auth/logout');
     } catch (_) {}

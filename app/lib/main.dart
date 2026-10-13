@@ -29,6 +29,7 @@ class NestlingApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
+    navigatorKey: navigatorKey,
     title: 'Nestling',
     debugShowCheckedModeBanner: false,
     theme: buildTheme(AppColors.light),
