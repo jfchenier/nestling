@@ -348,7 +348,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
       return out;
     }
 
-    Widget ideas(BookChapter chapter, {bool seeAll = false}) {
+    Widget ideas(BookChapter chapter) {
       if (readOnly) return const SizedBox.shrink();
       final left = milestoneIdeas.where((i) => i.chapter == chapter && (i.repeats || !logged.contains(i.id))).toList();
       return Column(
@@ -356,7 +356,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
         children: [
           SectionTitle(
             chapter == BookChapter.firsts ? l10n.bookIdeasToRemember : l10n.bookIdeasForChapter,
-            trailing: seeAll ? TextButton(onPressed: () => _showAllIdeas(context), child: Text(l10n.bookSeeAll)) : null,
+            trailing: TextButton(onPressed: () => _showAllIdeas(context), child: Text(l10n.bookSeeAll)),
           ),
           SizedBox(
             height: 128,
@@ -413,7 +413,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
       heading(BookChapter.firsts),
       if (list != null && byChapter[BookChapter.firsts]!.isEmpty) _EmptyBook(readOnly: readOnly),
       ...prints(byChapter[BookChapter.firsts]!, byAge: true),
-      ideas(BookChapter.firsts, seeAll: true),
+      ideas(BookChapter.firsts),
       // Growing up
       heading(BookChapter.growing),
       SectionTitle(
