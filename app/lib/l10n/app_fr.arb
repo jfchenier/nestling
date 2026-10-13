@@ -257,7 +257,6 @@
   "familyExport": "Exporter les données",
   "familyExportHint": "Tout pour cette famille dans un fichier CSV",
   "familyExported": "{name} exporté",
-  "familyImperialUnits": "Unités impériales",
   "familyImportAccount": "Compte Nara",
   "familyImportAccountBody": "Connectez-vous à votre compte Nara pour copier votre historique dans le profil de {name}. Votre mot de passe Nara sert une seule fois et n'est jamais conservé.",
   "familyImportComplete": "Importation terminée",
@@ -954,5 +953,8 @@
   "formVolumeUnit": "Unité de cette quantité",
   "homeLogPump": "Noter un tirage",
   "homePumpTimer": "Minuteur",
-  "homePumpAmount": "Quantité seulement"
+  "homePumpAmount": "Quantité seulement",
+  "settingsUnits": "Unités",
+  "settingsMetric": "Métrique",
+  "settingsImperial": "Impérial"
 }

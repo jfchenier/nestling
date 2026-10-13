@@ -946,9 +946,6 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get familyImperialUnits => 'Unités impériales';
-
-  @override
   String get familyImportAccount => 'Compte Nara';
 
   @override
@@ -3529,4 +3526,13 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get homePumpAmount => 'Quantité seulement';
+
+  @override
+  String get settingsUnits => 'Unités';
+
+  @override
+  String get settingsMetric => 'Métrique';
+
+  @override
+  String get settingsImperial => 'Impérial';
 }

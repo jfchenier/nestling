@@ -141,7 +141,7 @@ activity color. Colors live in
   add buttons or edit pencils, empty pages hidden; the top bar has Switch baby (when there are
   several) and a short Settings (units, appearance, join another family, leave this one, account).
   The server enforces it (`book_viewer` role, see `docs/API.md`).
-- **Settings** (Home's menu → Settings) — units (metric/imperial; the account's), temperature (°C/°F) and time format (24/12-hour), both saved on the device, appearance, daytime hours for the day/night split (Day and night), time zone, Google Drive sync
+- **Settings** (Home's menu → Settings) — units (Metric / Imperial, saved on the account), temperature (°C/°F) and time format (24/12-hour), both saved on the device, appearance, daytime hours for the day/night split (Day and night), time zone, Google Drive sync
   (serverless) and backup and restore, history import from a previous tracker's CSV export (preview first),
   CSV export of everything, API token for Home Assistant; account: change password, users
   (admins), sign out.

@@ -157,11 +157,18 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
             Card(
               child: Column(
                 children: [
-                  SwitchListTile(
-                    title: Text(l10n.familyImperialUnits),
+                  ListTile(
+                    title: Text(l10n.settingsUnits),
                     subtitle: Text(s.units.imperial ? 'oz, lb, in' : 'mL, kg, cm'),
-                    value: s.units.imperial,
-                    onChanged: (v) => guard(context, () => s.setUnits(v)),
+                    trailing: SegmentedButton<bool>(
+                      segments: [
+                        ButtonSegment(value: false, label: Text(l10n.settingsMetric)),
+                        ButtonSegment(value: true, label: Text(l10n.settingsImperial)),
+                      ],
+                      selected: {s.units.imperial},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (v) => guard(context, () => s.setUnits(v.first)),
+                    ),
                   ),
                   ListTile(
                     title: Text(l10n.settingsTemperature),

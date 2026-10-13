@@ -1642,12 +1642,6 @@ abstract class AppLocalizations {
   /// **'Exported {name}'**
   String familyExported(Object name);
 
-  /// No description provided for @familyImperialUnits.
-  ///
-  /// In en, this message translates to:
-  /// **'Imperial units'**
-  String get familyImperialUnits;
-
   /// No description provided for @familyImportAccount.
   ///
   /// In en, this message translates to:
@@ -5829,6 +5823,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Amount only'**
   String get homePumpAmount;
+
+  /// No description provided for @settingsUnits.
+  ///
+  /// In en, this message translates to:
+  /// **'Units'**
+  String get settingsUnits;
+
+  /// No description provided for @settingsMetric.
+  ///
+  /// In en, this message translates to:
+  /// **'Metric'**
+  String get settingsMetric;
+
+  /// No description provided for @settingsImperial.
+  ///
+  /// In en, this message translates to:
+  /// **'Imperial'**
+  String get settingsImperial;
 }
 
 class _AppLocalizationsDelegate
