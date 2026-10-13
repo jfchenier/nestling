@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
 import '../format.dart';
@@ -55,6 +54,10 @@ class _EventFormState extends State<EventForm> {
   late final _right = _minutes(e?['right_seconds']);
   late String? _startSide = e?['start_side'];
   late final _amount = _num(e?['amount_ml'], u.volumeIn);
+  // Amounts can be typed in either unit whatever the units setting (the toggle by the field):
+  // bottle and pump in mL or oz, weight in kg or lb, length and head in cm or in.
+  late final _imperial = {for (final d in _Dim.values) d: u.imperial};
+  final _exact = <TextEditingController, (String, double)>{};
   late String? _milk = e?['milk'] ?? (widget.method == 'bottle' || widget.method == 'combo' ? 'formula' : null);
   late final _formula = TextEditingController(text: e?['formula_name'] ?? '');
   late final _foods = TextEditingController(text: e?['foods'] ?? '');
@@ -97,6 +100,47 @@ class _EventFormState extends State<EventForm> {
     if (v == null) return TextEditingController();
     final s = conv(v).toStringAsFixed(digits);
     return TextEditingController(text: s.contains('.') ? s.replaceFirst(RegExp(r'\.?0+$'), '') : s);
+  }
+
+  List<TextEditingController> _fieldsOf(_Dim d) => switch (d) {
+    _Dim.volume => [_amount, _leftMl, _rightMl],
+    _Dim.weight => [_weight],
+    _Dim.length => [_length, _head],
+  };
+
+  /// A field in the API's unit (mL, g, cm): the value it was switched from when untouched since a toggle.
+  double? _metric(_Dim d, TextEditingController c) {
+    if (_exact[c] case (final text, final v) when text == c.text) return double.parse(v.toStringAsFixed(2));
+    final v = _read(c);
+    if (v == null) return null;
+    final x = Units(_imperial[d]!);
+    final m = switch (d) {
+      _Dim.volume => x.volumeOut(v),
+      _Dim.weight => x.weightOut(v),
+      _Dim.length => x.lengthOut(v),
+    };
+    return double.parse(m.toStringAsFixed(2));
+  }
+
+  /// Switches one kind of field between metric and imperial, converting what is typed.
+  void _setImperial(_Dim d, bool imperial) {
+    if (imperial == _imperial[d]) return;
+    final exact = {for (final c in _fieldsOf(d)) c: _metric(d, c)};
+    setState(() {
+      _imperial[d] = imperial;
+      final x = Units(imperial);
+      for (final MapEntry(key: c, value: m) in exact.entries) {
+        if (m == null) continue;
+        final (v, digits) = switch (d) {
+          _Dim.volume => (x.volumeIn(m), imperial ? 1 : 0),
+          _Dim.weight => (x.weightIn(m), imperial ? 2 : 3),
+          _Dim.length => (x.lengthIn(m), 1),
+        };
+        final s = v.toStringAsFixed(digits);
+        c.text = s.contains('.') ? s.replaceFirst(RegExp(r'\.?0+$'), '') : s;
+        _exact[c] = (c.text, m);
+      }
+    });
   }
 
   static double? _read(TextEditingController c) => double.tryParse(c.text.trim().replaceAll(',', '.'));
@@ -144,7 +188,7 @@ class _EventFormState extends State<EventForm> {
                       : null))
             : null;
         final bottle = _method == 'bottle' || _method == 'combo';
-        body['amount_ml'] = bottle ? out(_amount, u.volumeOut) : null;
+        body['amount_ml'] = bottle ? _metric(_Dim.volume, _amount) : null;
         body['milk'] = bottle ? _milk : null;
         body['formula_name'] = bottle && _milk != 'breast_milk' ? _text(_formula) : null;
         body['foods'] = _method == 'solids' ? _text(_foods) : null;
@@ -170,14 +214,14 @@ class _EventFormState extends State<EventForm> {
         body['color'] = _dirty ? _color : null;
         body['consistency'] = _dirty ? _consistency : null;
       case 'pump':
-        body['left_ml'] = out(_leftMl, u.volumeOut);
-        body['right_ml'] = out(_rightMl, u.volumeOut);
+        body['left_ml'] = _metric(_Dim.volume, _leftMl);
+        body['right_ml'] = _metric(_Dim.volume, _rightMl);
         final s = secs(_pumpMinutes);
         body['end'] = s == null ? null : formatTime(_start.add(Duration(seconds: s)));
       case 'growth':
-        body['weight_g'] = out(_weight, u.weightOut);
-        body['length_cm'] = out(_length, u.lengthOut);
-        body['head_cm'] = out(_head, u.lengthOut);
+        body['weight_g'] = _metric(_Dim.weight, _weight);
+        body['length_cm'] = _metric(_Dim.length, _length);
+        body['head_cm'] = _metric(_Dim.length, _head);
       case 'health':
         body['kind'] = _healthKind;
         if (_healthKind == 'temperature') {
@@ -408,9 +452,9 @@ class _EventFormState extends State<EventForm> {
     if (m == null || m['due'] == true) return null;
     final next = DateTime.tryParse('${m['next_at']}')?.toLocal(), last = DateTime.tryParse('${m['last_at']}')?.toLocal();
     if (next == null || !_start.isBefore(next)) return null;
-    final at = DateFormat.Hm().format(next);
+    final at = timeOfDay(next);
     if (m['limited'] == true) return l10n.formMedLimited(toInt(m['doses_24h']) ?? 0, at);
-    return l10n.formMedTooSoon(last == null ? '?' : DateFormat.Hm().format(last), at);
+    return l10n.formMedTooSoon(last == null ? '?' : timeOfDay(last), at);
   }
 
   Widget _warningRow(String text) => Container(
@@ -447,6 +491,37 @@ class _EventFormState extends State<EventForm> {
   Widget _numRow(String label, TextEditingController c, String? unit) => FormRow(
     label: label,
     child: InlineNumber(controller: c, unit: unit),
+  );
+
+  /// An amount with its metric / imperial toggle (mL / oz, kg / lb, cm / in).
+  Widget _unitRow(String label, TextEditingController c, _Dim d) => FormRow(
+    label: label,
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        InlineNumber(controller: c, width: 80),
+        const SizedBox(width: 10),
+        Semantics(
+          label: l10n.formVolumeUnit,
+          child: SegmentedButton<bool>(
+            segments: [
+              ButtonSegment(value: false, label: Text(d.metric)),
+              ButtonSegment(value: true, label: Text(d.imperial)),
+            ],
+            selected: {_imperial[d]!},
+            showSelectedIcon: false,
+            style: SegmentedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              selectedBackgroundColor: kind.fill(context.pal),
+              selectedForegroundColor: context.pal.bandInk,
+              side: BorderSide(color: context.pal.line),
+            ),
+            onSelectionChanged: (v) => _setImperial(d, v.first),
+          ),
+        ),
+      ],
+    ),
   );
 
   Widget _textRow(String label, TextEditingController c, {String hint = ''}) => FormRow(
@@ -499,7 +574,7 @@ class _EventFormState extends State<EventForm> {
             ),
           ],
           if (_method == 'bottle' || _method == 'combo') ...[
-            _numRow(l10n.formAmount, _amount, u.volumeUnit),
+            _unitRow(l10n.formAmount, _amount, _Dim.volume),
             _chipsRow<String>(
               l10n.formMilk,
               {'formula': l10n.milkFormula, 'breast_milk': l10n.milkBreastMilk, 'mixed': l10n.milkMixed},
@@ -560,16 +635,16 @@ class _EventFormState extends State<EventForm> {
       case 'pump':
         return [
           _timeRow(l10n.formStartTime, _start, (v) => setState(() => _start = v)),
-          _numRow(l10n.left, _leftMl, u.volumeUnit),
-          _numRow(l10n.right, _rightMl, u.volumeUnit),
+          _unitRow(l10n.left, _leftMl, _Dim.volume),
+          _unitRow(l10n.right, _rightMl, _Dim.volume),
           _numRow(l10n.formDuration, _pumpMinutes, 'min'),
         ];
       case 'growth':
         return [
           _timeRow(l10n.formMeasured, _start, (v) => setState(() => _start = v)),
-          _numRow(l10n.formWeight, _weight, u.weightUnit),
-          _numRow(l10n.formHeight, _length, u.lengthUnit),
-          _numRow(l10n.formHeadSize, _head, u.lengthUnit),
+          _unitRow(l10n.formWeight, _weight, _Dim.weight),
+          _unitRow(l10n.formHeight, _length, _Dim.length),
+          _unitRow(l10n.formHeadSize, _head, _Dim.length),
         ];
       case 'health':
         return [
@@ -758,4 +833,14 @@ class _EventFormState extends State<EventForm> {
       ],
     );
   }
+}
+
+/// The kinds of amounts a form can take in either unit, with their two unit labels.
+enum _Dim {
+  volume('mL', 'oz'),
+  weight('kg', 'lb'),
+  length('cm', 'in');
+
+  const _Dim(this.metric, this.imperial);
+  final String metric, imperial;
 }

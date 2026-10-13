@@ -51,7 +51,7 @@ One codebase ([`app/`](app/README.md)) for the browser and Android.
 - **Family sharing.** Several babies (each with a profile picture) and caregivers per family;
   changes appear on every device within a second.
 - **Yours to adjust.** Light and dark themes (or follow the system), metric or imperial units,
-  24-hour clock.
+  °C or °F, 24- or 12-hour clock; bottle and pump amounts can be typed in mL or oz either way.
 
 ## The server
 

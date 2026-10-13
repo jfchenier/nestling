@@ -431,7 +431,6 @@
   "familyExport": "Export data",
   "familyExportHint": "Everything for this family as a CSV file",
   "familyExported": "Exported {name}",
-  "familyImperialUnits": "Imperial units",
   "familyImportAccount": "Nara account",
   "familyImportAccountBody": "Sign in with your Nara account to copy your history into {name}. Your Nara password is used once and never stored.",
   "familyImportComplete": "Import complete",
@@ -1273,5 +1272,17 @@
   "usersTitle": "Users",
   "wet": "Wet",
   "wetAndDirty": "Wet + dirty",
-  "yesterday": "Yesterday"
+  "yesterday": "Yesterday",
+  "settingsTemperature": "Temperature",
+  "settingsTimeFormat": "Time format",
+  "settingsClock24": "24-hour",
+  "settingsClock12": "12-hour",
+  "formVolumeUnit": "Unit for this amount",
+  "homeLogPump": "Log pumping",
+  "homePumpTimer": "Timer",
+  "homePumpAmount": "Amount only",
+  "settingsUnits": "Units",
+  "settingsMetric": "Metric",
+  "settingsImperial": "Imperial",
+  "growthUnits": "Units for these charts"
 }

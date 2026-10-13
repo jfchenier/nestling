@@ -257,7 +257,6 @@
   "familyExport": "Exportar datos",
   "familyExportHint": "Todo lo de esta familia en un archivo CSV",
   "familyExported": "{name} exportado",
-  "familyImperialUnits": "Unidades imperiales",
   "familyImportAccount": "Cuenta de Nara",
   "familyImportAccountBody": "Inicia sesión con tu cuenta de Nara para copiar tu historial a {name}. Tu contraseña de Nara se usa una vez y nunca se guarda.",
   "familyImportComplete": "Importación completa",
@@ -946,5 +945,17 @@
   "usersTitle": "Usuarios",
   "wet": "Pipí",
   "wetAndDirty": "Pipí + caca",
-  "yesterday": "Ayer"
+  "yesterday": "Ayer",
+  "settingsTemperature": "Temperatura",
+  "settingsTimeFormat": "Formato de hora",
+  "settingsClock24": "24 h",
+  "settingsClock12": "12 h",
+  "formVolumeUnit": "Unidad de esta cantidad",
+  "homeLogPump": "Registrar extracción",
+  "homePumpTimer": "Temporizador",
+  "homePumpAmount": "Solo cantidad",
+  "settingsUnits": "Unidades",
+  "settingsMetric": "Métrico",
+  "settingsImperial": "Imperial",
+  "growthUnits": "Unidades de estas curvas"
 }

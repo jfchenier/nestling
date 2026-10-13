@@ -946,9 +946,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get familyImperialUnits => 'Imperial units';
-
-  @override
   String get familyImportAccount => 'Nara account';
 
   @override
@@ -3483,4 +3480,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get yesterday => 'Yesterday';
+
+  @override
+  String get settingsTemperature => 'Temperature';
+
+  @override
+  String get settingsTimeFormat => 'Time format';
+
+  @override
+  String get settingsClock24 => '24-hour';
+
+  @override
+  String get settingsClock12 => '12-hour';
+
+  @override
+  String get formVolumeUnit => 'Unit for this amount';
+
+  @override
+  String get homeLogPump => 'Log pumping';
+
+  @override
+  String get homePumpTimer => 'Timer';
+
+  @override
+  String get homePumpAmount => 'Amount only';
+
+  @override
+  String get settingsUnits => 'Units';
+
+  @override
+  String get settingsMetric => 'Metric';
+
+  @override
+  String get settingsImperial => 'Imperial';
+
+  @override
+  String get growthUnits => 'Units for these charts';
 }

@@ -1642,12 +1642,6 @@ abstract class AppLocalizations {
   /// **'Exported {name}'**
   String familyExported(Object name);
 
-  /// No description provided for @familyImperialUnits.
-  ///
-  /// In en, this message translates to:
-  /// **'Imperial units'**
-  String get familyImperialUnits;
-
   /// No description provided for @familyImportAccount.
   ///
   /// In en, this message translates to:
@@ -5781,6 +5775,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Yesterday'**
   String get yesterday;
+
+  /// No description provided for @settingsTemperature.
+  ///
+  /// In en, this message translates to:
+  /// **'Temperature'**
+  String get settingsTemperature;
+
+  /// No description provided for @settingsTimeFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Time format'**
+  String get settingsTimeFormat;
+
+  /// No description provided for @settingsClock24.
+  ///
+  /// In en, this message translates to:
+  /// **'24-hour'**
+  String get settingsClock24;
+
+  /// No description provided for @settingsClock12.
+  ///
+  /// In en, this message translates to:
+  /// **'12-hour'**
+  String get settingsClock12;
+
+  /// No description provided for @formVolumeUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'Unit for this amount'**
+  String get formVolumeUnit;
+
+  /// No description provided for @homeLogPump.
+  ///
+  /// In en, this message translates to:
+  /// **'Log pumping'**
+  String get homeLogPump;
+
+  /// No description provided for @homePumpTimer.
+  ///
+  /// In en, this message translates to:
+  /// **'Timer'**
+  String get homePumpTimer;
+
+  /// No description provided for @homePumpAmount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount only'**
+  String get homePumpAmount;
+
+  /// No description provided for @settingsUnits.
+  ///
+  /// In en, this message translates to:
+  /// **'Units'**
+  String get settingsUnits;
+
+  /// No description provided for @settingsMetric.
+  ///
+  /// In en, this message translates to:
+  /// **'Metric'**
+  String get settingsMetric;
+
+  /// No description provided for @settingsImperial.
+  ///
+  /// In en, this message translates to:
+  /// **'Imperial'**
+  String get settingsImperial;
+
+  /// No description provided for @growthUnits.
+  ///
+  /// In en, this message translates to:
+  /// **'Units for these charts'**
+  String get growthUnits;
 }
 
 class _AppLocalizationsDelegate

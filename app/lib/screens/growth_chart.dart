@@ -26,6 +26,9 @@ class GrowthChartScreen extends StatefulWidget {
 class _GrowthChartScreenState extends State<GrowthChartScreen> {
   GrowthIndicator _indicator = GrowthIndicator.weight;
 
+  /// Units for this visit (the toggle in the top bar); null follows Settings.
+  bool? _imperial;
+
   /// WHO curves to compare with when the child's sex isn't set.
   String _compareSex = 'female';
   List<Event>? _events;
@@ -80,7 +83,9 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
     final birth = child?.birthDate;
     final sex = child?.sex == 'male' || child?.sex == 'female' ? child!.sex! : _compareSex;
     final std = WhoStandard(_indicator, sex);
-    final u = s.units;
+    final u = Units(_imperial ?? s.units.imperial);
+    final metricLabel = _indicator == GrowthIndicator.weight ? 'kg' : 'cm';
+    final imperialLabel = _indicator == GrowthIndicator.weight ? 'lb' : 'in';
 
     double? age(Event e) => birth == null ? null : e.start.difference(birth).inHours / 24;
     final points = <_Point>[
@@ -90,7 +95,25 @@ class _GrowthChartScreenState extends State<GrowthChartScreen> {
     final selected = points.where((p) => p.event.id == _selected?.id).firstOrNull;
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.growthTitle)),
+      appBar: AppBar(
+        title: Text(l10n.growthTitle),
+        actions: [
+          Semantics(
+            label: l10n.growthUnits,
+            child: SegmentedButton<bool>(
+              segments: [
+                ButtonSegment(value: false, label: Text(metricLabel)),
+                ButtonSegment(value: true, label: Text(imperialLabel)),
+              ],
+              selected: {u.imperial},
+              showSelectedIcon: false,
+              style: SegmentedButton.styleFrom(visualDensity: VisualDensity.compact, tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+              onSelectionChanged: (v) => setState(() => _imperial = v.first),
+            ),
+          ),
+          const SizedBox(width: 12),
+        ],
+      ),
       body: Constrained(
         maxWidth: 760,
         child: ListView(

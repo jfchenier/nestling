@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../format.dart' show timeOfDay;
 import '../l10n/l10n.dart';
 import '../local/server_backup.dart';
 import '../state.dart';
@@ -17,7 +18,7 @@ Future<bool> restoreServerBackup(BuildContext context, {String? familyId}) async
   final copies = await backup.copies();
   if (copies.isEmpty) return false;
   if (!context.mounted) return true;
-  String when(ServerBackupCopy c) => '${DateFormat.yMMMd().format(c.savedAt)}, ${DateFormat.Hm().format(c.savedAt)}';
+  String when(ServerBackupCopy c) => '${DateFormat.yMMMd().format(c.savedAt)}, ${timeOfDay(c.savedAt)}';
   final copy = copies.length == 1
       ? copies.first
       : await showDialog<ServerBackupCopy>(

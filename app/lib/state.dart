@@ -29,6 +29,7 @@ class AppState extends ChangeNotifier {
     server = _prefs.getString('server') ?? defaultServer();
     themeMode = ThemeMode.values.where((m) => m.name == _prefs.getString('theme')).firstOrNull ?? ThemeMode.system;
     language = _prefs.getString('language');
+    use24h = _prefs.getString('time_format') != '12h';
     final token = _prefs.getString('token');
     if (_prefs.getString('mode') == 'serverless' && store.me != null) {
       _useServerless();
@@ -63,6 +64,29 @@ class AppState extends ChangeNotifier {
   void setLanguage(String? code) {
     language = code;
     code == null ? _prefs.remove('language') : _prefs.setString('language', code);
+    notifyListeners();
+  }
+
+  /// 24-hour or 12-hour clock for times of day; stored on this device.
+  bool use24h = true;
+
+  void setUse24h(bool value) {
+    use24h = value;
+    _prefs.setString('time_format', value ? '24h' : '12h');
+    notifyListeners();
+  }
+
+  /// Temperatures in °F rather than °C; stored on this device. Until picked it follows the
+  /// account's imperial units.
+  bool get fahrenheit => switch (_prefs.getString('temperature')) {
+    'f' => true,
+    'c' => false,
+    _ => me?.imperial ?? false,
+  };
+
+  void setFahrenheit(bool value) {
+    _prefs.setString('temperature', value ? 'f' : 'c');
+    revision++;
     notifyListeners();
   }
 
@@ -208,7 +232,7 @@ class AppState extends ChangeNotifier {
   static const _silenceLimit = Duration(seconds: 40);
 
   bool get signedIn => api?.token != null;
-  Units get units => Units(me?.imperial ?? false);
+  Units get units => Units(me?.imperial ?? false, fahrenheit: fahrenheit);
   Family? get family => families.where((f) => f.id == familyId).firstOrNull;
   List<Child> get children => family?.children ?? [];
   Child? get child => children.where((c) => c.id == childId).firstOrNull;

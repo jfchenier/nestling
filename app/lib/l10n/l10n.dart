@@ -30,20 +30,21 @@ class LocaleWatcher extends StatelessWidget {
       final first = Intl.defaultLocale == null;
       _current = next;
       Intl.defaultLocale = next.localeName;
-      if (!first) WidgetsBinding.instance.addPostFrameCallback((_) => _rebuildAll(context));
+      if (!first) WidgetsBinding.instance.addPostFrameCallback((_) => rebuildAll(context));
     } else {
       Intl.defaultLocale ??= next.localeName;
     }
     return child;
   }
+}
 
-  static void _rebuildAll(BuildContext context) {
-    if (!context.mounted) return;
-    void mark(Element e) {
-      e.markNeedsBuild();
-      e.visitChildren(mark);
-    }
-
-    (context as Element).visitChildren(mark);
+/// Rebuilds everything under [context] (after a change that plain helpers read from a global).
+void rebuildAll(BuildContext context) {
+  if (!context.mounted) return;
+  void mark(Element e) {
+    e.markNeedsBuild();
+    e.visitChildren(mark);
   }
+
+  (context as Element).visitChildren(mark);
 }
