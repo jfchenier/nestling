@@ -268,15 +268,25 @@ The backup signs in with Google, so the Android build needs an OAuth client of y
 
 1. In the [Google Cloud console](https://console.cloud.google.com/), create a project, enable the
    **Google Drive API**, and set up the OAuth consent screen (External; add the
-   `.../auth/drive.appdata` scope for the backup and `.../auth/drive` for Drive sync; while in
-   "Testing", add your caregivers' Google accounts as test users). Drive sync needs the full `drive`
-   scope because each phone reads files the other caregiver's account wrote; Google calls it a
-   restricted scope, so users see an "unverified app" screen, and a public release needs Google's
-   verification and security assessment.
+   `.../auth/drive.appdata` scope for the backups and `.../auth/drive.file` for Drive sync; while in
+   "Testing", add your caregivers' Google accounts as test users). Both are Google's per-app,
+   non-sensitive Drive scopes: the app only reaches its hidden app folder and the files it made, so
+   a public release needs the usual brand verification but no security assessment.
 2. Create an OAuth client of type **Android**: package `io.github.jfchenier.nestling`, and the SHA-1 of the
    key that signs the APK (`keytool -list -v -keystore <your keystore>`).
 3. Create an OAuth client of type **Web application** (no settings needed) and copy its client id.
-4. Build with it: `flutter build apk --dart-define=GOOGLE_SERVER_CLIENT_ID=<web client id>`
-   (in CI: a `GOOGLE_SERVER_CLIENT_ID` secret passed the same way).
+4. For Drive sync, create an **API key** (Credentials → Create credentials → API key) and restrict it
+   to the Google Drive API (and, if you like, to the Android app). With `drive.file` a phone can't
+   open the files another caregiver's account wrote, so each phone writes to a folder of its own,
+   shared by link for reading, and reads the others' folders with this key (everything in them is
+   encrypted with the family key).
+5. Build with them: `flutter build apk --dart-define=GOOGLE_SERVER_CLIENT_ID=<web client id>
+   --dart-define=GOOGLE_API_KEY=<api key>` (in CI: `GOOGLE_SERVER_CLIENT_ID` and `GOOGLE_API_KEY`
+   secrets passed the same way). Without the API key, backups work and Drive sync is off.
+
+Builds before Drive sync moved to `drive.file` used one shared folder and the full `drive` scope.
+Phones that had it on show "can't be reached" until it is turned off and on again, which makes the
+phone's own folder; the old shared folder ("Nestling – family name") can then be deleted from Drive.
+Backups are unchanged (they always used the app folder).
 
 Without it, everything else works and the Drive rows say they aren't available.

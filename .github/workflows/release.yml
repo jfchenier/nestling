@@ -89,14 +89,16 @@ jobs:
 
       - name: Build APK
         env:
-          # Optional: Google Drive backup in serverless mode (see app/README.md).
+          # Optional: Google Drive backup and sync (see app/README.md).
           GOOGLE_SERVER_CLIENT_ID: ${{ secrets.GOOGLE_SERVER_CLIENT_ID }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
         run: |
           flutter build apk --release \
             --build-name="${{ steps.version.outputs.version }}" \
             --build-number="${GITHUB_RUN_NUMBER}" \
             --dart-define=NESTLING_VERSION="${{ steps.version.outputs.version }}" \
-            --dart-define=GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID}"
+            --dart-define=GOOGLE_SERVER_CLIENT_ID="${GOOGLE_SERVER_CLIENT_ID}" \
+            --dart-define=GOOGLE_API_KEY="${GOOGLE_API_KEY}"
           mkdir -p ../dist
           cp build/app/outputs/flutter-apk/app-release.apk "../dist/nestling-${{ steps.version.outputs.version }}.apk"
 

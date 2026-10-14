@@ -1068,7 +1068,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get familyDriveSyncBody =>
-      'Vos téléphones se laissent leurs modifications dans un dossier partagé sur Google Drive, pour se mettre à jour même s\'ils ne sont pas ouverts en même temps ni sur le même Wi-Fi.\n\nGoogle demandera d\'autoriser Nestling à utiliser votre Drive. Tout le contenu du dossier est chiffré : seuls les téléphones de votre famille peuvent le lire. Activez-le sur chaque téléphone.';
+      'Chaque téléphone garde ses modifications dans un dossier Nestling de son propre Google Drive et lit ceux des autres, pour se mettre à jour même s\'ils ne sont pas ouverts en même temps ni sur le même Wi-Fi.\n\nGoogle demandera d\'autoriser Nestling à utiliser les fichiers qu\'il crée dans votre Drive (rien d\'autre). Tout le contenu du dossier est chiffré : seuls les téléphones de votre famille peuvent le lire. Activez-le sur chaque téléphone. Laissez ensuite les téléphones se synchroniser une fois sur le même Wi-Fi (ou associez-les à nouveau), pour qu\'ils trouvent les dossiers des autres.';
 
   @override
   String get familyDriveSyncFailed =>
