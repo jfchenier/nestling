@@ -2378,9 +2378,6 @@ class AppLocalizationsRu extends AppLocalizations {
   String get pagesHintRemember => 'Первый крик, кто был рядом, погода…';
 
   @override
-  String get pagesHintTwoNames => 'Два имени, по одному в строке';
-
-  @override
   String get pagesHintWhy => 'От кого или откуда оно';
 
   @override
@@ -2577,7 +2574,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get pagesTreeSiblings => 'Братья и сёстры';
 
   @override
-  String get pagesTreeTheirParents => 'Их родители';
+  String get pagesTreeFullScreen => 'Во весь экран';
+
+  @override
+  String pagesTreeTheirParent(int n) {
+    return 'Их родитель $n';
+  }
 
   @override
   String get pagesTreeTitle => 'Родословное древо';

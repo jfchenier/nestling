@@ -2338,9 +2338,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get pagesHintRemember => 'Le premier cri, qui était là, la météo…';
 
   @override
-  String get pagesHintTwoNames => 'Deux noms, un par ligne';
-
-  @override
   String get pagesHintWhy => 'D\'où ou de qui il vient';
 
   @override
@@ -2533,7 +2530,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get pagesTreeSiblings => 'Frères et sœurs';
 
   @override
-  String get pagesTreeTheirParents => 'Ses parents';
+  String get pagesTreeFullScreen => 'Plein écran';
+
+  @override
+  String pagesTreeTheirParent(int n) {
+    return 'Son parent $n';
+  }
 
   @override
   String get pagesTreeTitle => 'Arbre généalogique';

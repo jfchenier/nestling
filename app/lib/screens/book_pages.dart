@@ -569,8 +569,8 @@ class BirthStoryPage extends StatelessWidget {
   }
 }
 
-/// The family tree's names: parents (1, 2), each one's parents, theirs (two names on two lines),
-/// brothers and sisters, aunts, uncles and cousins.
+/// The family tree's names: parents (1, 2), each one's parents, theirs (each in a key of their own;
+/// saved before as two lines of one text), brothers and sisters, aunts, uncles and cousins.
 const _treeKeys = [
   'tree_parent_1',
   'tree_parent_2',
@@ -582,15 +582,36 @@ const _treeKeys = [
   'tree_ggp_1b',
   'tree_ggp_2a',
   'tree_ggp_2b',
+  'tree_ggp_1a_1',
+  'tree_ggp_1a_2',
+  'tree_ggp_1b_1',
+  'tree_ggp_1b_2',
+  'tree_ggp_2a_1',
+  'tree_ggp_2a_2',
+  'tree_ggp_2b_1',
+  'tree_ggp_2b_2',
   'tree_siblings',
   'tree_others',
 ];
 
-/// The names on a few lines ("Henri Roy\nMarie Roy"), empty lines dropped.
-List<String> _names(String? text) => [
-  for (final l in (text ?? '').split('\n'))
-    if (l.trim().isNotEmpty) l.trim(),
-];
+/// A grandparent's parents: each name in a key of its own (`tree_ggp_1a_1`, `tree_ggp_1a_2`), or,
+/// as saved before, both in one text, one per line (`tree_ggp_1a`); null where a name is missing.
+List<String?> _couple(Map<String, dynamic> book, String key) {
+  if (book.containsKey('${key}_1') || book.containsKey('${key}_2')) return [book['${key}_1'], book['${key}_2']];
+  return [for (final i in const [1, 2]) _legacyName(book, '${key}_$i')];
+}
+
+/// The name a great-grandparent's own key (`tree_ggp_1a_2`) had in the old two-line text, if any:
+/// its line (the second gets any further lines too).
+String? _legacyName(Map<String, dynamic> book, String key) {
+  final m = RegExp(r'^(tree_ggp_\d[ab])_([12])$').firstMatch(key);
+  if (m == null) return null;
+  final names = [
+    for (final l in ((book[m[1]!] as String?) ?? '').split('\n'))
+      if (l.trim().isNotEmpty) l.trim(),
+  ];
+  return m[2] == '1' ? names.firstOrNull : (names.length < 2 ? null : names.skip(1).join(', '));
+}
 
 /// "AM" for "Alex Martin", "N" for "Noah".
 String initials(String name) {
@@ -615,13 +636,13 @@ class FamilyTreePage extends StatelessWidget {
     final readOnly = s.bookOnly;
     Uint8List? photo(String key) => s.bookPhoto(child, key);
     const greatKeys = ['tree_ggp_1a', 'tree_ggp_1b', 'tree_ggp_2a', 'tree_ggp_2b'], grandKeys = ['tree_gp_1a', 'tree_gp_1b', 'tree_gp_2a', 'tree_gp_2b'];
-    final great = [for (final k in greatKeys) _names(book[k])];
+    final great = [for (final k in greatKeys) _couple(book, k)];
     final grand = [book['tree_gp_1a'], book['tree_gp_1b'], book['tree_gp_2a'], book['tree_gp_2b']];
     final parents = [book['tree_parent_1'], book['tree_parent_2']];
     const sides = [Kind.sleep, Kind.activity];
     final babyPhoto = photo(treeBabyPhoto);
     // Book viewers see only the levels with names.
-    final showGreat = great.any((g) => g.isNotEmpty) || (!readOnly && grand.any((n) => n != null));
+    final showGreat = great.any((g) => g.any((n) => n != null)) || (!readOnly && grand.any((n) => n != null));
     final showGrand = !readOnly || grand.any((n) => n != null) || showGreat;
     final showParents = !readOnly || parents.any((n) => n != null) || showGrand;
 
@@ -633,45 +654,61 @@ class FamilyTreePage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _PageHead(l10n.pagesTreeTitle, Icons.account_tree_rounded),
-          if (showGreat) ...[
-            _TreeLevel([
-              for (final (i, g) in great.indexed)
-                _Couple(g, sides[i ~/ 2], photos: [photo('${greatKeys[i]}_1'), photo('${greatKeys[i]}_2')], hidden: readOnly && g.isEmpty),
-            ]),
-            _Branches([for (final g in great) g.isNotEmpty || !readOnly], 4, width: 2),
-          ],
-          if (showGrand) ...[
-            _TreeLevel([for (final (i, n) in grand.indexed) _Person(n, sides[i ~/ 2], size: 40, photo: photo(grandKeys[i]), hidden: readOnly && n == null)]),
-            _Branches([for (final n in grand) n != null || !readOnly], 2, width: 3),
-          ],
-          if (showParents) ...[
-            _TreeLevel([for (final (i, n) in parents.indexed) _Person(n, sides[i], size: 50, photo: photo('tree_parent_${i + 1}'), hidden: readOnly && n == null)]),
-            _Branches([for (final n in parents) n != null || !readOnly], 1, width: 4.5),
-          ],
-          // The baby, where the tree grows from, on a bit of grass.
-          Center(
+          _ZoomableTree(
+            id: child.id,
+            width: _treeWidth(context, great, grand, parents, child.name),
+            onAdd: readOnly ? null : () => editTreePage(context, child),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Kind.milestone.fill(c),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: c.surface, width: 3),
-                    boxShadow: [BoxShadow(color: c.ink.withValues(alpha: 0.15), blurRadius: 6, offset: const Offset(0, 2))],
-                    image: babyPhoto == null ? null : DecorationImage(image: MemoryImage(babyPhoto), fit: BoxFit.cover),
+                if (showGreat) ...[
+                  _Grows(
+                    6,
+                    _TreeLevel([
+                      for (final (i, g) in great.indexed)
+                        _Couple(g, sides[i ~/ 2], photos: [photo('${greatKeys[i]}_1'), photo('${greatKeys[i]}_2')], hidden: readOnly && g.every((n) => n == null)),
+                    ]),
                   ),
-                  child: babyPhoto != null ? null : Icon(Icons.child_care_rounded, size: 34, color: c.bandInk),
-                ),
-                const SizedBox(height: 4),
-                Text(child.name, style: serifStyle(18, color: Kind.milestone.on(c))),
-                Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  width: 150,
-                  height: 10,
-                  decoration: BoxDecoration(color: Kind.diaper.fill(c).withValues(alpha: 0.7), borderRadius: const BorderRadius.all(Radius.elliptical(75, 5))),
+                  _Branches([for (final g in great) g.any((n) => n != null) || !readOnly], 4, width: 2, stage: 5),
+                ],
+                if (showGrand) ...[
+                  _Grows(4, _TreeLevel([for (final (i, n) in grand.indexed) _Person(n, sides[i ~/ 2], size: 40, photo: photo(grandKeys[i]), hidden: readOnly && n == null)])),
+                  _Branches([for (final n in grand) n != null || !readOnly], 2, width: 3, stage: 3),
+                ],
+                if (showParents) ...[
+                  _Grows(2, _TreeLevel([for (final (i, n) in parents.indexed) _Person(n, sides[i], size: 50, photo: photo('tree_parent_${i + 1}'), hidden: readOnly && n == null)])),
+                  _Branches([for (final n in parents) n != null || !readOnly], 1, width: 4.5, stage: 1),
+                ],
+                // The baby, where the tree grows from, on a bit of grass.
+                _Grows(
+                  0,
+                  Center(
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 64,
+                          height: 64,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: Kind.milestone.fill(c),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: c.surface, width: 3),
+                            boxShadow: [BoxShadow(color: c.ink.withValues(alpha: 0.15), blurRadius: 6, offset: const Offset(0, 2))],
+                            image: babyPhoto == null ? null : DecorationImage(image: MemoryImage(babyPhoto), fit: BoxFit.cover),
+                          ),
+                          child: babyPhoto != null ? null : Icon(Icons.child_care_rounded, size: 34, color: c.bandInk),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(child.name, style: serifStyle(18, color: Kind.milestone.on(c))),
+                        Container(
+                          margin: const EdgeInsets.only(top: 4),
+                          width: 150,
+                          height: 10,
+                          decoration: BoxDecoration(color: Kind.diaper.fill(c).withValues(alpha: 0.7), borderRadius: const BorderRadius.all(Radius.elliptical(75, 5))),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -681,6 +718,332 @@ class FamilyTreePage extends StatelessWidget {
           if (!hasText(child)) _Prompt(l10n.pagesTreePrompt),
         ],
       ),
+    );
+  }
+}
+
+/// The width the tree needs so no name is cut: each great-grandparent couple's names on one line,
+/// grandparents' and parents' names wrapped at most between words, the baby's name whole. Never
+/// less than the page (the spots then spread out as before).
+double _treeWidth(BuildContext context, List<List<String?>> great, List<String?> grand, List<String?> parents, String baby) {
+  final base = DefaultTextStyle.of(context).style;
+  final scaler = MediaQuery.textScalerOf(context);
+  final direction = Directionality.of(context);
+  double measure(String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: base.merge(style)),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
+  double longestWord(String? name, TextStyle style) => [
+    0.0,
+    for (final w in (name ?? '').split(RegExp(r'\s+')))
+      if (w.isNotEmpty) measure(w, style),
+  ].reduce(math.max);
+
+  // Room around each spot: its padding plus a gap to the next one.
+  const gap = 8.0;
+  final couple = [58.0, for (final g in great) ...g.nonNulls.map((n) => measure(n, _coupleStyle))].reduce(math.max) + gap;
+  final grandparent = [40.0, for (final n in grand) longestWord(n, _personStyle)].reduce(math.max) + 4 + gap;
+  final parent = [50.0, for (final n in parents) longestWord(n, _personStyle)].reduce(math.max) + 4 + gap;
+  return [4 * couple, 4 * grandparent, 2 * parent, measure(baby, serifStyle(18)) + gap].reduce(math.max).ceilToDouble();
+}
+
+const _personStyle = TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, height: 1.15);
+const _coupleStyle = TextStyle(fontSize: 11, height: 1.2);
+
+/// The tree at the width its names need. When that is wider than the page, it opens shrunk to fit
+/// the page whole. Tapping someone glides and zooms onto their branch; tapping them again, the baby
+/// or an empty spot glides back out. A pinch zooms and a drag pans too. Where the tree runs past the
+/// window, its edge fades out instead of being cut. The first time it shows (once per child while
+/// the app runs), it grows from the baby up, a generation at a time. A button in its corner opens
+/// it [fullScreen]: there it fills the screen, whole and centred, to look at (no editing).
+class _ZoomableTree extends StatefulWidget {
+  const _ZoomableTree({required this.id, required this.width, required this.child, this.onAdd, this.fullScreen = false});
+  final String id;
+  final double width;
+  final Widget child;
+  final VoidCallback? onAdd;
+  final bool fullScreen;
+
+  @override
+  State<_ZoomableTree> createState() => _ZoomableTreeState();
+}
+
+class _ZoomableTreeState extends State<_ZoomableTree> with TickerProviderStateMixin {
+  /// When each child's tree started growing in (this app run), so a tree built again (the list
+  /// rebuilt as the book loads) carries on where it was, and later ones show grown.
+  static final _growing = <String, DateTime>{};
+  static const _fade = 28.0;
+  final _transform = TransformationController();
+  final _treeKey = GlobalKey();
+  late final _grow = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800));
+  late final _fly = AnimationController(vsync: this, duration: const Duration(milliseconds: 550))..addListener(_flying);
+  Matrix4Tween? _flight;
+  RenderObject? _focused;
+  Size? _fitted;
+  double _page = 0, _width = 0;
+  Size _window = Size.zero;
+
+  /// The whole tree's width in the page.
+  double get _fit => _page / _width;
+
+  /// The scale that shows the whole tree: its width in the card, also its height on a full screen.
+  double get _whole {
+    final h = (_treeKey.currentContext?.findRenderObject() as RenderBox?)?.size.height;
+    if (!widget.fullScreen || h == null || h == 0 || _window.height == 0) return _fit;
+    return math.min(_fit, _window.height / h);
+  }
+
+  /// The whole tree, centred.
+  Matrix4 get _home {
+    final s = _whole, h = (_treeKey.currentContext?.findRenderObject() as RenderBox?)?.size.height ?? 0;
+    return Matrix4.diagonal3Values(s, s, 1)..setTranslationRaw((_page - _width * s) / 2, widget.fullScreen ? math.max(0, (_window.height - h * s) / 2) : 0, 0);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final since = DateTime.now().difference(_growing.putIfAbsent(widget.id, DateTime.now));
+    _grow.forward(from: since.inMicroseconds / _grow.duration!.inMicroseconds);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.disableAnimationsOf(context)) _grow.value = 1;
+  }
+
+  @override
+  void dispose() {
+    _grow.dispose();
+    _fly.dispose();
+    _transform.dispose();
+    super.dispose();
+  }
+
+  void _flying() => _transform.value = _flight!.transform(Curves.easeInOutCubic.transform(_fly.value));
+
+  void _flyTo(Matrix4 to) {
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _fly.stop();
+      _transform.value = to;
+      return;
+    }
+    _flight = Matrix4Tween(begin: _transform.value.clone(), end: to);
+    _fly.forward(from: 0);
+  }
+
+  void _overview() {
+    _focused = null;
+    _flyTo(_home);
+  }
+
+  /// Glides onto a spot: at least the tree's own size, with room for its neighbours.
+  void _focus(BuildContext spot) {
+    final box = spot.findRenderObject() as RenderBox?, tree = _treeKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || tree == null || !box.attached) return;
+    if (identical(box, _focused)) return _overview();
+    _focused = box;
+    final rect = MatrixUtils.transformRect(box.getTransformTo(tree), Offset.zero & box.size);
+    final h = tree.size.height, view = _window.height;
+    final scale = math.max(1.0, math.min(1.6, _page / (rect.width * 2)));
+    double place(double t, double window, double content) => content <= window ? (window - content) / 2 : t.clamp(window - content, 0.0);
+    final dx = place(_page / 2 - rect.center.dx * scale, _page, _width * scale);
+    final dy = place(view / 2 - rect.center.dy * scale, view, h * scale);
+    _flyTo(Matrix4.diagonal3Values(scale, scale, 1)..setTranslationRaw(dx, dy, 0));
+  }
+
+  /// Fades the window's edges where the tree runs past them, more the further it goes.
+  Widget _fadeEdges(Size window, Widget child) => ValueListenableBuilder<Matrix4>(
+    valueListenable: _transform,
+    child: child,
+    builder: (context, m, child) {
+      final tree = _treeKey.currentContext?.findRenderObject() as RenderBox?;
+      if (tree == null || !tree.hasSize) return child!;
+      // No rotation here: the x axis' scale is the zoom (the z axis keeps 1).
+      final scale = m.entry(0, 0), t = m.getTranslation();
+      double past(double by) => (by / _fade).clamp(0.0, 1.0);
+      final left = past(-t.x), right = past(t.x + _width * scale - window.width);
+      final top = past(-t.y), bottom = past(t.y + tree.size.height * scale - window.height);
+      if (left + right + top + bottom == 0) return child!;
+      // An alpha mask, not a colour on screen: opaque keeps the tree, clear hides it.
+      Shader mask(Rect r, Axis axis, double start, double end) {
+        final f = _fade / (axis == Axis.horizontal ? r.width : r.height);
+        return LinearGradient(
+          begin: axis == Axis.horizontal ? Alignment.centerLeft : Alignment.topCenter,
+          end: axis == Axis.horizontal ? Alignment.centerRight : Alignment.bottomCenter,
+          colors: [Colors.black.withValues(alpha: 1 - start), Colors.black, Colors.black, Colors.black.withValues(alpha: 1 - end)],
+          stops: [0, f, 1 - f, 1],
+        ).createShader(r);
+      }
+
+      return ShaderMask(
+        blendMode: BlendMode.dstIn,
+        shaderCallback: (r) => mask(r, Axis.horizontal, left, right),
+        child: ShaderMask(blendMode: BlendMode.dstIn, shaderCallback: (r) => mask(r, Axis.vertical, top, bottom), child: child),
+      );
+    },
+  );
+
+  @override
+  Widget build(BuildContext context) => _TreeScope(
+    grow: _grow,
+    focus: _focus,
+    add: widget.onAdd,
+    child: LayoutBuilder(
+      builder: (context, box) {
+        _page = box.maxWidth;
+        _width = math.max(_page, widget.width);
+        // Back to the opening view whenever the page or the tree changes width.
+        if (_fitted != Size(_page, _width)) {
+          _fitted = Size(_page, _width);
+          _focused = null;
+          _fly.stop();
+          _transform.value = Matrix4.diagonal3Values(_fit, _fit, 1);
+          // On a full screen, the whole tree's height is known once it is laid out.
+          if (widget.fullScreen) WidgetsBinding.instance.addPostFrameCallback((_) => mounted ? _transform.value = _home : null);
+        }
+        final viewer = LayoutBuilder(
+          builder: (context, window) {
+            _window = window.biggest;
+            return _fadeEdges(
+              window.biggest,
+              InteractiveViewer(
+                transformationController: _transform,
+                constrained: false,
+                minScale: math.min(_fit, _whole),
+                maxScale: 3,
+                onInteractionStart: (_) {
+                  _fly.stop();
+                  _focused = null;
+                },
+                // Taps that land on no one (the baby, the gaps) glide back to the whole tree.
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: _overview,
+                  child: SizedBox(key: _treeKey, width: _width, child: widget.child),
+                ),
+              ),
+            );
+          },
+        );
+        if (widget.fullScreen) return viewer;
+        return Stack(
+          children: [
+            // An unseen copy of the tree, shrunk to fit, gives the window its height.
+            Visibility(
+              visible: false,
+              maintainSize: true,
+              maintainAnimation: true,
+              maintainState: true,
+              child: ExcludeSemantics(
+                child: FittedBox(fit: BoxFit.fitWidth, child: SizedBox(width: _width, child: widget.child)),
+              ),
+            ),
+            Positioned.fill(child: viewer),
+            // In the bottom corner, beside the baby, where the tree has nobody.
+            Positioned(
+              bottom: 0,
+              right: 0,
+              child: IconButton(
+                tooltip: l10n.pagesTreeFullScreen,
+                visualDensity: VisualDensity.compact,
+                style: IconButton.styleFrom(backgroundColor: context.pal.surface.withValues(alpha: 0.85), foregroundColor: context.pal.muted),
+                icon: const Icon(Icons.fullscreen_rounded),
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    fullscreenDialog: true,
+                    builder: (_) => _FullScreenTree(_ZoomableTree(id: widget.id, width: widget.width, fullScreen: true, child: widget.child)),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+}
+
+/// The family tree on a screen of its own.
+class _FullScreenTree extends StatelessWidget {
+  const _FullScreenTree(this.tree);
+  final Widget tree;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    backgroundColor: context.pal.surface,
+    appBar: AppBar(
+      backgroundColor: context.pal.surface,
+      title: Text(l10n.pagesTreeTitle, style: serifStyle(20)),
+    ),
+    body: SafeArea(
+      top: false,
+      child: Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 12), child: tree),
+    ),
+  );
+}
+
+/// What the tree's spots need from the tree around them: the grow-in, and what a tap does.
+class _TreeScope extends InheritedWidget {
+  const _TreeScope({required this.grow, required this.focus, required this.add, required super.child});
+  final Animation<double> grow;
+  final void Function(BuildContext spot) focus;
+  final VoidCallback? add;
+
+  static _TreeScope? of(BuildContext context) => context.dependOnInheritedWidgetOfExactType<_TreeScope>();
+
+  @override
+  bool updateShouldNotify(_TreeScope old) => old.grow != grow || old.add != add;
+}
+
+/// When a generation grows in: the baby first (stage 0), then each level of branches and people.
+Interval _growStage(int stage) => Interval(stage * 0.13, math.min(1, stage * 0.13 + 0.22));
+
+/// A level of the tree that fades and swells in at its [stage] of the grow-in.
+class _Grows extends StatelessWidget {
+  const _Grows(this.stage, this.child);
+  final int stage;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final grow = _TreeScope.of(context)?.grow ?? kAlwaysCompleteAnimation;
+    return AnimatedBuilder(
+      animation: grow,
+      child: child,
+      builder: (context, child) {
+        final t = _growStage(stage).transform(grow.value);
+        return Opacity(
+          opacity: Curves.easeOut.transform(t),
+          child: Transform.scale(scale: 0.6 + 0.4 * Curves.easeOutBack.transform(t), alignment: Alignment.bottomCenter, child: child),
+        );
+      },
+    );
+  }
+}
+
+/// A person (or couple) on the tree: tapping glides onto them, or opens the page to fill in an
+/// empty spot.
+class _Spot extends StatelessWidget {
+  const _Spot({required this.empty, required this.child});
+  final bool empty;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scope = _TreeScope.of(context);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: scope == null ? null : (empty ? scope.add : () => scope.focus(context)),
+      child: child,
     );
   }
 }
@@ -712,21 +1075,22 @@ class _Person extends StatelessWidget {
     if (hidden) return const SizedBox();
     final c = context.pal;
     final n = name;
-    return Column(
-      children: [
-        _Badge(n == null ? null : initials(n), side, size: size, photo: photo),
-        const SizedBox(height: 4),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2),
-          child: Text(
-            n ?? '',
-            textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, height: 1.15, color: c.ink),
+    return _Spot(
+      empty: n == null,
+      child: Column(
+        children: [
+          _Badge(n == null ? null : initials(n), side, size: size, photo: photo),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Text(
+              n ?? '',
+              textAlign: TextAlign.center,
+              style: _personStyle.copyWith(color: c.ink),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -734,7 +1098,7 @@ class _Person extends StatelessWidget {
 /// A grandparent's parents: two small badges side by side and their names under them.
 class _Couple extends StatelessWidget {
   const _Couple(this.names, this.side, {this.photos = const [null, null], this.hidden = false});
-  final List<String> names;
+  final List<String?> names;
   final Kind side;
   final List<Uint8List?> photos;
   final bool hidden;
@@ -743,26 +1107,29 @@ class _Couple extends StatelessWidget {
   Widget build(BuildContext context) {
     if (hidden) return const SizedBox();
     final c = context.pal;
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            _Badge(names.isEmpty ? null : initials(names.first), side, size: 28, small: true, photo: photos[0]),
-            const SizedBox(width: 2),
-            _Badge(names.length < 2 ? null : initials(names[1]), side, size: 28, small: true, photo: photos[1]),
-          ],
-        ),
-        const SizedBox(height: 3),
-        for (final n in names.take(2))
-          Text(
-            n,
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 11, height: 1.2, color: c.ink),
+    return _Spot(
+      empty: names.every((n) => n == null),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _Badge(names[0] == null ? null : initials(names[0]!), side, size: 28, small: true, photo: photos[0]),
+              const SizedBox(width: 2),
+              _Badge(names[1] == null ? null : initials(names[1]!), side, size: 28, small: true, photo: photos[1]),
+            ],
           ),
-      ],
+          const SizedBox(height: 3),
+          for (final n in names.nonNulls)
+            Text(
+              n,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              softWrap: false,
+              style: _coupleStyle.copyWith(color: c.ink),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -806,30 +1173,34 @@ class _Badge extends StatelessWidget {
 /// The branches from a level down to the one under it ([to] spots): each spot's branch curves
 /// down to the one it belongs to (two grandparents → their child), with a leaf on the way.
 class _Branches extends StatelessWidget {
-  const _Branches(this.shown, this.to, {required this.width});
+  const _Branches(this.shown, this.to, {required this.width, required this.stage});
   final List<bool> shown;
   final int to;
   final double width;
+  final int stage;
 
   @override
   Widget build(BuildContext context) {
     final c = context.pal;
+    final grow = _TreeScope.of(context)?.grow ?? kAlwaysCompleteAnimation;
     return SizedBox(
       height: 28,
       width: double.infinity,
       child: CustomPaint(
-        painter: _BranchesPainter(shown, to, width, Kind.growth.on(c).withValues(alpha: c.isDark ? 0.75 : 0.6), Kind.diaper.fill(c)),
+        painter: _BranchesPainter(shown, to, width, Kind.growth.on(c).withValues(alpha: c.isDark ? 0.75 : 0.6), Kind.diaper.fill(c), grow: grow, stage: stage),
       ),
     );
   }
 }
 
 class _BranchesPainter extends CustomPainter {
-  _BranchesPainter(this.shown, this.to, this.width, this.wood, this.leaf);
+  _BranchesPainter(this.shown, this.to, this.width, this.wood, this.leaf, {required this.grow, required this.stage}) : super(repaint: grow);
   final List<bool> shown;
   final int to;
   final double width;
   final Color wood, leaf;
+  final Animation<double> grow;
+  final int stage;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -840,6 +1211,9 @@ class _BranchesPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
     final leafPaint = Paint()..color = leaf;
     final from = shown.length, per = from ~/ to, h = size.height;
+    // While the tree grows in, each branch is drawn from the bottom up, then its leaf unfolds.
+    final t = Curves.easeInOut.transform(_growStage(stage).transform(grow.value));
+    if (t == 0) return;
     for (var i = 0; i < from; i++) {
       if (!shown[i]) continue;
       final top = Offset(size.width * (i + 0.5) / from, 0);
@@ -847,14 +1221,20 @@ class _BranchesPainter extends CustomPainter {
       final path = Path()
         ..moveTo(below.dx, below.dy)
         ..cubicTo(below.dx, h * 0.45, top.dx, h * 0.55, top.dx, top.dy);
-      canvas.drawPath(path, branch);
+      if (t < 1) {
+        final metric = path.computeMetrics().first;
+        canvas.drawPath(metric.extractPath(0, metric.length * t), branch);
+      } else {
+        canvas.drawPath(path, branch);
+      }
+      if (t < 0.6) continue;
       // A leaf halfway, leaning out from the branch.
       final mid = Offset((top.dx + below.dx) / 2, h / 2);
       final out = top.dx == below.dx ? (i.isEven ? -1.0 : 1.0) : (top.dx < below.dx ? -1.0 : 1.0);
       canvas.save();
       canvas.translate(mid.dx, mid.dy);
       canvas.rotate(out * 0.9);
-      final s = 4.0 + width;
+      final s = (4.0 + width) * ((t - 0.6) / 0.4);
       canvas.drawPath(
         Path()
           ..moveTo(0, 0)
@@ -868,7 +1248,7 @@ class _BranchesPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BranchesPainter old) =>
-      old.wood != wood || old.leaf != leaf || old.to != to || old.width != width || old.shown.join() != shown.join();
+      old.wood != wood || old.leaf != leaf || old.to != to || old.width != width || old.shown.join() != shown.join() || old.grow != grow || old.stage != stage;
 }
 
 /// "A letter for later": up to two letters (from whom, and the letter), to read at 18.
@@ -1034,14 +1414,14 @@ Future<void> editStoryPage(BuildContext context, Child child) => _editPage(
   ],
 );
 
-/// The family tree's photos: each name field's photo key(s), the same as the field's key (two for
-/// a couple: `<key>_1`, `<key>_2`). Saved with `/children/{id}/book-photos/{key}`.
+/// The family tree's photos: each name field's photo key, the same as the field's key (the
+/// great-grandparents' `<key>_1`, `<key>_2` were already theirs before they had a field each). Saved with `/children/{id}/book-photos/{key}`.
 Map<String, List<String>> get _treePhotos => {
   for (final n in const [1, 2]) ...{
     'tree_parent_$n': ['tree_parent_$n'],
     for (final g in const ['a', 'b']) ...{
       'tree_gp_$n$g': ['tree_gp_$n$g'],
-      'tree_ggp_$n$g': ['tree_ggp_$n${g}_1', 'tree_ggp_$n${g}_2'],
+      for (final i in const [1, 2]) 'tree_ggp_$n${g}_$i': ['tree_ggp_$n${g}_$i'],
     },
   },
 };
@@ -1061,7 +1441,8 @@ Future<void> editTreePage(BuildContext context, Child child) => _editPage(
       (key: 'tree_parent_$n', label: l10n.pagesTreeParent(n), hint: l10n.pagesHintName, long: false),
       for (final g in const ['a', 'b']) ...[
         (key: 'tree_gp_$n$g', label: l10n.pagesTreeGrandparent(n), hint: l10n.pagesHintName, long: false),
-        (key: 'tree_ggp_$n$g', label: l10n.pagesTreeTheirParents, hint: l10n.pagesHintTwoNames, long: true),
+        // Each of the grandparent's parents in a box of their own.
+        for (final i in const [1, 2]) (key: 'tree_ggp_$n${g}_$i', label: l10n.pagesTreeTheirParent(i), hint: l10n.pagesHintName, long: false),
       ],
     ],
     (key: 'tree_siblings', label: l10n.pagesTreeSiblings, hint: l10n.pagesHintNames, long: true),
@@ -1130,8 +1511,16 @@ class _PageForm extends StatefulWidget {
 
 class _PageFormState extends State<_PageForm> {
   late final _text = {
-    for (final f in widget.fields) f.key: TextEditingController(text: widget.child.book[f.key] ?? ''),
+    for (final f in widget.fields) f.key: TextEditingController(text: _initial(f.key)),
   };
+
+  /// A field's text; a great-grandparent's name may still be in the old two-line text.
+  String _initial(String key) {
+    final book = widget.child.book;
+    final m = RegExp(r'^(tree_ggp_\d[ab])_([12])$').firstMatch(key);
+    if (m != null) return _couple(book, m[1]!)[int.parse(m[2]!) - 1] ?? '';
+    return book[key] ?? '';
+  }
   late String? _time = widget.child.book['birth_time'];
   bool _busy = false;
 
@@ -1181,6 +1570,8 @@ class _PageFormState extends State<_PageForm> {
     final book = <String, dynamic>{...widget.child.book};
     for (final MapEntry(:key, value: ctl) in _text.entries) {
       book[key] = ctl.text.trim();
+      // The great-grandparents' old two-line text is now in their own keys.
+      if (RegExp(r'^tree_ggp_\d[ab]_[12]$').hasMatch(key)) book.remove(key.substring(0, key.length - 2));
     }
     if (widget.time) book['birth_time'] = _time;
     book.removeWhere((_, v) => v == null || (v is String && v.isEmpty));

@@ -3888,12 +3888,6 @@ abstract class AppLocalizations {
   /// **'The first cry, who was there, the weather…'**
   String get pagesHintRemember;
 
-  /// No description provided for @pagesHintTwoNames.
-  ///
-  /// In en, this message translates to:
-  /// **'Two names, one per line'**
-  String get pagesHintTwoNames;
-
   /// No description provided for @pagesHintWhy.
   ///
   /// In en, this message translates to:
@@ -4224,11 +4218,17 @@ abstract class AppLocalizations {
   /// **'Brothers and sisters'**
   String get pagesTreeSiblings;
 
-  /// No description provided for @pagesTreeTheirParents.
+  /// No description provided for @pagesTreeFullScreen.
   ///
   /// In en, this message translates to:
-  /// **'Their parents'**
-  String get pagesTreeTheirParents;
+  /// **'Full screen'**
+  String get pagesTreeFullScreen;
+
+  /// No description provided for @pagesTreeTheirParent.
+  ///
+  /// In en, this message translates to:
+  /// **'Their parent {n}'**
+  String pagesTreeTheirParent(int n);
 
   /// No description provided for @pagesTreeTitle.
   ///

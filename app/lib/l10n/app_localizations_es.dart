@@ -2336,9 +2336,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pagesHintRemember => 'El primer llanto, quién estaba, el tiempo…';
 
   @override
-  String get pagesHintTwoNames => 'Dos nombres, uno por línea';
-
-  @override
   String get pagesHintWhy => 'De quién o de dónde viene';
 
   @override
@@ -2531,7 +2528,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pagesTreeSiblings => 'Hermanos y hermanas';
 
   @override
-  String get pagesTreeTheirParents => 'Sus padres';
+  String get pagesTreeFullScreen => 'Pantalla completa';
+
+  @override
+  String pagesTreeTheirParent(int n) {
+    return 'Su padre o madre $n';
+  }
 
   @override
   String get pagesTreeTitle => 'Árbol genealógico';
