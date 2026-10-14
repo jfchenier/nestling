@@ -104,10 +104,22 @@ bool mergeFamily(LocalStore store, Map<String, dynamic> snap) {
     theirsNewer = true;
   }
   if (theirsNewer) {
-    for (final k in ['name', 'timezone', 'created_at', 'drive_folder', 'day_start', 'day_end']) {
+    for (final k in ['name', 'timezone', 'created_at', 'day_start', 'day_end']) {
       f[k] = theirFamily[k];
     }
   }
+  // Each phone's Drive folder (relay.dart): kept from both sides, so phones that turned Drive
+  // sync on at the same time all stay listed.
+  final folders = Map<String, dynamic>.from((f['drive_folders'] as Map?) ?? const {});
+  for (final MapEntry(:key, :value) in ((theirFamily['drive_folders'] as Map?) ?? const {}).entries) {
+    if (folders[key] == value || (folders.containsKey(key) && !theirsNewer)) continue;
+    if (!folders.containsKey(key)) {
+      store.touch('f:$familyId');
+      changed = true;
+    }
+    folders['$key'] = value;
+  }
+  if (folders.isNotEmpty) f['drive_folders'] = folders;
   final members = [for (final m in (f['members'] as List? ?? [])) Map<String, dynamic>.from(m)];
   for (final m in (theirFamily['members'] as List? ?? [])) {
     final i = members.indexWhere((x) => x['user_id'] == m['user_id']);

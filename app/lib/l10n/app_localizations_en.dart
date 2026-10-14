@@ -1067,7 +1067,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get familyDriveSyncBody =>
-      'Your phones will leave each other their changes in a shared folder in Google Drive, so they catch up even when they aren\'t open at the same time or on the same Wi-Fi.\n\nGoogle will ask to let Nestling use your Drive. Everything in the folder is encrypted: only your family\'s phones can read it. Turn it on on each phone.';
+      'Each phone keeps its changes in a Nestling folder in its own Google Drive and reads the others\', so they catch up even when they aren\'t open at the same time or on the same Wi-Fi.\n\nGoogle will ask to let Nestling use the files it makes in your Drive (nothing else). Everything in the folder is encrypted: only your family\'s phones can read it. Turn it on on each phone. Then let the phones sync once on the same Wi-Fi (or pair them again), so they find each other\'s folders.';
 
   @override
   String get familyDriveSyncFailed =>

@@ -1069,7 +1069,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get familyDriveSyncBody =>
-      'Tus teléfonos se dejarán sus cambios en una carpeta compartida de Google Drive, para ponerse al día aunque no estén abiertos a la vez ni en la misma Wi-Fi.\n\nGoogle te pedirá permiso para que Nestling use tu Drive. Todo lo de la carpeta está cifrado: solo los teléfonos de tu familia pueden leerlo. Actívalo en cada teléfono.';
+      'Cada teléfono guarda sus cambios en una carpeta de Nestling de su propio Google Drive y lee las de los demás, para ponerse al día aunque no estén abiertos a la vez ni en la misma Wi-Fi.\n\nGoogle te pedirá permiso para que Nestling use los archivos que crea en tu Drive (nada más). Todo lo de la carpeta está cifrado: solo los teléfonos de tu familia pueden leerlo. Actívalo en cada teléfono. Luego deja que los teléfonos se sincronicen una vez en la misma Wi-Fi (o vuelve a emparejarlos), para que encuentren las carpetas de los demás.';
 
   @override
   String get familyDriveSyncFailed =>

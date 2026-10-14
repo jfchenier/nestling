@@ -1029,6 +1029,8 @@ class _DriveSyncTileState extends State<DriveSyncTile> {
         ? l10n.familyAndroidOnly
         : !on
         ? l10n.familyDriveSyncHint
+        : r?.sync.needsSetup ?? false
+        ? l10n.syncDriveFolderUnreachable
         : error != null
         ? l10n.familyDriveSyncFailed
         : last == null
