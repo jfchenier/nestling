@@ -10,6 +10,7 @@ import '../theme.dart';
 import '../widgets/common.dart';
 import '../widgets/date_time.dart';
 import '../widgets/medicine_picker.dart';
+import '../widgets/name_picker.dart' show childEvents;
 import 'baby_book.dart';
 import 'timer_screen.dart';
 
@@ -61,8 +62,12 @@ class _EventFormState extends State<EventForm> {
   // bottle and pump in mL or oz, weight in kg or lb, length and head in cm or in.
   late final _imperial = {for (final d in _Dim.values) d: u.imperial};
   final _exact = <TextEditingController, (String, double)>{};
-  late String? _milk = e?['milk'] ?? (widget.method == 'bottle' || widget.method == 'combo' ? 'formula' : null);
-  late final _formula = TextEditingController(text: e?['formula_name'] ?? '');
+  late final bool _bottle = widget.method == 'bottle' || widget.method == 'combo';
+  // A new bottle starts with the milk (and formula name) of the child's last bottle.
+  late final Event? _lastBottle = e == null && _bottle ? _lastBottleFromSummary() : null;
+  late String? _milk = e?['milk'] ?? _lastBottle?['milk'] ?? (_bottle ? 'formula' : null);
+  late final _formula = TextEditingController(text: e?['formula_name'] ?? _lastBottle?['formula_name'] ?? '');
+  bool _milkTouched = false;
   late final _foods = TextEditingController(text: e?['foods'] ?? '');
   // sleep
   late String? _location = e?['location'];
@@ -94,6 +99,33 @@ class _EventFormState extends State<EventForm> {
   // activity
   late final _activityKind = TextEditingController(text: e?['kind'] ?? '');
   late final _activityMinutes = _minutes(e?.durationSeconds);
+
+  @override
+  void initState() {
+    super.initState();
+    if (e == null && _bottle && _lastBottle == null) _findLastBottle();
+  }
+
+  /// The last feed (from the home summary) when it was a bottle with a milk saved.
+  Event? _lastBottleFromSummary() {
+    final last = context.read<AppState>().summary?['last']?['feed'];
+    if (last is! Map<String, dynamic>) return null;
+    final f = Event(last);
+    return _isBottle(f) ? f : null;
+  }
+
+  static bool _isBottle(Event f) => (f['method'] == 'bottle' || f['method'] == 'combo') && f['milk'] is String;
+
+  /// The last feed wasn't a bottle: look further back, unless a milk was picked meanwhile.
+  Future<void> _findLastBottle() async {
+    final feeds = await childEvents(context.read<AppState>(), 'feed', limit: 200);
+    final f = feeds.where(_isBottle).firstOrNull;
+    if (f == null || !mounted || _milkTouched) return;
+    setState(() {
+      _milk = f['milk'];
+      if (_formula.text.isEmpty) _formula.text = f['formula_name'] ?? '';
+    });
+  }
 
   static TextEditingController _minutes(dynamic seconds) {
     final s = toInt(seconds);
@@ -593,7 +625,10 @@ class _EventFormState extends State<EventForm> {
               l10n.formMilk,
               {'formula': l10n.milkFormula, 'breast_milk': l10n.milkBreastMilk, 'mixed': l10n.milkMixed},
               _milk,
-              (v) => setState(() => _milk = v),
+              (v) => setState(() {
+                _milk = v;
+                _milkTouched = true;
+              }),
             ),
             if (_milk != 'breast_milk') _textRow(l10n.formFormulaName, _formula, hint: l10n.formBrandOptional),
           ],
