@@ -16,6 +16,8 @@ info:
     - **Units:** metric only (`_ml`, `_g`, `_cm`, `_c` = °C, `_seconds`).
     - **IDs:** opaque strings (UUIDv7). Where a client may supply its own id it must be a UUID.
     - Things you don't have access to answer `404`, like things that don't exist.
+    - Outside `/api/v1` (not described here): the MCP server for assistants (`POST /mcp`) and its
+      OAuth sign-in (`/.well-known/oauth-*`, `/oauth/*`); see `docs/API.md` → Assistants.
   license:
     name: MIT
 servers:

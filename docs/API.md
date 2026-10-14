@@ -79,6 +79,28 @@ doesn't show in the family's `members` or the admin's account list. It may only:
 
 Everything else answers `403`.
 
+### Assistants (MCP and OAuth)
+
+Outside `/api/v1`, the server is an MCP server (Model Context Protocol, streamable HTTP) for
+assistants such as Claude, with the OAuth 2.1 sign-in their connectors use:
+
+| | | |
+|---|---|---|
+| `POST /mcp` | a JSON-RPC message (or a batch) | stateless: answers with JSON (`202` for notifications); `GET` answers `405`. Without a valid token: `401` with `WWW-Authenticate: Bearer resource_metadata=".../.well-known/oauth-protected-resource/mcp"` |
+| `GET /.well-known/oauth-protected-resource[/mcp]` | | RFC 9728: `{resource: <base>/mcp, authorization_servers: [<base>]}` |
+| `GET /.well-known/oauth-authorization-server` | | RFC 8414 metadata (code flow, PKCE `S256`, public clients) |
+| `POST /oauth/register` | `{client_name?, redirect_uris: [...]}` | RFC 7591: → `201 {client_id, ...}`. 1–5 `https` addresses (or `http` on localhost); limited per address |
+| `GET / POST /oauth/authorize` | the usual query (`response_type=code`, `client_id`, `redirect_uri`, `code_challenge`, `code_challenge_method=S256`, `state`) | a page where a family owner signs in (and picks the family if they own several), then a redirect with `code` (10 minutes, single use) |
+| `POST /oauth/token` | form: `grant_type=authorization_code`, `code`, `client_id`, `redirect_uri`, `code_verifier` | → `{access_token, token_type: "Bearer"}`: the API token of a connected app named after the client, in that family (added the first time, reused after). No expiry, no refresh token; removing the connected app revokes it |
+
+`<base>` is `NESTLING_PUBLIC_URL`, else built from `X-Forwarded-Proto` / `X-Forwarded-Host` (or
+`Host`). The tools (`tools/list` describes them) are calls to this API with the caller's token, so a
+connected app's limits apply: `list_children`, `get_summary`, `list_entries`, `log_entry`,
+`update_entry`, `delete_entry`, `start_timer`, `stop_timer`, `control_timer` (pause, resume,
+switch, adjust, discard), `get_trends`. `child` is a name or an id and may be left out when there
+is one child; timer tools use the child's running timer when no `timer_id` is given. Results are
+`{now, result}`, `now` being the family's local time.
+
 ## Children
 
 | | | |

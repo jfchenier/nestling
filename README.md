@@ -123,6 +123,7 @@ Use HTTPS (Caddy, Traefik, Nginx Proxy Manager, Tailscale…) before opening it 
 | `NESTLING_OPEN_REGISTRATION` | `false` | Let anyone create an account (normally only admins do) |
 | `NESTLING_FCM_CREDENTIALS` | unset | Firebase service-account key (JSON file) for [notifications on phones](#notifications-on-phones) |
 | `NESTLING_FCM_APP_ID`, `NESTLING_FCM_API_KEY` | unset | The Firebase Android app's App ID and API key (same section) |
+| `NESTLING_PUBLIC_URL` | unset | The server's public address (e.g. `https://nestling.example.com`) for [assistants](#claude-and-other-assistants); without it the proxy's `X-Forwarded-Proto` / `X-Forwarded-Host` are used |
 | `RUST_LOG` | `nestling=info,tower_http=info` | Log level |
 
 ## Running it
@@ -216,6 +217,19 @@ updates entries instead of duplicating them.
 Create a long-lived token (**Settings → API token**, or `POST /api/v1/me/tokens`) and use
 `GET /api/v1/children/{id}/summary` as a REST sensor: time since the last feed, diaper and sleep,
 running timers and today's totals.
+
+### Claude and other assistants
+
+The server is also an [MCP](https://modelcontextprotocol.io) server, so you can ask Claude (or any
+assistant that takes MCP connectors) to "log a 120 mL bottle", "start a nap" or "when did she last
+eat?", from the web, the phone apps or by voice. In Claude: **Settings → Connectors → Add custom
+connector**, with the address `https://nestling.example.com/mcp`. Claude opens a Nestling page
+where a family owner signs in (and picks the family, if they own several); it then joins the family
+as a connected app named after the assistant, so its entries show as logged by "Claude". Remove it
+under **Family → Connected apps** to turn it off.
+
+The server must be reachable over HTTPS from the internet (the assistant's servers call it). Behind
+a reverse proxy, pass `X-Forwarded-Proto` (most do) or set `NESTLING_PUBLIC_URL`.
 
 ## Development
 

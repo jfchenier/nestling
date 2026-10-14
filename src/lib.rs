@@ -2,9 +2,11 @@ pub mod auth;
 pub mod csv_export;
 pub mod error;
 pub mod limiter;
+pub mod mcp;
 pub mod model;
 pub mod nara;
 pub mod nara_csv;
+pub mod oauth;
 pub mod push;
 pub mod reminders;
 pub mod routes;
@@ -53,6 +55,9 @@ pub fn app(state: AppState, web_dir: Option<PathBuf>) -> Router {
     let mut router = Router::new()
         .route("/health", get(|| async { Json(json!({ "status": "ok", "version": VERSION })) }))
         .nest("/api/v1", routes::api())
+        // For assistants such as Claude: the MCP server and the OAuth sign-in its connector uses.
+        .route("/mcp", axum::routing::post(mcp::post).get(mcp::get))
+        .merge(oauth::routes())
         .with_state(state);
     if let Some(dir) = web_dir {
         let index = dir.join("index.html");
