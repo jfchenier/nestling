@@ -225,8 +225,10 @@ Notes:
 
 - Release builds use `android/key.properties` when present (see "Signing key" above), otherwise the
   debug key.
-- The application id is `org.nestling.nestling` (`android/app/build.gradle.kts`). Change it **before**
-  publishing to a store; it can't change afterwards.
+- The application id is `io.github.jfchenier.nestling` (`android/app/build.gradle.kts`; the Kotlin
+  code lives in the same package). It can't change once published to a store, and the Firebase app
+  and Google OAuth clients are registered against it. Builds before 0.9 used `org.nestling.nestling`,
+  which Android treats as a different app: uninstall that one first.
 - Logo and launcher icon: a bird on a nest of three bars, apricot and oat on eucalyptus. An
   adaptive icon (Android 8+) with a monochrome layer for Android 13+ themed icons. Shapes and
   colors live in `tool/android_icon.py` (edit, then run it from `app/`): it writes the Android
@@ -271,7 +273,7 @@ The backup signs in with Google, so the Android build needs an OAuth client of y
    scope because each phone reads files the other caregiver's account wrote; Google calls it a
    restricted scope, so users see an "unverified app" screen, and a public release needs Google's
    verification and security assessment.
-2. Create an OAuth client of type **Android**: package `org.nestling.nestling`, and the SHA-1 of the
+2. Create an OAuth client of type **Android**: package `io.github.jfchenier.nestling`, and the SHA-1 of the
    key that signs the APK (`keytool -list -v -keystore <your keystore>`).
 3. Create an OAuth client of type **Web application** (no settings needed) and copy its client id.
 4. Build with it: `flutter build apk --dart-define=GOOGLE_SERVER_CLIENT_ID=<web client id>`

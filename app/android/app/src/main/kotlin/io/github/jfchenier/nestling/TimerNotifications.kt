@@ -1,4 +1,4 @@
-package org.nestling.nestling
+package io.github.jfchenier.nestling
 
 import android.Manifest
 import android.app.Activity

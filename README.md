@@ -188,7 +188,7 @@ in a free Firebase project of your own:
 
 1. At [console.firebase.google.com](https://console.firebase.google.com), create a project
    (Google Analytics isn't needed).
-2. **Add app → Android**, package name `org.nestling.nestling`. Skip the `google-services.json`
+2. **Add app → Android**, package name `io.github.jfchenier.nestling`. Skip the `google-services.json`
    and SDK steps. In **Project settings → General**, under the Android app, copy the **App ID**
    (`1:…:android:…`) into `NESTLING_FCM_APP_ID`, and the **Web API key** into
    `NESTLING_FCM_API_KEY`.

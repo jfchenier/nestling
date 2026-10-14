@@ -15,7 +15,7 @@ val keyProperties = Properties().apply {
 }
 
 android {
-    namespace = "org.nestling.nestling"
+    namespace = "io.github.jfchenier.nestling"
     // 36 (Android 16) at least: the running-timer notification uses Live Update APIs.
     compileSdk = maxOf(flutter.compileSdkVersion, 36)
     ndkVersion = flutter.ndkVersion
@@ -26,7 +26,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "org.nestling.nestling"
+        applicationId = "io.github.jfchenier.nestling"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

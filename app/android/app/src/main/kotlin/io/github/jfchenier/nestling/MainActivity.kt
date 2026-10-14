@@ -1,4 +1,4 @@
-package org.nestling.nestling
+package io.github.jfchenier.nestling
 
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
