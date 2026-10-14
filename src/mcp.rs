@@ -421,7 +421,7 @@ fn tools() -> Vec<Value> {
              left_seconds, right_seconds, start_side (left, right), formula_name, foods (solids). \
              sleep: location (e.g. crib, stroller), with start and end. \
              diaper: wet, dirty, dry, rash, blowout (booleans), color (yellow, green, brown, black, red, gray), \
-             consistency (runny, mushy, mucousy, pebbles, solid), potty (sat_dry, success, accident; a potty trip, wet/dirty = pee/poo). \
+             wet_size, dirty_size (small, medium, large), consistency (runny, mushy, mucousy, pebbles, solid), potty (sat_dry, success, accident; a potty trip, wet/dirty = pee/poo). \
              pump: left_ml, right_ml, left_seconds, right_seconds. growth: weight_g, length_cm, head_cm. \
              health: kind (medicine, temperature, vaccine, appointment, symptom, required), name, dose, dose_unit, temperature_c. \
              activity: kind (e.g. bath, tummy_time, outdoor, play, read). milestone: name. note: just the note.",
@@ -441,6 +441,8 @@ fn tools() -> Vec<Value> {
                 "location": { "type": "string" },
                 "wet": { "type": "boolean" },
                 "dirty": { "type": "boolean" },
+                "wet_size": { "type": "string", "enum": ["small", "medium", "large"] },
+                "dirty_size": { "type": "string", "enum": ["small", "medium", "large"] },
                 "dry": { "type": "boolean" },
                 "potty": { "type": "string", "enum": ["sat_dry", "success", "accident"] },
                 "left_ml": { "type": "number" },
