@@ -633,45 +633,53 @@ class FamilyTreePage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _PageHead(l10n.pagesTreeTitle, Icons.account_tree_rounded),
-          if (showGreat) ...[
-            _TreeLevel([
-              for (final (i, g) in great.indexed)
-                _Couple(g, sides[i ~/ 2], photos: [photo('${greatKeys[i]}_1'), photo('${greatKeys[i]}_2')], hidden: readOnly && g.isEmpty),
-            ]),
-            _Branches([for (final g in great) g.isNotEmpty || !readOnly], 4, width: 2),
-          ],
-          if (showGrand) ...[
-            _TreeLevel([for (final (i, n) in grand.indexed) _Person(n, sides[i ~/ 2], size: 40, photo: photo(grandKeys[i]), hidden: readOnly && n == null)]),
-            _Branches([for (final n in grand) n != null || !readOnly], 2, width: 3),
-          ],
-          if (showParents) ...[
-            _TreeLevel([for (final (i, n) in parents.indexed) _Person(n, sides[i], size: 50, photo: photo('tree_parent_${i + 1}'), hidden: readOnly && n == null)]),
-            _Branches([for (final n in parents) n != null || !readOnly], 1, width: 4.5),
-          ],
-          // The baby, where the tree grows from, on a bit of grass.
-          Center(
+          _ZoomableTree(
+            width: _treeWidth(context, great, grand, parents, child.name),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  width: 64,
-                  height: 64,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: Kind.milestone.fill(c),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: c.surface, width: 3),
-                    boxShadow: [BoxShadow(color: c.ink.withValues(alpha: 0.15), blurRadius: 6, offset: const Offset(0, 2))],
-                    image: babyPhoto == null ? null : DecorationImage(image: MemoryImage(babyPhoto), fit: BoxFit.cover),
+                if (showGreat) ...[
+                  _TreeLevel([
+                    for (final (i, g) in great.indexed)
+                      _Couple(g, sides[i ~/ 2], photos: [photo('${greatKeys[i]}_1'), photo('${greatKeys[i]}_2')], hidden: readOnly && g.isEmpty),
+                  ]),
+                  _Branches([for (final g in great) g.isNotEmpty || !readOnly], 4, width: 2),
+                ],
+                if (showGrand) ...[
+                  _TreeLevel([for (final (i, n) in grand.indexed) _Person(n, sides[i ~/ 2], size: 40, photo: photo(grandKeys[i]), hidden: readOnly && n == null)]),
+                  _Branches([for (final n in grand) n != null || !readOnly], 2, width: 3),
+                ],
+                if (showParents) ...[
+                  _TreeLevel([for (final (i, n) in parents.indexed) _Person(n, sides[i], size: 50, photo: photo('tree_parent_${i + 1}'), hidden: readOnly && n == null)]),
+                  _Branches([for (final n in parents) n != null || !readOnly], 1, width: 4.5),
+                ],
+                // The baby, where the tree grows from, on a bit of grass.
+                Center(
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Kind.milestone.fill(c),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: c.surface, width: 3),
+                          boxShadow: [BoxShadow(color: c.ink.withValues(alpha: 0.15), blurRadius: 6, offset: const Offset(0, 2))],
+                          image: babyPhoto == null ? null : DecorationImage(image: MemoryImage(babyPhoto), fit: BoxFit.cover),
+                        ),
+                        child: babyPhoto != null ? null : Icon(Icons.child_care_rounded, size: 34, color: c.bandInk),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(child.name, style: serifStyle(18, color: Kind.milestone.on(c))),
+                      Container(
+                        margin: const EdgeInsets.only(top: 4),
+                        width: 150,
+                        height: 10,
+                        decoration: BoxDecoration(color: Kind.diaper.fill(c).withValues(alpha: 0.7), borderRadius: const BorderRadius.all(Radius.elliptical(75, 5))),
+                      ),
+                    ],
                   ),
-                  child: babyPhoto != null ? null : Icon(Icons.child_care_rounded, size: 34, color: c.bandInk),
-                ),
-                const SizedBox(height: 4),
-                Text(child.name, style: serifStyle(18, color: Kind.milestone.on(c))),
-                Container(
-                  margin: const EdgeInsets.only(top: 4),
-                  width: 150,
-                  height: 10,
-                  decoration: BoxDecoration(color: Kind.diaper.fill(c).withValues(alpha: 0.7), borderRadius: const BorderRadius.all(Radius.elliptical(75, 5))),
                 ),
               ],
             ),
@@ -683,6 +691,93 @@ class FamilyTreePage extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The width the tree needs so no name is cut: each great-grandparent couple's names on one line,
+/// grandparents' and parents' names wrapped at most between words, the baby's name whole. Never
+/// less than the page (the spots then spread out as before).
+double _treeWidth(BuildContext context, List<List<String>> great, List<String?> grand, List<String?> parents, String baby) {
+  final base = DefaultTextStyle.of(context).style;
+  final scaler = MediaQuery.textScalerOf(context);
+  final direction = Directionality.of(context);
+  double measure(String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: base.merge(style)),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
+  double longestWord(String? name, TextStyle style) => [
+    0.0,
+    for (final w in (name ?? '').split(RegExp(r'\s+')))
+      if (w.isNotEmpty) measure(w, style),
+  ].reduce(math.max);
+
+  // Room around each spot: its padding plus a gap to the next one.
+  const gap = 8.0;
+  final couple = [58.0, for (final g in great) ...g.take(2).map((n) => measure(n, _coupleStyle))].reduce(math.max) + gap;
+  final grandparent = [40.0, for (final n in grand) longestWord(n, _personStyle)].reduce(math.max) + 4 + gap;
+  final parent = [50.0, for (final n in parents) longestWord(n, _personStyle)].reduce(math.max) + 4 + gap;
+  return [4 * couple, 4 * grandparent, 2 * parent, measure(baby, serifStyle(18)) + gap].reduce(math.max).ceilToDouble();
+}
+
+const _personStyle = TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, height: 1.15);
+const _coupleStyle = TextStyle(fontSize: 11, height: 1.2);
+
+/// The tree at the width its names need. When that is wider than the page, it opens shrunk to fit
+/// the page whole; a pinch zooms in to read it, then it pans.
+class _ZoomableTree extends StatefulWidget {
+  const _ZoomableTree({required this.width, required this.child});
+  final double width;
+  final Widget child;
+
+  @override
+  State<_ZoomableTree> createState() => _ZoomableTreeState();
+}
+
+class _ZoomableTreeState extends State<_ZoomableTree> {
+  final _transform = TransformationController();
+  Size? _fitted;
+
+  @override
+  void dispose() {
+    _transform.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, box) {
+      final page = box.maxWidth, width = math.max(page, widget.width);
+      final fit = page / width;
+      // Back to the opening view whenever the page or the tree changes width.
+      if (_fitted != Size(page, width)) {
+        _fitted = Size(page, width);
+        _transform.value = Matrix4.diagonal3Values(fit, fit, 1);
+      }
+      final tree = SizedBox(width: width, child: widget.child);
+      return Stack(
+        children: [
+          // An unseen copy of the tree, shrunk to fit, gives the viewer its height.
+          Visibility(
+            visible: false,
+            maintainSize: true,
+            maintainAnimation: true,
+            maintainState: true,
+            child: ExcludeSemantics(child: FittedBox(fit: BoxFit.fitWidth, child: tree)),
+          ),
+          Positioned.fill(
+            child: InteractiveViewer(transformationController: _transform, constrained: false, minScale: fit, maxScale: 3, child: tree),
+          ),
+        ],
+      );
+    },
+  );
 }
 
 /// One level of the tree: its spots spread evenly across the page.
@@ -721,9 +816,7 @@ class _Person extends StatelessWidget {
           child: Text(
             n ?? '',
             textAlign: TextAlign.center,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12.5, height: 1.15, color: c.ink),
+            style: _personStyle.copyWith(color: c.ink),
           ),
         ),
       ],
@@ -759,8 +852,8 @@ class _Couple extends StatelessWidget {
             n,
             textAlign: TextAlign.center,
             maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 11, height: 1.2, color: c.ink),
+            softWrap: false,
+            style: _coupleStyle.copyWith(color: c.ink),
           ),
       ],
     );
