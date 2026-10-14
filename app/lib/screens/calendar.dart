@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show DateFormat;
 import 'package:provider/provider.dart';
@@ -10,6 +9,7 @@ import '../l10n/l10n.dart';
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
+import '../widgets/common.dart' show MouseDrag;
 import 'event_form.dart';
 
 /// Days at a glance: one column per day (today on the right), 00–24 from top to bottom, a bar
@@ -136,23 +136,25 @@ class _CalendarScreenState extends State<CalendarScreen> {
         children: [
           SizedBox(
             height: 44,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                for (final (id, kind, _) in _groups)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(_groupLabel(id)),
-                      avatar: CircleAvatar(backgroundColor: _barColor(kind, c), radius: 6),
-                      selected: !_hidden.contains(id),
-                      showCheckmark: false,
-                      selectedColor: c.accentSoft,
-                      onSelected: (on) => setState(() => on ? _hidden.remove(id) : _hidden.add(id)),
+            child: MouseDrag(
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  for (final (id, kind, _) in _groups)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: FilterChip(
+                        label: Text(_groupLabel(id)),
+                        avatar: CircleAvatar(backgroundColor: _barColor(kind, c), radius: 6),
+                        selected: !_hidden.contains(id),
+                        showCheckmark: false,
+                        selectedColor: c.accentSoft,
+                        onSelected: (on) => setState(() => on ? _hidden.remove(id) : _hidden.add(id)),
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
           // Visible range + arrows; follows the scroll position.
@@ -207,8 +209,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     ),
                     Expanded(
                       // Drag with a mouse too, not only touch (web on a computer).
-                      child: ScrollConfiguration(
-                        behavior: ScrollConfiguration.of(context).copyWith(dragDevices: PointerDeviceKind.values.toSet()),
+                      child: MouseDrag(
                         child: ListView.builder(
                           controller: _scroll,
                           scrollDirection: Axis.horizontal,

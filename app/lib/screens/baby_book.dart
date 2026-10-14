@@ -403,6 +403,8 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
     }
     // Book viewers (e.g. grandparents) read it: no ideas, nothing to add or edit.
     final readOnly = s.bookOnly;
+    // On a computer the pages and memories sit two by two, like an open scrapbook.
+    final wide = MediaQuery.sizeOf(context).width >= 960;
     var printIndex = 0;
 
     List<Widget> prints(List<Event> events, {bool byAge = false}) {
@@ -416,7 +418,12 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
             out.add(_ChapterTitle(a));
           }
         }
-        out.add(_MemoryCard(key: e == shown ? _shown : null, event: e, child: child, index: printIndex++, extra: homes[e.id]));
+        out.add(
+          _Half(
+            weight: e['photo_version'] != null ? 3 : 1,
+            child: _MemoryCard(key: e == shown ? _shown : null, event: e, child: child, index: printIndex++, extra: homes[e.id]),
+          ),
+        );
       }
       return out;
     }
@@ -434,24 +441,26 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
           ),
           SizedBox(
             height: 128,
-            child: ListView.separated(
-              scrollDirection: Axis.horizontal,
-              clipBehavior: Clip.none,
-              itemCount: left.length + 1,
-              separatorBuilder: (_, _) => const SizedBox(width: 10),
-              itemBuilder: (context, i) => i == 0
-                  ? _IdeaSticker(
-                      name: l10n.bookYourOwn,
-                      icon: Icons.add_rounded,
-                      when: l10n.bookWhenAnythingSpecial,
-                      onTap: () => showMemoryForm(context, chapter: chapter),
-                    )
-                  : _IdeaSticker(
-                      name: left[i - 1].label,
-                      icon: left[i - 1].icon,
-                      when: left[i - 1].when,
-                      onTap: () => showMemoryForm(context, name: left[i - 1].label),
-                    ),
+            child: MouseDrag(
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                clipBehavior: Clip.none,
+                itemCount: left.length + 1,
+                separatorBuilder: (_, _) => const SizedBox(width: 10),
+                itemBuilder: (context, i) => i == 0
+                    ? _IdeaSticker(
+                        name: l10n.bookYourOwn,
+                        icon: Icons.add_rounded,
+                        when: l10n.bookWhenAnythingSpecial,
+                        onTap: () => showMemoryForm(context, chapter: chapter),
+                      )
+                    : _IdeaSticker(
+                        name: left[i - 1].label,
+                        icon: left[i - 1].icon,
+                        when: left[i - 1].when,
+                        onTap: () => showMemoryForm(context, name: left[i - 1].label),
+                      ),
+              ),
             ),
           ),
         ],
@@ -482,10 +491,10 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
       ideas(BookChapter.waiting),
       // Hello, world
       heading(BookChapter.hello),
-      BornPage(child: child, growth: growth),
-      if (!readOnly || BirthStoryPage.hasText(child)) BirthStoryPage(child: child, cameHome: cameHome),
-      NamePage(child: child),
-      if (!readOnly || WorldPage.hasText(child)) WorldPage(child: child),
+      _Half(weight: 3, child: BornPage(child: child, growth: growth)),
+      if (!readOnly || BirthStoryPage.hasText(child)) _Half(weight: 2, child: BirthStoryPage(child: child, cameHome: cameHome)),
+      _Half(weight: 2, child: NamePage(child: child)),
+      if (!readOnly || WorldPage.hasText(child)) _Half(weight: 2, child: WorldPage(child: child)),
       ...?loading,
       ...prints(byChapter[BookChapter.hello]!),
       ideas(BookChapter.hello),
@@ -496,17 +505,27 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
       ideas(BookChapter.firsts),
       // Growing up
       heading(BookChapter.growing),
-      SectionTitle(
-        l10n.bookTeeth,
-        trailing: Text(l10n.bookAsYouLookAt(child.name), style: TextStyle(color: context.pal.muted, fontSize: 13)),
+      _Half(
+        weight: 4,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionTitle(
+              l10n.bookTeeth,
+              trailing: Text(l10n.bookAsYouLookAt(child.name), style: TextStyle(color: context.pal.muted, fontSize: 13)),
+            ),
+            TeethChart(child: child, milestones: memories ?? const []),
+          ],
+        ),
       ),
-      TeethChart(child: child, milestones: memories ?? const []),
+      // Wide: month by month beside the teeth.
+      if (wide && (!readOnly || growth.isNotEmpty)) _Half(weight: 4, child: GrowthPage(child: child, growth: growth)),
       if (!readOnly || bananas.isNotEmpty) ...[
         SectionTitle('${l10n.bookBananaName} 🍌', trailing: Text(l10n.bookPhotoAMonth, style: TextStyle(color: context.pal.muted, fontSize: 13))),
         _BananaStrip(key: shown != null && isBanana(shown) ? _shown : null, child: child, photos: bananas),
       ],
       ...prints(byChapter[BookChapter.growing]!),
-      if (!readOnly || growth.isNotEmpty) GrowthPage(child: child, growth: growth),
+      if (!wide && (!readOnly || growth.isNotEmpty)) GrowthPage(child: child, growth: growth),
       if (!readOnly || diary.isNotEmpty) ...[
         SectionTitle(
           '${l10n.bookIdeaDiary} 📔',
@@ -546,6 +565,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
     return Scaffold(
       appBar: AppBar(title: Text(l10n.bookTitle(child.name)), automaticallyImplyLeading: !widget.asTab, actions: [if (readOnly) const BookViewerActions()]),
       body: Constrained(
+        maxWidth: wide ? _wideBook : 640,
         child: CustomScrollView(
           controller: _scroll,
           slivers: [
@@ -557,11 +577,11 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
             ),
             SliverPersistentHeader(
               pinned: true,
-              delegate: _ContentsBar(height: _ContentsBar.heightFor(context, math.min(MediaQuery.sizeOf(context).width, 640)), current: _current, onTap: _jump, background: context.pal.background),
+              delegate: _ContentsBar(height: _ContentsBar.heightFor(context, math.min(MediaQuery.sizeOf(context).width, wide ? _wideBook : 640)), current: _current, onTap: _jump, background: context.pal.background),
             ),
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 48),
-              sliver: SliverList.list(children: rows),
+              sliver: SliverList.list(children: wide ? _spreads(rows) : rows),
             ),
           ],
         ),
@@ -634,6 +654,58 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
   );
 }
 
+/// The book's width on a computer.
+const _wideBook = 1080.0;
+
+/// A page or memory that takes half the width on a computer (see [_spreads]); on a phone, just
+/// [child]. [weight] guesses its height, to even out the two columns.
+class _Half extends StatelessWidget {
+  const _Half({required this.weight, required this.child});
+  final int weight;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => child;
+}
+
+/// Lays each run of [_Half] items in [rows] out in two columns, each item going to the shorter one.
+List<Widget> _spreads(List<Widget> rows) {
+  final out = <Widget>[];
+  final run = <_Half>[];
+  void flush() {
+    if (run.isEmpty) return;
+    final cols = [<Widget>[], <Widget>[]];
+    final heights = [0, 0];
+    for (final h in run) {
+      final i = heights[1] < heights[0] ? 1 : 0;
+      cols[i].add(h);
+      heights[i] += h.weight;
+    }
+    out.add(
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: cols[0])),
+          const SizedBox(width: 20),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: cols[1])),
+        ],
+      ),
+    );
+    run.clear();
+  }
+
+  for (final w in rows) {
+    if (w is _Half) {
+      run.add(w);
+    } else {
+      flush();
+      out.add(w);
+    }
+  }
+  flush();
+  return out;
+}
+
 /// The due date under "Waiting for you" (memories then say how many weeks along), tap to set it.
 class _DueDate extends StatelessWidget {
   const _DueDate({required this.child});
@@ -703,87 +775,89 @@ class _BananaStrip extends StatelessWidget {
         ),
         SizedBox(
           height: 206,
-          child: ListView.separated(
-            scrollDirection: Axis.horizontal,
-            clipBehavior: Clip.none,
-            itemCount: photos.length + (readOnly ? 0 : 1),
-            separatorBuilder: (_, _) => const SizedBox(width: 10),
-            itemBuilder: (context, i) {
-              if (!readOnly && i == 0) {
+          child: MouseDrag(
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              clipBehavior: Clip.none,
+              itemCount: photos.length + (readOnly ? 0 : 1),
+              separatorBuilder: (_, _) => const SizedBox(width: 10),
+              itemBuilder: (context, i) {
+                if (!readOnly && i == 0) {
+                  return SizedBox(
+                    width: 128,
+                    child: Material(
+                      color: k.fill(c).withValues(alpha: 0.35),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                        side: BorderSide(color: k.on(c).withValues(alpha: 0.45), width: 1.5),
+                      ),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(18),
+                        onTap: () => showMemoryForm(context, name: l10n.bookBananaName),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_a_photo_rounded, size: 32, color: k.on(c)),
+                            const SizedBox(height: 10),
+                            Text(
+                              photos.isEmpty ? l10n.bookTakeFirst : l10n.bookThisMonth,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontWeight: FontWeight.w700, color: k.on(c)),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                final e = photos[readOnly ? i : i - 1];
+                final bytes = e['photo_version'] == null ? null : s.eventPhoto(e);
                 return SizedBox(
                   width: 128,
                   child: Material(
-                    color: k.fill(c).withValues(alpha: 0.35),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                      side: BorderSide(color: k.on(c).withValues(alpha: 0.45), width: 1.5),
-                    ),
+                    color: c.surface,
+                    elevation: 1.5,
+                    shadowColor: c.ink.withValues(alpha: 0.25),
+                    borderRadius: BorderRadius.circular(6),
                     child: InkWell(
-                      borderRadius: BorderRadius.circular(18),
-                      onTap: () => showMemoryForm(context, name: l10n.bookBananaName),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add_a_photo_rounded, size: 32, color: k.on(c)),
-                          const SizedBox(height: 10),
-                          Text(
-                            photos.isEmpty ? l10n.bookTakeFirst : l10n.bookThisMonth,
-                            textAlign: TextAlign.center,
-                            style: TextStyle(fontWeight: FontWeight.w700, color: k.on(c)),
-                          ),
-                        ],
+                      borderRadius: BorderRadius.circular(6),
+                      onTap: readOnly ? (bytes == null ? null : () => _showPhoto(context, bytes, bananaName)) : () => showMemoryForm(context, event: e),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(7, 7, 7, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(3),
+                                child: bytes == null
+                                    ? Container(
+                                        color: k.fill(c).withValues(alpha: 0.5),
+                                        alignment: Alignment.center,
+                                        child: Icon(Icons.photo_rounded, size: 32, color: k.iconOn(c)),
+                                      )
+                                    : Image.memory(bytes, fit: BoxFit.cover, cacheWidth: 300, gaplessPlayback: true, semanticLabel: l10n.bookBananaName),
+                              ),
+                            ),
+                            const SizedBox(height: 7),
+                            Text(
+                              _chapter(child, e.start),
+                              textAlign: TextAlign.center,
+                              style: serifStyle(15, color: k.on(c)),
+                            ),
+                            Text(
+                              DateFormat.yMMMd().format(e.start),
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: c.muted, fontSize: 11.5),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 );
-              }
-              final e = photos[readOnly ? i : i - 1];
-              final bytes = e['photo_version'] == null ? null : s.eventPhoto(e);
-              return SizedBox(
-                width: 128,
-                child: Material(
-                  color: c.surface,
-                  elevation: 1.5,
-                  shadowColor: c.ink.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(6),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(6),
-                    onTap: readOnly ? (bytes == null ? null : () => _showPhoto(context, bytes, bananaName)) : () => showMemoryForm(context, event: e),
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(7, 7, 7, 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Expanded(
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(3),
-                              child: bytes == null
-                                  ? Container(
-                                      color: k.fill(c).withValues(alpha: 0.5),
-                                      alignment: Alignment.center,
-                                      child: Icon(Icons.photo_rounded, size: 32, color: k.iconOn(c)),
-                                    )
-                                  : Image.memory(bytes, fit: BoxFit.cover, cacheWidth: 300, gaplessPlayback: true, semanticLabel: l10n.bookBananaName),
-                            ),
-                          ),
-                          const SizedBox(height: 7),
-                          Text(
-                            _chapter(child, e.start),
-                            textAlign: TextAlign.center,
-                            style: serifStyle(15, color: k.on(c)),
-                          ),
-                          Text(
-                            DateFormat.yMMMd().format(e.start),
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: c.muted, fontSize: 11.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
+              },
+            ),
           ),
         ),
       ],

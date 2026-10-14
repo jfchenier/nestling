@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import '../api/api.dart';
 import '../l10n/l10n.dart';
@@ -421,17 +423,66 @@ Future<T?> guard<T>(BuildContext context, Future<T> Function() action) async {
 }
 
 /// Max-width wrapper so the app looks like a phone app on wide browser windows.
+///
+/// Centers [child] on whole screen pixels: centering in a window an odd number of pixels wider
+/// would put everything half a pixel off, and the browser then blurs every letter and line.
 class Constrained extends StatelessWidget {
   const Constrained({super.key, required this.child, this.maxWidth = 640});
   final Widget child;
   final double maxWidth;
 
   @override
-  Widget build(BuildContext context) => Center(
+  Widget build(BuildContext context) => _PixelCenter(
+    ratio: MediaQuery.devicePixelRatioOf(context),
     child: ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxWidth),
       child: child,
     ),
+  );
+}
+
+/// [Center], with the child's offset rounded down to whole device pixels.
+class _PixelCenter extends SingleChildRenderObjectWidget {
+  const _PixelCenter({required this.ratio, super.child});
+  final double ratio;
+
+  @override
+  _RenderPixelCenter createRenderObject(BuildContext context) => _RenderPixelCenter(ratio);
+
+  @override
+  void updateRenderObject(BuildContext context, _RenderPixelCenter render) => render.ratio = ratio;
+}
+
+class _RenderPixelCenter extends RenderPositionedBox {
+  _RenderPixelCenter(this._ratio);
+
+  double get ratio => _ratio;
+  double _ratio;
+  set ratio(double v) {
+    if (v == _ratio) return;
+    _ratio = v;
+    markNeedsLayout();
+  }
+
+  @override
+  void alignChild() {
+    super.alignChild();
+    final data = child!.parentData! as BoxParentData;
+    double snap(double v) => (v * ratio).floorToDouble() / ratio;
+    data.offset = Offset(snap(data.offset.dx), snap(data.offset.dy));
+  }
+}
+
+/// Lets a mouse drag [child] (a sideways strip of chips or cards) like a finger on a phone, for
+/// the web app on a computer, where a sideways list doesn't scroll with the mouse wheel.
+class MouseDrag extends StatelessWidget {
+  const MouseDrag({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ScrollConfiguration(
+    behavior: ScrollConfiguration.of(context).copyWith(dragDevices: PointerDeviceKind.values.toSet()),
+    child: child,
   );
 }
 
