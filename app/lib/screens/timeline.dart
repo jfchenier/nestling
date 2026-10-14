@@ -118,30 +118,47 @@ class _TimelineScreenState extends State<TimelineScreen> {
           const SizedBox(width: 12),
         ],
       ),
+      // As wide as Home on a computer, with every filter in view.
       body: Constrained(
+        maxWidth: 900,
         child: Column(
           children: [
-            SizedBox(
-              height: 48,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                children: [
+            LayoutBuilder(
+              builder: (context, box) {
+                final chips = [
                   for (final f in [null, ..._filters.keys])
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(f == null ? l10n.timelineAll : _filters[f]!),
-                        selected: _filter == f,
-                        showCheckmark: false,
-                        onSelected: (_) {
-                          setState(() => _filter = f);
-                          _reload();
-                        },
-                      ),
+                    ChoiceChip(
+                      label: Text(f == null ? l10n.timelineAll : _filters[f]!),
+                      selected: _filter == f,
+                      showCheckmark: false,
+                      onSelected: (_) {
+                        setState(() => _filter = f);
+                        _reload();
+                      },
                     ),
-                ],
-              ),
+                ];
+                // Wide: the chips wrap onto a second row. Phone: one row that scrolls sideways
+                // (a mouse can drag it too).
+                if (box.maxWidth >= 600) {
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: Wrap(spacing: 8, runSpacing: 8, children: chips),
+                    ),
+                  );
+                }
+                return SizedBox(
+                  height: 48,
+                  child: MouseDrag(
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      children: [for (final chip in chips) Padding(padding: const EdgeInsets.only(right: 8), child: chip)],
+                    ),
+                  ),
+                );
+              },
             ),
             Expanded(
               child: RefreshIndicator(
