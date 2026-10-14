@@ -1053,5 +1053,11 @@
   "aboutLicense": "Licence",
   "aboutLicenseValue": "MIT : libre et open source",
   "aboutOpenSource": "Licences open source",
-  "aboutOpenSourceHint": "Les bibliothèques utilisées par Nestling"
+  "aboutOpenSourceHint": "Les bibliothèques utilisées par Nestling",
+  "sizeSmall": "Petite",
+  "sizeMedium": "Moyenne",
+  "sizeLarge": "Grande",
+  "formWetSize": "Quantité d'urine",
+  "formDirtySize": "Quantité de selles",
+  "partSize": "{part} ({size})"
 }

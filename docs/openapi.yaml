@@ -1742,7 +1742,8 @@ components:
       type: object
       required: [type]
       description: |
-        At least one of `wet`, `dirty`, `dry`. `color` and `consistency` need `dirty`. With
+        At least one of `wet`, `dirty`, `dry`. `color`, `consistency` and `dirty_size` need
+        `dirty`; `wet_size` needs `wet` (sizes are optional). With
         `potty` it is a potty trip instead of a diaper: `wet`/`dirty` are pee/poo
         (one is required for `success`/`accident`), `sat_dry` goes with `dry`.
       properties:
@@ -1754,6 +1755,8 @@ components:
         blowout: { type: boolean, default: false }
         color: { type: string, enum: [yellow, green, brown, black, red, gray] }
         consistency: { type: string, enum: [runny, mushy, mucousy, pebbles, solid] }
+        wet_size: { type: string, enum: [small, medium, large] }
+        dirty_size: { type: string, enum: [small, medium, large] }
         potty: { type: string, enum: [sat_dry, success, accident] }
     PumpDetails:
       type: object

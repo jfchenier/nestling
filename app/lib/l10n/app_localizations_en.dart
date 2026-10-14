@@ -3901,4 +3901,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aboutOpenSourceHint => 'The libraries Nestling is built with';
+
+  @override
+  String get sizeSmall => 'Small';
+
+  @override
+  String get sizeMedium => 'Medium';
+
+  @override
+  String get sizeLarge => 'Large';
+
+  @override
+  String get formWetSize => 'Wet size';
+
+  @override
+  String get formDirtySize => 'Dirty size';
+
+  @override
+  String partSize(Object part, Object size) {
+    return '$part ($size)';
+  }
 }

@@ -1053,5 +1053,11 @@
   "aboutLicense": "Лицензия",
   "aboutLicenseValue": "MIT: свободная и открытая",
   "aboutOpenSource": "Лицензии открытого ПО",
-  "aboutOpenSourceHint": "Библиотеки, из которых собран Nestling"
+  "aboutOpenSourceHint": "Библиотеки, из которых собран Nestling",
+  "sizeSmall": "Маленький",
+  "sizeMedium": "Средний",
+  "sizeLarge": "Большой",
+  "formWetSize": "Мокрый: размер",
+  "formDirtySize": "Грязный: размер",
+  "partSize": "{part} ({size})"
 }

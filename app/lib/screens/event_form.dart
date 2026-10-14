@@ -70,6 +70,8 @@ class _EventFormState extends State<EventForm> {
   late bool _wet = e?['wet'] ?? true, _dirty = e?['dirty'] ?? false, _dry = e?['dry'] ?? false;
   late bool _rash = e?['rash'] ?? false, _blowout = e?['blowout'] ?? false;
   late String? _color = e?['color'], _consistency = e?['consistency'];
+  // Optional sizes, picked per entry (none = not noted).
+  late String? _wetSize = e?['wet_size'], _dirtySize = e?['dirty_size'];
   // potty (diaper page, Potty tab): sat_dry / success / accident, then the same wet/dirty details.
   // A new entry opens on the tab of the last diaper/potty entry.
   late bool _pottyMode = e != null ? e!['potty'] != null : context.read<AppState>().summary?['last']?['diaper']?['potty'] != null;
@@ -212,10 +214,14 @@ class _EventFormState extends State<EventForm> {
         });
         body['color'] = !dry && _dirty ? _color : null;
         body['consistency'] = !dry && _dirty ? _consistency : null;
+        body['wet_size'] = !dry && _wet ? _wetSize : null;
+        body['dirty_size'] = !dry && _dirty ? _dirtySize : null;
       case 'diaper':
         body.addAll({'potty': null, 'wet': _wet, 'dirty': _dirty, 'dry': _dry, 'rash': _rash, 'blowout': _blowout});
         body['color'] = _dirty ? _color : null;
         body['consistency'] = _dirty ? _consistency : null;
+        body['wet_size'] = _wet ? _wetSize : null;
+        body['dirty_size'] = _dirty ? _dirtySize : null;
       case 'pump':
         body['left_ml'] = _metric(_Dim.volume, _leftMl);
         body['right_ml'] = _metric(_Dim.volume, _rightMl);
@@ -736,10 +742,42 @@ class _EventFormState extends State<EventForm> {
         ],
       ),
     ),
+    ..._sizeRows(),
     if (_dirty) FormRow(label: l10n.formTextureColor, below: _textureAndColor()),
     _switchRow(l10n.formBlowout, _blowout, (v) => setState(() => _blowout = v)),
     _switchRow(l10n.formDiaperRash, _rash, (v) => setState(() => _rash = v)),
   ];
+
+  /// Optional small / medium / large for each part that's checked.
+  List<Widget> _sizeRows() {
+    // The same segmented bar as Diaper / Potty; tapping the picked size again clears it.
+    Widget row(String label, String? value, ValueChanged<String?> onChanged) => FormRow(
+      label: label,
+      below: SizedBox(
+        width: double.infinity,
+        child: SegmentedButton<String>(
+          segments: [
+            ButtonSegment(value: 'small', label: Text(l10n.sizeSmall)),
+            ButtonSegment(value: 'medium', label: Text(l10n.sizeMedium)),
+            ButtonSegment(value: 'large', label: Text(l10n.sizeLarge)),
+          ],
+          selected: {?value},
+          emptySelectionAllowed: true,
+          showSelectedIcon: false,
+          style: SegmentedButton.styleFrom(
+            selectedBackgroundColor: kind.fill(context.pal),
+            selectedForegroundColor: context.pal.bandInk,
+            side: BorderSide(color: context.pal.line),
+          ),
+          onSelectionChanged: (v) => setState(() => onChanged(v.firstOrNull)),
+        ),
+      ),
+    );
+    return [
+      if (_wet) row(l10n.formWetSize, _wetSize, (v) => _wetSize = v),
+      if (_dirty) row(l10n.formDirtySize, _dirtySize, (v) => _dirtySize = v),
+    ];
+  }
 
   /// Potty tab: what happened (one of three), then wet/dirty with the diaper's details unless
   /// the baby stayed dry.
@@ -771,6 +809,7 @@ class _EventFormState extends State<EventForm> {
           ],
         ),
       ),
+      ..._sizeRows(),
       if (_dirty) FormRow(label: l10n.formTextureColor, below: _textureAndColor()),
       _switchRow(l10n.formBlowout, _blowout, (v) => setState(() => _blowout = v)),
     ],

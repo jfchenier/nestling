@@ -122,6 +122,14 @@ void main() {
     expect(() => normalizeDetails({'type': 'diaper', 'potty': 'maybe'}), throwsA(anything));
   });
 
+  test('diaper sizes (same rules as model.rs)', () {
+    void check(Map<String, dynamic> d) => validateEvent(normalizeDetails({'type': 'diaper', ...d}), 0, null, null);
+    check({'wet': true, 'dirty': true, 'wet_size': 'small', 'dirty_size': 'large'});
+    expect(() => check({'wet': true, 'dirty_size': 'medium'}), throwsA(anything));
+    expect(() => check({'dry': true, 'wet_size': 'small'}), throwsA(anything));
+    expect(() => normalizeDetails({'type': 'diaper', 'wet': true, 'wet_size': 'huge'}), throwsA(anything));
+  });
+
   test('daily stats split sleep across midnight (same cases as trends.rs)', () {
     TrendEvent ev(String start, String? end, Map<String, dynamic> d) => TrendEvent(ms(start), end == null ? null : ms(end), d);
     final events = [

@@ -253,6 +253,8 @@ pub fn convert(key: &str, t: &Value) -> Result<Converted, String> {
                 blowout: dirty && flag(t, "diaperPoopBlowout"),
                 color: if dirty { color(t) } else { None },
                 consistency: if dirty { consistency(t) } else { None },
+                wet_size: None,
+                dirty_size: None,
                 potty: None,
             };
             if !(d.wet || d.dirty || d.dry) {

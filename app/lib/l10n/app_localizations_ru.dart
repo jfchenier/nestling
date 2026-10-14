@@ -3973,4 +3973,24 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get aboutOpenSourceHint => 'Библиотеки, из которых собран Nestling';
+
+  @override
+  String get sizeSmall => 'Маленький';
+
+  @override
+  String get sizeMedium => 'Средний';
+
+  @override
+  String get sizeLarge => 'Большой';
+
+  @override
+  String get formWetSize => 'Мокрый: размер';
+
+  @override
+  String get formDirtySize => 'Грязный: размер';
+
+  @override
+  String partSize(Object part, Object size) {
+    return '$part ($size)';
+  }
 }

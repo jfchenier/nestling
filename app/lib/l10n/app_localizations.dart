@@ -6425,6 +6425,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The libraries Nestling is built with'**
   String get aboutOpenSourceHint;
+
+  /// No description provided for @sizeSmall.
+  ///
+  /// In en, this message translates to:
+  /// **'Small'**
+  String get sizeSmall;
+
+  /// No description provided for @sizeMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Medium'**
+  String get sizeMedium;
+
+  /// No description provided for @sizeLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Large'**
+  String get sizeLarge;
+
+  /// No description provided for @formWetSize.
+  ///
+  /// In en, this message translates to:
+  /// **'Wet size'**
+  String get formWetSize;
+
+  /// No description provided for @formDirtySize.
+  ///
+  /// In en, this message translates to:
+  /// **'Dirty size'**
+  String get formDirtySize;
+
+  /// No description provided for @partSize.
+  ///
+  /// In en, this message translates to:
+  /// **'{part} ({size})'**
+  String partSize(Object part, Object size);
 }
 
 class _AppLocalizationsDelegate

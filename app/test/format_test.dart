@@ -78,6 +78,10 @@ void main() {
       'color': 'yellow',
     });
     expect(describe(diaper, const Units(false)).$2, 'Wet + dirty · Yellow');
+    final sized = Event({...diaper.json, 'wet_size': 'large', 'dirty_size': null});
+    expect(describe(sized, const Units(false)).$2, 'Wet (large) · Dirty · Yellow');
+    final potty = Event({...diaper.json, 'potty': 'success', 'dirty': false, 'color': null, 'wet_size': 'small'});
+    expect(describe(potty, const Units(false)), ('Potty', 'In the potty · Wet (small)'));
   });
 
   test('timers tick locally from when they were received', () {

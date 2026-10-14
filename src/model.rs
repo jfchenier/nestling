@@ -64,6 +64,15 @@ pub enum Potty {
     Accident,
 }
 
+/// How much there was in a diaper (or on the potty), for wet and dirty apart.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Size {
+    Small,
+    Medium,
+    Large,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum HealthKind {
@@ -118,6 +127,11 @@ pub struct Diaper {
     pub color: Option<PoopColor>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub consistency: Option<PoopConsistency>,
+    /// Optional sizes: `wet_size` needs `wet`, `dirty_size` needs `dirty`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wet_size: Option<Size>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dirty_size: Option<Size>,
     /// Set for a potty entry (the same card and form as diapers); `wet`/`dirty` are then
     /// pee/poo and `dry` goes with `sat_dry`. The other diaper details (color, texture, blowout,
     /// rash) apply too.
@@ -270,6 +284,12 @@ impl Details {
                 if (d.color.is_some() || d.consistency.is_some()) && !d.dirty {
                     return bad("color and consistency only apply to dirty diapers");
                 }
+                if d.wet_size.is_some() && !d.wet {
+                    return bad("wet_size only applies to wet diapers");
+                }
+                if d.dirty_size.is_some() && !d.dirty {
+                    return bad("dirty_size only applies to dirty diapers");
+                }
                 match d.potty {
                     Some(Potty::SatDry) if d.wet || d.dirty => return bad("sat_dry cannot be wet or dirty"),
                     Some(Potty::Success | Potty::Accident) if !(d.wet || d.dirty) => {
@@ -357,5 +377,14 @@ mod tests {
         assert!(v(json!({"type": "diaper", "potty": "success", "dirty": true, "color": "brown"})).is_ok());
         assert!(v(json!({"type": "diaper", "potty": "accident", "dry": true})).is_err());
         assert!(v(json!({"type": "diaper", "potty": "accident", "dirty": true, "blowout": true, "consistency": "runny"})).is_ok());
+    }
+
+    #[test]
+    fn diaper_sizes() {
+        let v = |j: serde_json::Value| serde_json::from_value::<Details>(j).unwrap().validate(0, None, &None);
+        assert!(v(json!({"type": "diaper", "wet": true, "dirty": true, "wet_size": "small", "dirty_size": "large"})).is_ok());
+        assert!(v(json!({"type": "diaper", "wet": true, "dirty_size": "medium"})).is_err());
+        assert!(v(json!({"type": "diaper", "dry": true, "wet_size": "small"})).is_err());
+        assert!(serde_json::from_value::<Details>(json!({"type": "diaper", "wet": true, "wet_size": "huge"})).is_err());
     }
 }

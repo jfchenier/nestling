@@ -157,6 +157,16 @@ fn potty(v: &str) -> Option<Potty> {
     }
 }
 
+/// Nestling's own `[Diaper] Wet Size` / `[Diaper] Dirty Size` columns: Small, Medium, Large.
+fn size(v: Option<&str>) -> Option<Size> {
+    match v?.trim().to_lowercase().as_str() {
+        "small" | "s" => Some(Size::Small),
+        "medium" | "m" => Some(Size::Medium),
+        "large" | "l" => Some(Size::Large),
+        _ => None,
+    }
+}
+
 /// `Tummy time` → `tummy_time`.
 fn activity_kind(v: &str) -> String {
     let s: String = v
@@ -282,14 +292,17 @@ fn convert_row(row: &Row) -> Result<Vec<(String, Details, i64, Option<i64>)>, St
             let detail = row.get("[Diaper] Detail").unwrap_or("").to_lowercase();
             let dirty = kind.contains("dirty") || kind.contains("poo");
             let potty = row.get("[Diaper] Potty").and_then(potty);
+            let wet = kind.contains("wet") || kind.contains("pee");
             let d = Diaper {
-                wet: kind.contains("wet") || kind.contains("pee"),
+                wet,
                 dirty,
                 dry: kind.contains("dry"),
                 rash: detail.contains("rash"),
                 blowout: dirty && detail.contains("blowout"),
                 color: if dirty { color(row.get("[Diaper] Dirty Color")) } else { None },
                 consistency: if dirty { consistency(row.get("[Diaper] Dirty Texture")) } else { None },
+                wet_size: if wet { size(row.get("[Diaper] Wet Size")) } else { None },
+                dirty_size: if dirty { size(row.get("[Diaper] Dirty Size")) } else { None },
                 potty,
             };
             if !(d.wet || d.dirty || d.dry) {
