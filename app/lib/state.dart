@@ -440,7 +440,8 @@ class AppState extends ChangeNotifier {
       // Only once every family's data is here, so nothing is forgotten before it arrives.
       if (store.families.every((f) => store.cursors.containsKey(f['id']))) {
         for (final name in have.keys) {
-          if (!want.containsKey(name) && !store.photoUploads.containsKey(name.substring(2))) await cache.remove(name);
+          final id = name.substring(2);
+          if (!want.containsKey(name) && !store.photoUploads.containsKey(id) && !store.printUploads.containsKey(id)) await cache.remove(name);
         }
       }
       for (final MapEntry(key: name, value: (version, path)) in want.entries) {

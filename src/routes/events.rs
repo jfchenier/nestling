@@ -36,10 +36,13 @@ pub struct EventRow {
     pub source_id: Option<String>,
     /// When the entry's photo was last set (null: no photo).
     pub photo_version: Option<i64>,
+    /// The photo has a full-size copy for printing (`/events/{id}/photo/print`).
+    pub photo_print: Option<bool>,
 }
 
 pub const EVENT_COLS: &str = "id, family_id, child_id, type, start_at, end_at, data, note, created_by, updated_by, created_at, updated_at, deleted_at, source, source_id,
-    (SELECT p.updated_at FROM event_photos p WHERE p.event_id = events.id) AS photo_version";
+    (SELECT p.updated_at FROM event_photos p WHERE p.event_id = events.id) AS photo_version,
+    (SELECT p.print_data IS NOT NULL FROM event_photos p WHERE p.event_id = events.id) AS photo_print";
 
 impl EventRow {
     pub fn details(&self) -> AppResult<Details> {
@@ -66,6 +69,7 @@ impl EventRow {
             source: self.source.as_deref(),
             source_id: self.source_id.as_deref(),
             photo_version: self.photo_version,
+            photo_print: self.photo_print == Some(true),
         };
         Ok(serde_json::to_value(out)?)
     }
@@ -95,6 +99,9 @@ struct EventOut<'a> {
     source_id: Option<&'a str>,
     /// Changes whenever the photo does (null: none); fetch it from `/events/{id}/photo`.
     photo_version: Option<i64>,
+    /// The photo has a full-size copy for printing (`/events/{id}/photo/print`); left out without one.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    photo_print: bool,
 }
 
 /// Request body for creating (and, after merging, patching) an event.
@@ -367,7 +374,8 @@ pub async fn delete(State(state): State<AppState>, user: AuthUser, Path(id): Pat
 pub const PHOTO_LIMIT: usize = 5 * 1024 * 1024;
 
 /// Set an entry's photo: the raw image (JPEG, PNG or WebP) as the request body. The entry's
-/// `updated_at` moves too, so `GET /families/{id}/sync` brings the new `photo_version`.
+/// `updated_at` moves too, so `GET /families/{id}/sync` brings the new `photo_version`. Any print
+/// copy of the photo it replaces is dropped.
 pub async fn put_photo(State(state): State<AppState>, user: AuthUser, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Value>> {
     let (row, tz) = accessible_event(&state, &id, &user).await?;
     let Some(content_type) = crate::routes::children::image_type(&body) else {
@@ -377,7 +385,8 @@ pub async fn put_photo(State(state): State<AppState>, user: AuthUser, Path(id): 
     let mut tx = state.db.begin().await?;
     sqlx::query(
         "INSERT INTO event_photos (event_id, content_type, data, updated_at) VALUES (?, ?, ?, ?)
-         ON CONFLICT(event_id) DO UPDATE SET content_type = excluded.content_type, data = excluded.data, updated_at = excluded.updated_at",
+         ON CONFLICT(event_id) DO UPDATE SET content_type = excluded.content_type, data = excluded.data, updated_at = excluded.updated_at,
+           print_type = NULL, print_data = NULL",
     )
     .bind(&id)
     .bind(content_type)
@@ -400,6 +409,48 @@ pub async fn get_photo(State(state): State<AppState>, user: AuthUser, Path(id): 
         .fetch_optional(&state.db)
         .await?;
     let Some((content_type, data)) = row else {
+        return Err(AppError::NotFound("photo"));
+    };
+    Ok(([(header::CONTENT_TYPE, content_type), (header::CACHE_CONTROL, "private, no-cache".to_string())], data).into_response())
+}
+
+/// Largest print copy accepted (the app sends a JPEG of at most 3600 px, a few MB).
+pub const PRINT_PHOTO_LIMIT: usize = 25 * 1024 * 1024;
+
+/// Keep a full-size copy of the entry's photo for printing the baby book: the raw image as the
+/// body, sent after the photo itself (`404` without one). Only the entry's `updated_at` and
+/// `photo_print` change: `photo_version` stays, so phones don't download the photo again.
+pub async fn put_print_photo(State(state): State<AppState>, user: AuthUser, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Value>> {
+    let (row, tz) = accessible_event(&state, &id, &user).await?;
+    let Some(content_type) = crate::routes::children::image_type(&body) else {
+        return bad("the photo must be a JPEG, PNG or WebP image");
+    };
+    let mut tx = state.db.begin().await?;
+    let set = sqlx::query("UPDATE event_photos SET print_type = ?, print_data = ? WHERE event_id = ?")
+        .bind(content_type)
+        .bind(body.as_ref())
+        .bind(&id)
+        .execute(&mut *tx)
+        .await?;
+    if set.rows_affected() == 0 {
+        return Err(AppError::NotFound("photo"));
+    }
+    sqlx::query("UPDATE events SET changed_at = COALESCE(changed_at, updated_at), updated_at = ? WHERE id = ?").bind(now_ms()).bind(&id).execute(&mut *tx).await?;
+    tx.commit().await?;
+    let json = get_row(&state.db, &id).await?.to_json(tz)?;
+    state.publish(&row.family_id, "event", "updated", json.clone());
+    Ok(Json(json))
+}
+
+/// The print copy of the entry's photo (`404` without one: use `/events/{id}/photo` then).
+pub async fn get_print_photo(State(state): State<AppState>, user: AuthUser, Path(id): Path<String>) -> AppResult<axum::response::Response> {
+    use axum::{http::header, response::IntoResponse};
+    readable_event(&state, &id, &user).await?;
+    let row: Option<(Option<String>, Option<Vec<u8>>)> = sqlx::query_as("SELECT print_type, print_data FROM event_photos WHERE event_id = ?")
+        .bind(&id)
+        .fetch_optional(&state.db)
+        .await?;
+    let Some((Some(content_type), Some(data))) = row else {
         return Err(AppError::NotFound("photo"));
     };
     Ok(([(header::CONTENT_TYPE, content_type), (header::CACHE_CONTROL, "private, no-cache".to_string())], data).into_response())

@@ -54,6 +54,7 @@ void main() {
         '"Profile","Mia",,,,,,"2026-05-30","FEMALE","c-old",\n';
     await drive.put('server-F.csv', utf8.encode(csv), null);
     await drive.put('server-F-photo-e-2-7', jpeg(1), null);
+    await drive.put('server-F-print-e-2-7', jpeg(9), null);
     await drive.put('server-F-child-c-old-3', jpeg(2), null);
     await drive.put(
       'server-F.json',
@@ -77,6 +78,7 @@ void main() {
             },
           ],
           'photos': {'t-smile': 'server-F-photo-e-2-7'},
+          'prints': {'t-smile': 'server-F-print-e-2-7'},
         }),
       ),
       null,
@@ -98,6 +100,8 @@ void main() {
     final events = (await api.get('/children/${kids.single['id']}/events'))['events'] as List;
     final smile = events.singleWhere((e) => e['type'] == 'milestone');
     expect(await api.getBytes('/events/${smile['id']}/photo'), jpeg(1));
+    // The print copy stays on the phone.
+    expect(await api.getBytes('/events/${smile['id']}/photo/print'), jpeg(9));
 
     // Again, into the same family: updated, not doubled.
     final again = await backup.restore(api, copies.single, familyId: res.familyId);
@@ -130,13 +134,16 @@ void main() {
     await old.post('/children/${mia['id']}/events', {'type': 'diaper', 'wet': true, 'start': '2026-10-01T08:00'});
     final smile = await old.post('/children/${mia['id']}/events', {'type': 'milestone', 'name': 'First smile', 'start': '2026-10-02T09:00'});
     await old.putBytes('/events/${smile['id']}/photo', jpeg(1), contentType: 'image/jpeg');
+    await old.putBytes('/events/${smile['id']}/photo/print', jpeg(9), contentType: 'image/jpeg');
+    final version = (await old.get('/events/${smile['id']}'))['photo_version'];
 
     final drive = MemoryFiles();
     final (oldPhone, _) = await serverlessPhone();
     await ServerBackup(oldPhone, () => Api(url!, old.token), files: drive).backUp();
     expect(drive.names, [
       'server-${fam['id']}-child-${mia['id']}-${(await old.get('/children/${mia['id']}'))['photo_version']}',
-      'server-${fam['id']}-photo-${smile['id']}-${(await old.get('/events/${smile['id']}'))['photo_version']}',
+      'server-${fam['id']}-photo-${smile['id']}-$version',
+      'server-${fam['id']}-print-${smile['id']}-$version',
       'server-${fam['id']}.csv',
       'server-${fam['id']}.json',
     ]);
@@ -156,6 +163,7 @@ void main() {
     expect(events.map((e) => e['type']).toSet(), {'diaper', 'milestone'});
     final restored = events.singleWhere((e) => e['type'] == 'milestone');
     expect(await fresh.getBytes('/events/${restored['id']}/photo'), jpeg(1));
+    expect(await fresh.getBytes('/events/${restored['id']}/photo/print'), jpeg(9));
 
     // Restored into the family it came from (the old server still running): nothing doubles.
     final same = await backup.restore(old, (await backup.copies()).single, familyId: fam['id']);
@@ -169,5 +177,7 @@ void main() {
     final (phone, local) = await serverlessPhone();
     final onPhone = await ServerBackup(phone, null, files: drive2).restore(local, (await ServerBackup(phone, null, files: drive2).copies()).single);
     expect((onPhone.entries, onPhone.photos), (2, 2));
+    final onPhoneSmile = phone.events.values.singleWhere((e) => e['type'] == 'milestone');
+    expect(await local.getBytes('/events/${onPhoneSmile['id']}/photo/print'), jpeg(9));
   }, skip: url == null ? 'set NESTLING_TEST_SERVER to run against a server' : false);
 }

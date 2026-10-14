@@ -166,6 +166,8 @@ Every record is an event with a `type`, a `start`, an optional `end`, an optiona
 | `DELETE /events/{id}` | |
 | `PUT /events/{id}/photo` | raw JPEG, PNG or WebP (≤ 5 MB): one photo per entry (the app's baby book uses it on milestones); the entry's `photo_version` and `updated_at` change |
 | `GET / DELETE /events/{id}/photo` | the image (`404` without one) / remove it; deleting the entry removes its photo |
+| `PUT /events/{id}/photo/print` | raw JPEG, PNG or WebP (≤ 25 MB): a full-size copy of the photo for printing the baby book, sent after the photo (`404` without one; a new photo drops it); the entry gets `"photo_print": true` and a new `updated_at`, its `photo_version` stays |
+| `GET /events/{id}/photo/print` | the print copy (`404` without one: use the photo) |
 
 Response shape:
 

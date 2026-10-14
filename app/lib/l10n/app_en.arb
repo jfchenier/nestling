@@ -306,6 +306,7 @@
   "bookPhotoAMonth": "a photo a month",
   "bookPhotoCount": "{count, plural, =1{1 photo} other{{count} photos}}",
   "bookPhotoNotSaved": "The memory is saved, but not its photo: {error}",
+  "bookPrintPhotoNotSaved": "The memory and its photo are saved, but not the full-size copy kept for printing: {error}",
   "bookPhotoOf": "Photo: {name}",
   "bookPreparingPhoto": "Preparing the photo…",
   "bookSaveToBook": "Save to the book",

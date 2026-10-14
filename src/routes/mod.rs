@@ -83,6 +83,10 @@ pub fn api() -> Router<AppState> {
             "/events/{id}/photo",
             get(events::get_photo).put(events::put_photo).delete(events::delete_photo).layer(DefaultBodyLimit::max(events::PHOTO_LIMIT)),
         )
+        .route(
+            "/events/{id}/photo/print",
+            get(events::get_print_photo).put(events::put_print_photo).layer(DefaultBodyLimit::max(events::PRINT_PHOTO_LIMIT)),
+        )
         // Timers
         .route("/timers/{id}", get(timers::get).patch(timers::edit).delete(timers::discard))
         .route("/timers/{id}/pause", post(timers::pause))

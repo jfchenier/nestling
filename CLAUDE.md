@@ -157,7 +157,12 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       (`_ReminderStrip`, same due rule as `reminders.rs`); early-dose warning in the medicine form.
 - [x] **Baby book** (the Firsts card's Book button; tapping the card adds a memory; `app/lib/screens/baby_book.dart`): milestones as a
       scrapbook with one photo each (`/events/{id}/photo`, table `event_photos`; events carry
-      `photo_version`), built-in ideas of firsts plus custom ones. Serverless: `LocalStore.eventPhotos`
+      `photo_version`), built-in ideas of firsts plus custom ones. For a printed book later, the app also
+      sends a full-size copy (≤ 3600 px JPEG; `PUT /events/{id}/photo/print`, ≤ 25 MB; events carry
+      `photo_print`) after the 1600 px photo; a new photo drops it. Server mode: only on the server
+      (queued in `LocalStore.printUploads` while offline, forgotten on the device once sent) and in the
+      Drive backup (`-print-` files). Serverless: only on the phone that picked it (`photoCache` `p-<id>`,
+      not synced, not in its Drive backup yet). Serverless: `LocalStore.eventPhotos`
       (saved apart, clocks `ep:<id>`), Drive sync sends each photo once as `photo-<id>-<version>.bin`.
       Server mode keeps every photo on the device for offline viewing (`LocalStore.photoCache`: files on
       Android, IndexedDB on the web; filled by `AppState.keepPhotos` after each sync) and queues photos

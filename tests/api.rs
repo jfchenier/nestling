@@ -661,6 +661,58 @@ async fn event_photo() {
 }
 
 #[tokio::test]
+async fn event_print_photo() {
+    let c = Client::new().await;
+    let t = c.register("a@example.com", "A").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&t), Some(json!({ "name": "F" }))).await;
+    let fid = fam["id"].as_str().unwrap();
+    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&t), Some(json!({ "name": "B", "birth_date": "2026-06-01" }))).await;
+    let cid = child["id"].as_str().unwrap();
+    let (_, ev) = c.call(Method::POST, &format!("/children/{cid}/events"), Some(&t), Some(json!({ "type": "milestone", "name": "First smile", "start": "2026-07-01T10:00" }))).await;
+    let eid = ev["id"].as_str().unwrap();
+    assert!(ev.get("photo_print").is_none(), "{ev}");
+    let small = b"\xFF\xD8\xFF\xE0 small".to_vec();
+    let big = [b"\xFF\xD8\xFF\xE0 big".to_vec(), vec![7; 6 * 1024 * 1024]].concat();
+
+    // Only once the entry has a photo.
+    let (s, _, _) = c.call_raw(Method::PUT, &format!("/events/{eid}/photo/print"), &t, big.clone()).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    let (_, _, body) = c.call_raw(Method::PUT, &format!("/events/{eid}/photo"), &t, small.clone()).await;
+    let photo: Value = serde_json::from_slice(&body).unwrap();
+    let (_, synced) = c.call(Method::GET, &format!("/families/{fid}/sync"), Some(&t), None).await;
+    let cursor = synced["cursor"].as_i64().unwrap();
+    // Larger than a photo may be; the photo's version stays, so phones don't download it again.
+    let (s, _, body) = c.call_raw(Method::PUT, &format!("/events/{eid}/photo/print"), &t, big.clone()).await;
+    assert_eq!(s, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let put: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!((put["photo_print"].as_bool(), &put["photo_version"]), (Some(true), &photo["photo_version"]), "{put}");
+    let (_, synced) = c.call(Method::GET, &format!("/families/{fid}/sync?since={cursor}"), Some(&t), None).await;
+    assert_eq!(synced["events"][0]["photo_print"], true, "{synced}");
+    let (s, ct, body) = c.call_raw(Method::GET, &format!("/events/{eid}/photo/print"), &t, vec![]).await;
+    assert_eq!((s, ct.as_str(), body == big), (StatusCode::OK, "image/jpeg", true));
+    let (_, _, body) = c.call_raw(Method::GET, &format!("/events/{eid}/photo"), &t, vec![]).await;
+    assert_eq!(body, small);
+    let (s, _, _) = c.call_raw(Method::PUT, &format!("/events/{eid}/photo/print"), &t, b"<svg/>".to_vec()).await;
+    assert_eq!(s, StatusCode::BAD_REQUEST);
+    let other = c.register("b@example.com", "B").await;
+    let (s, _, _) = c.call_raw(Method::GET, &format!("/events/{eid}/photo/print"), &other, vec![]).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+
+    // A new photo drops the old one's print copy; removing the photo removes it too.
+    let (_, _, body) = c.call_raw(Method::PUT, &format!("/events/{eid}/photo"), &t, small.clone()).await;
+    let replaced: Value = serde_json::from_slice(&body).unwrap();
+    assert!(replaced.get("photo_print").is_none(), "{replaced}");
+    let (s, _, _) = c.call_raw(Method::GET, &format!("/events/{eid}/photo/print"), &t, vec![]).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    c.call_raw(Method::PUT, &format!("/events/{eid}/photo/print"), &t, big).await;
+    c.call_raw(Method::DELETE, &format!("/events/{eid}/photo"), &t, vec![]).await;
+    let (s, _, _) = c.call_raw(Method::GET, &format!("/events/{eid}/photo/print"), &t, vec![]).await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    let (_, ev) = c.call(Method::GET, &format!("/events/{eid}"), Some(&t), None).await;
+    assert!(ev.get("photo_print").is_none(), "{ev}");
+}
+
+#[tokio::test]
 async fn csv_export_round_trip() {
     let c = Client::new().await;
     let t = c.register("export@example.com", "Ex").await;

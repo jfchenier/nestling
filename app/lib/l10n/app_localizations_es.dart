@@ -510,6 +510,11 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String bookPrintPhotoNotSaved(Object error) {
+    return 'El recuerdo y su foto se guardaron, pero no la copia a tamaño completo para imprimir: $error';
+  }
+
+  @override
   String bookPhotoOf(Object name) {
     return 'Foto: $name';
   }

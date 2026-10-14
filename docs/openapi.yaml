@@ -1155,8 +1155,47 @@ paths:
       tags: [events]
       operationId: deleteEventPhoto
       summary: Remove the entry's photo
+      description: Its print copy goes with it.
       responses:
         "204": { description: Removed (or there was none) }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /events/{id}/photo/print:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      tags: [events]
+      operationId: getEventPrintPhoto
+      summary: The full-size copy of the entry's photo, for printing the baby book
+      description: "`404` when the photo has none (use `GET /events/{id}/photo` then)."
+      responses:
+        "200":
+          description: The image
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        "404": { $ref: "#/components/responses/NotFound" }
+    put:
+      tags: [events]
+      operationId: putEventPrintPhoto
+      summary: Keep a full-size copy of the entry's photo for printing (raw JPEG, PNG or WebP, at most 25 MB)
+      description: >-
+        Sent after `PUT /events/{id}/photo` (`404` while the entry has no photo); setting a new
+        photo drops it. Only `photo_print` and `updated_at` change: `photo_version` stays, so
+        devices don't download the photo again.
+      requestBody:
+        required: true
+        content:
+          image/jpeg: { schema: { type: string, format: binary } }
+          image/png: { schema: { type: string, format: binary } }
+          image/webp: { schema: { type: string, format: binary } }
+      responses:
+        "200":
+          description: The event
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Event" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "404": { $ref: "#/components/responses/NotFound" }
   /events/{id}/continue:
     parameters:
@@ -1719,6 +1758,9 @@ components:
           format: int64
           nullable: true
           description: Changes whenever the entry's photo does; null without one (`GET /events/{id}/photo`).
+        photo_print:
+          type: boolean
+          description: The photo has a full-size copy for printing (`GET /events/{id}/photo/print`); left out without one.
 
     FeedDetails:
       type: object

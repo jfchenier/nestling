@@ -26,6 +26,8 @@ import 'api.dart';
 /// Photos on entries (the baby book) set while the server can't be reached, or before their entry
 /// got there, wait on the device ([LocalStore.photoUploads]) and go up with the next sync. Every
 /// photo downloaded or sent is kept on the device ([LocalStore.photoCache]) so it shows offline.
+/// Their full-size copies for printing wait the same way ([LocalStore.printUploads]), after the
+/// photo, but aren't kept once sent.
 class SyncApi extends Api {
   SyncApi(super.server, super.token, this.store, [super.client]) : engine = LocalEngine(store);
 
@@ -46,7 +48,7 @@ class SyncApi extends Api {
   final List<String> notices = [];
 
   /// Changes waiting for the server to be reachable (not the ones on their way right now).
-  int get pending => store.pending.keys.where((k) => !_inFlight.contains(k)).length + store.photoUploads.length;
+  int get pending => store.pending.keys.where((k) => !_inFlight.contains(k)).length + store.photoUploads.length + store.printUploads.length;
 
   /// Changes applied here while online, being sent to the server in order.
   final List<_Outgoing> _outbox = [];
@@ -69,6 +71,7 @@ class SyncApi extends Api {
     if (photoPath(method, path) case final id?) {
       return _photo(id, method == 'PUT' ? Uint8List.fromList(raw ?? const []) : null, contentType);
     }
+    if (printPath(method, path) case final id?) return _print(id, Uint8List.fromList(raw ?? const []), contentType);
     final local = raw == null && store.hasData && LocalEngine.handles(method, path);
     // Once the family's data is here (first pull done) and nothing older is waiting for a sync.
     if (local && method != 'GET' && !offline && store.cursors.isNotEmpty && store.pending.keys.every(_inFlight.contains)) {
@@ -103,11 +106,17 @@ class SyncApi extends Api {
       ? RegExp(r'^/events/([^/]+)/photo$').firstMatch(path)?.group(1)
       : null;
 
+  /// The entry whose photo's print copy `PUT /events/{id}/photo/print` sends.
+  static String? printPath(String method, String path) =>
+      method == 'PUT' ? RegExp(r'^/events/([^/]+)/photo/print$').firstMatch(path)?.group(1) : null;
+
   /// Sets ([bytes]) or removes an entry's photo: on the server when it can be reached and has the
   /// entry, else on the device until the next sync. Either way the photo is kept on the device.
   Future<dynamic> _photo(String id, Uint8List? bytes, String? contentType) async {
     // An entry just logged has to reach the server first.
     await _sent();
+    // A print copy still waiting belongs to the photo this one replaces.
+    await _forgetPrint(id);
     if (!offline && !store.pending.containsKey('e:$id') && !store.photoUploads.containsKey(id)) {
       try {
         final res = await super.send(
@@ -147,6 +156,42 @@ class SyncApi extends Api {
     onStatus?.call();
     unawaited(sync());
     return bytes == null ? null : Map<String, dynamic>.from(e);
+  }
+
+  /// Sends the full-size copy of an entry's photo, for printing the book (sent after the photo):
+  /// to the server when it can be reached and has the photo, else kept on the device until then.
+  Future<dynamic> _print(String id, Uint8List bytes, String? contentType) async {
+    await _sent();
+    if (!offline && !store.pending.containsKey('e:$id') && !store.photoUploads.containsKey(id)) {
+      try {
+        final res = await super.send('PUT', '/events/$id/photo/print', raw: bytes, contentType: contentType, timeout: const Duration(minutes: 3));
+        markOnline();
+        if (res is Map<String, dynamic>) {
+          store.putEvent(res);
+          store.save();
+        }
+        return res;
+      } on ApiException catch (e) {
+        if (!unreachable(e) || !store.hasData) rethrow;
+        _markOffline();
+      }
+    }
+    final e = store.events[id];
+    if (e == null || e['deleted'] == true || e['photo_version'] == null) throw ApiException('not_found', 'photo not found', 404);
+    final version = DateTime.now().millisecondsSinceEpoch;
+    await store.photoCache.write('p-$id', version, bytes);
+    store.printUploads[id] = version;
+    store.save();
+    onStatus?.call();
+    unawaited(sync());
+    return Map<String, dynamic>.from(e);
+  }
+
+  Future<void> _forgetPrint(String id) async {
+    if (store.printUploads.remove(id) == null) return;
+    try {
+      await store.photoCache.remove('p-$id');
+    } catch (_) {}
   }
 
   Future<void> _keepPhoto(String name, int version, Uint8List bytes) async {
@@ -200,6 +245,30 @@ class SyncApi extends Api {
         if (toInt(res['photo_version']) case final v? when bytes != null) await _keepPhoto('e-$id', v, bytes);
         store.putEvent(res);
       }
+    }
+    // Then the print copies, once their photo is there.
+    for (final MapEntry(key: id, value: version) in Map.of(store.printUploads).entries) {
+      if (store.pending.containsKey('e:$id') || store.photoUploads.containsKey(id)) continue;
+      final e = store.events[id];
+      final bytes = await store.photoCache.read('p-$id', version);
+      if (e == null || e['deleted'] == true || e['photo_version'] == null || bytes == null) {
+        await _forgetPrint(id);
+        continue;
+      }
+      dynamic res;
+      try {
+        res = await super.send('PUT', '/events/$id/photo/print', raw: bytes, contentType: 'image/jpeg', timeout: const Duration(minutes: 3));
+      } on ApiException catch (err) {
+        if (unreachable(err)) rethrow;
+        if (err.status >= 500) continue;
+        // Refused (the photo is gone, or the copy is too large for the server): dropped.
+        if (store.printUploads[id] == version) await _forgetPrint(id);
+        if (err.status != 404) notices.add(l10n.bookPrintPhotoNotSaved(err.message));
+        continue;
+      }
+      if (store.printUploads[id] != version) continue;
+      await _forgetPrint(id);
+      if (res is Map<String, dynamic>) store.putEvent(res);
     }
     store.save();
   }

@@ -930,6 +930,12 @@ abstract class AppLocalizations {
   /// **'The memory is saved, but not its photo: {error}'**
   String bookPhotoNotSaved(Object error);
 
+  /// No description provided for @bookPrintPhotoNotSaved.
+  ///
+  /// In en, this message translates to:
+  /// **'The memory and its photo are saved, but not the full-size copy kept for printing: {error}'**
+  String bookPrintPhotoNotSaved(Object error);
+
   /// No description provided for @bookPhotoOf.
   ///
   /// In en, this message translates to:

@@ -1417,7 +1417,7 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
       : ideaFor(widget.name)?.chapter ?? widget.chapter;
 
   BookChapter _chapterNow(AppState s) => _chapter ?? autoChapter(_name.text, at: _start, birth: s.child?.birthDate);
-  Uint8List? _newPhoto;
+  Uint8List? _newPhoto, _newPrint;
   bool _removePhoto = false, _busy = false, _preparing = false;
 
   bool get _hadPhoto => e?['photo_version'] != null;
@@ -1451,7 +1451,8 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
     setState(() {
       _preparing = false;
       if (photo != null) {
-        _newPhoto = photo;
+        _newPhoto = photo.photo;
+        _newPrint = photo.print;
         _removePhoto = false;
       }
     });
@@ -1480,6 +1481,13 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
       if (_newPhoto != null) {
         final withPhoto = await s.api!.putBytes('/events/$id/photo', _newPhoto!, contentType: 'image/jpeg');
         if (withPhoto is Map<String, dynamic>) s.rememberEventPhoto(withPhoto, _newPhoto!);
+        if (_newPrint case final print?) {
+          try {
+            await s.api!.putBytes('/events/$id/photo/print', print, contentType: 'image/jpeg');
+          } on Exception catch (err) {
+            problem = l10n.bookPrintPhotoNotSaved(err is ApiException ? err.message : '$err');
+          }
+        }
         await s.refreshChild();
       } else if (_removePhoto && _hadPhoto) {
         await s.act((api) => api.delete('/events/$id/photo'));
@@ -1711,7 +1719,7 @@ class _MemoryFormState extends State<MemoryForm> with _Memories {
                 Icons.delete_outline_rounded,
                 l10n.remove,
                 () => setState(() {
-                  _newPhoto = null;
+                  _newPhoto = _newPrint = null;
                   _removePhoto = true;
                 }),
               ),
