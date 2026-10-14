@@ -40,6 +40,11 @@ class DriveBackup implements Backup {
 
   static Future<void>? _init;
 
+  /// The Google account signed in during this run of the app, and whether the quiet sign-in
+  /// was already tried (see [googleDrive]).
+  static GoogleSignInAccount? _user;
+  static bool _triedQuietly = false;
+
   Map<String, dynamic> get _cfg => (store.serverless['drive'] ??= <String, dynamic>{}) as Map<String, dynamic>;
 
   @override
@@ -58,8 +63,15 @@ class DriveBackup implements Backup {
   static Future<(drive.DriveApi, String)> googleDrive(List<String> scopes, {required bool interactive}) async {
     if (!available) throw UnsupportedError(l10n.syncDriveNeedsAndroid);
     await (_init ??= GoogleSignIn.instance.initialize(serverClientId: _clientId));
-    GoogleSignInAccount? user = await GoogleSignIn.instance.attemptLightweightAuthentication();
-    if (user == null && interactive) user = await GoogleSignIn.instance.authenticate(scopeHint: scopes);
+    var user = _user;
+    // On Android the quiet sign-in still shows Google's "Signing you in" sheet, and the sheet
+    // pauses the app, which wakes the syncs that come back here. So it is tried once per run;
+    // after that the account is kept (or a quiet call fails until the user signs in from Settings).
+    if (user == null && !_triedQuietly) {
+      _triedQuietly = true;
+      user = _user = await GoogleSignIn.instance.attemptLightweightAuthentication();
+    }
+    if (user == null && interactive) user = _user = await GoogleSignIn.instance.authenticate(scopeHint: scopes);
     if (user == null) throw StateError(l10n.syncGoogleNotSignedIn);
     var auth = await user.authorizationClient.authorizationForScopes(scopes);
     if (auth == null && interactive) auth = await user.authorizationClient.authorizeScopes(scopes);

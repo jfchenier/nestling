@@ -153,8 +153,9 @@ class AppState extends ChangeNotifier {
     });
     _lifecycle?.dispose();
     _lifecycle = AppLifecycleListener(
-      // Back in the app: catch up with the other phones right away.
-      onResume: () {
+      // Back in the app: catch up with the other phones right away. Not on every resume: a
+      // system sheet over the app (like Google's sign-in) pauses and resumes it too.
+      onShow: () {
         unawaited(peers?.syncAll());
         syncRelay();
       },
