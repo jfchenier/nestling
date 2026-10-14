@@ -2398,6 +2398,40 @@ class AppLocalizationsFr extends AppLocalizations {
   String get pagesLetterTitle => 'Une lettre pour plus tard';
 
   @override
+  String get pagesLookTitle => 'À qui ressembles-tu ?';
+
+  @override
+  String get pagesLookSubtitle => 'Tes parents bébés, à côté de toi';
+
+  @override
+  String pagesLookPrompt(String name) {
+    return 'Touchez pour mettre une photo de bébé de chaque parent à côté d\'une de $name.';
+  }
+
+  @override
+  String pagesLookParentBaby(int n) {
+    return 'Parent $n bébé';
+  }
+
+  @override
+  String get pagesLookBabyPhoto =>
+      'Sa photo sur cette page (sinon, celle de l\'arbre généalogique).';
+
+  @override
+  String pagesLookNow(String name) {
+    return '$name aujourd\'hui';
+  }
+
+  @override
+  String get pagesHintLook => 'Poids à la naissance, cheveux, premier mot…';
+
+  @override
+  String get pagesLookNote => 'De qui tu tiens';
+
+  @override
+  String get pagesHintLookNote => 'Les mêmes yeux, la même moue…';
+
+  @override
   String get pagesMeasured => 'Taille';
 
   @override

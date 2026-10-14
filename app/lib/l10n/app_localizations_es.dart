@@ -2396,6 +2396,40 @@ class AppLocalizationsEs extends AppLocalizations {
   String get pagesLetterTitle => 'Una carta para más adelante';
 
   @override
+  String get pagesLookTitle => '¿A quién te pareces?';
+
+  @override
+  String get pagesLookSubtitle => 'Tus padres de bebés, junto a ti';
+
+  @override
+  String pagesLookPrompt(String name) {
+    return 'Toca para poner una foto de bebé de cada padre junto a una de $name.';
+  }
+
+  @override
+  String pagesLookParentBaby(int n) {
+    return 'Padre/madre $n de bebé';
+  }
+
+  @override
+  String get pagesLookBabyPhoto =>
+      'Su foto en esta página (si no, la del árbol genealógico).';
+
+  @override
+  String pagesLookNow(String name) {
+    return '$name ahora';
+  }
+
+  @override
+  String get pagesHintLook => 'Peso al nacer, pelo, primera palabra…';
+
+  @override
+  String get pagesLookNote => 'A quién has salido';
+
+  @override
+  String get pagesHintLookNote => 'Los mismos ojos, el mismo ceño…';
+
+  @override
   String get pagesMeasured => 'Talla';
 
   @override

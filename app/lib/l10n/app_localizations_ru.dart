@@ -2440,6 +2440,40 @@ class AppLocalizationsRu extends AppLocalizations {
   String get pagesLetterTitle => 'Письмо на потом';
 
   @override
+  String get pagesLookTitle => 'На кого ты похож(а)?';
+
+  @override
+  String get pagesLookSubtitle => 'Твои родители в младенчестве рядом с тобой';
+
+  @override
+  String pagesLookPrompt(String name) {
+    return 'Нажмите, чтобы поставить детское фото каждого родителя рядом с фото ребёнка ($name).';
+  }
+
+  @override
+  String pagesLookParentBaby(int n) {
+    return 'Родитель $n в младенчестве';
+  }
+
+  @override
+  String get pagesLookBabyPhoto =>
+      'Фото на этой странице (если нет, берётся из семейного древа).';
+
+  @override
+  String pagesLookNow(String name) {
+    return '$name сейчас';
+  }
+
+  @override
+  String get pagesHintLook => 'Вес при рождении, волосы, первое слово…';
+
+  @override
+  String get pagesLookNote => 'В кого ты пошёл(шла)';
+
+  @override
+  String get pagesHintLookNote => 'Те же глаза, та же хмурость…';
+
+  @override
   String get pagesMeasured => 'Измерено';
 
   @override

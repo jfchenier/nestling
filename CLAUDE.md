@@ -169,7 +169,7 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       without follows its idea, else Waiting for you before the birth date, else Firsts). The book's own pages
       are texts on the child (`book`, replaced whole by `PATCH /children/{id}`; CSV `[Profile] Book`).
       "Banana for scale": repeatable milestones shown as a monthly photo strip.
-      Book pages (`book_pages.dart`): family tree, the day you were born (moon, zodiac), birth story,
+      Book pages (`book_pages.dart`): family tree, "Who do you look like?" (each parent's baby photo beside the baby's, `look_*` texts and photo keys), the day you were born (moon, zodiac), birth story,
       name, the world, growth by month, a letter for later. "Diary" milestones (Growing up) start
       with the past week's schedule (`scheduleLines`); "Our home" shows how long you lived there.
       Book pages' photos (family tree faces): `PUT/GET/DELETE /children/{id}/book-photos/{key}` (table

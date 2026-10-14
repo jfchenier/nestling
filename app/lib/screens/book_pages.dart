@@ -1252,6 +1252,117 @@ class _BranchesPainter extends CustomPainter {
 }
 
 /// "A letter for later": up to two letters (from whom, and the letter), to read at 18.
+/// "Who do you look like?": a baby photo of each parent on either side of the baby's, each with a
+/// short note under it, and who the baby takes after. Texts `look_parent_1`, `look_parent_2`,
+/// `look_baby`, `look_note` in the book; photos with the same keys in `book_photos` (the baby's
+/// falls back to the family tree's). The parents' names are the tree's.
+const _lookKeys = ['look_parent_1', 'look_parent_2', 'look_baby', 'look_note'];
+
+class LookAlikePage extends StatelessWidget {
+  const LookAlikePage({super.key, required this.child});
+  final Child child;
+
+  static bool hasText(Child child) => child.book.keys.any(_lookKeys.contains) || child.bookPhotos.keys.any(_lookKeys.contains);
+
+  @override
+  Widget build(BuildContext context) {
+    final book = child.book;
+    final s = context.watch<AppState>();
+    final readOnly = s.bookOnly;
+    final baby = child.bookPhotos.containsKey('look_baby') ? 'look_baby' : treeBabyPhoto;
+    Widget parent(int n, Kind side, double tilt) => _BabyPrint(
+      name: book['tree_parent_$n'] ?? l10n.pagesTreeParent(n),
+      note: book['look_parent_$n'],
+      photo: s.bookPhoto(child, 'look_parent_$n'),
+      side: side,
+      tilt: tilt,
+    );
+    return TapedPaper(
+      tilt: 0.005,
+      semanticLabel: readOnly ? l10n.pagesLookTitle : l10n.pagesTapToEdit(l10n.pagesLookTitle),
+      onTap: readOnly ? null : () => editLookAlikePage(context, child),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _PageHead(l10n.pagesLookTitle, Icons.face_retouching_natural_rounded, subtitle: l10n.pagesLookSubtitle),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // The same sides (colors) as on the family tree.
+              Expanded(child: parent(1, Kind.sleep, -0.04)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _BabyPrint(name: child.name, note: book['look_baby'], photo: s.bookPhoto(child, baby), side: Kind.milestone, tilt: 0.02),
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: parent(2, Kind.activity, -0.015)),
+            ],
+          ),
+          if (book['look_note'] case final v?) _Block(l10n.pagesLookNote, v),
+          if (!readOnly && !hasText(child)) _Prompt(l10n.pagesLookPrompt(child.name)),
+        ],
+      ),
+    );
+  }
+}
+
+/// One baby photo on the "Who do you look like?" page: a small print with the name and a note under it.
+class _BabyPrint extends StatelessWidget {
+  const _BabyPrint({required this.name, required this.side, required this.tilt, this.note, this.photo});
+  final String name;
+  final String? note;
+  final Uint8List? photo;
+  final Kind side;
+  final double tilt;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.pal;
+    return Column(
+      children: [
+        Transform.rotate(
+          angle: tilt,
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(5, 5, 5, 14),
+            decoration: BoxDecoration(
+              color: c.isDark ? c.background : Colors.white,
+              borderRadius: BorderRadius.circular(3),
+              boxShadow: [BoxShadow(color: c.ink.withValues(alpha: 0.18), blurRadius: 4, offset: const Offset(0, 1.5))],
+            ),
+            child: AspectRatio(
+              aspectRatio: 1,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: side.fill(c).withValues(alpha: 0.45),
+                  image: photo == null ? null : DecorationImage(image: MemoryImage(photo!), fit: BoxFit.cover),
+                ),
+                child: photo != null ? null : Icon(Icons.child_care_rounded, size: 34, color: side.on(c).withValues(alpha: 0.7)),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          name,
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: serifStyle(15, color: side.on(c)),
+        ),
+        if (note != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              note!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: c.ink, fontSize: 13, height: 1.3, fontStyle: FontStyle.italic),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class LetterPage extends StatelessWidget {
   const LetterPage({super.key, required this.child});
   final Child child;
@@ -1447,6 +1558,24 @@ Future<void> editTreePage(BuildContext context, Child child) => _editPage(
     ],
     (key: 'tree_siblings', label: l10n.pagesTreeSiblings, hint: l10n.pagesHintNames, long: true),
     (key: 'tree_others', label: l10n.pagesTreeOthers, hint: l10n.pagesHintNames, long: true),
+  ],
+);
+
+/// The parents' names here are the family tree's; each has their baby photo next to it.
+Future<void> editLookAlikePage(BuildContext context, Child child) => _editPage(
+  context,
+  child,
+  title: l10n.pagesLookTitle,
+  icon: Icons.face_retouching_natural_rounded,
+  photos: {for (final n in const [1, 2]) 'tree_parent_$n': ['look_parent_$n']},
+  photoRows: [(key: 'look_baby', label: child.name, hint: l10n.pagesLookBabyPhoto)],
+  fields: [
+    for (final n in const [1, 2]) ...[
+      (key: 'tree_parent_$n', label: l10n.pagesTreeParent(n), hint: l10n.pagesHintName, long: false),
+      (key: 'look_parent_$n', label: l10n.pagesLookParentBaby(n), hint: l10n.pagesHintLook, long: true),
+    ],
+    (key: 'look_baby', label: l10n.pagesLookNow(child.name), hint: l10n.pagesHintLook, long: true),
+    (key: 'look_note', label: l10n.pagesLookNote, hint: l10n.pagesHintLookNote, long: true),
   ],
 );
 
