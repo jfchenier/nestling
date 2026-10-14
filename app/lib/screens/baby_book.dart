@@ -482,6 +482,7 @@ class _BabyBookScreenState extends State<BabyBookScreen> with _Memories {
       // About your family
       heading(BookChapter.family),
       if (!readOnly || FamilyTreePage.hasText(child)) FamilyTreePage(child: child),
+      if (!readOnly || LookAlikePage.hasText(child)) LookAlikePage(child: child),
       ...prints(byChapter[BookChapter.family]!),
       ideas(BookChapter.family),
       // Waiting for you (the pregnancy)

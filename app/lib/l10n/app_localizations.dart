@@ -3972,6 +3972,60 @@ abstract class AppLocalizations {
   /// **'A letter for later'**
   String get pagesLetterTitle;
 
+  /// No description provided for @pagesLookTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Who do you look like?'**
+  String get pagesLookTitle;
+
+  /// No description provided for @pagesLookSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your parents as babies, next to you'**
+  String get pagesLookSubtitle;
+
+  /// No description provided for @pagesLookPrompt.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap to put a baby photo of each parent next to one of {name}.'**
+  String pagesLookPrompt(String name);
+
+  /// No description provided for @pagesLookParentBaby.
+  ///
+  /// In en, this message translates to:
+  /// **'Parent {n} as a baby'**
+  String pagesLookParentBaby(int n);
+
+  /// No description provided for @pagesLookBabyPhoto.
+  ///
+  /// In en, this message translates to:
+  /// **'Their photo on this page (without one, the family tree\'s).'**
+  String get pagesLookBabyPhoto;
+
+  /// No description provided for @pagesLookNow.
+  ///
+  /// In en, this message translates to:
+  /// **'{name} now'**
+  String pagesLookNow(String name);
+
+  /// No description provided for @pagesHintLook.
+  ///
+  /// In en, this message translates to:
+  /// **'Weight at birth, hair, first word…'**
+  String get pagesHintLook;
+
+  /// No description provided for @pagesLookNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Who you take after'**
+  String get pagesLookNote;
+
+  /// No description provided for @pagesHintLookNote.
+  ///
+  /// In en, this message translates to:
+  /// **'The same eyes, the same frown…'**
+  String get pagesHintLookNote;
+
   /// No description provided for @pagesMeasured.
   ///
   /// In en, this message translates to:

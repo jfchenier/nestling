@@ -959,6 +959,36 @@
   "pagesLetterOpenOn": "To read on {date}, at 18",
   "pagesLetterPrompt": "Write {name} a letter to read at 18.",
   "pagesLetterTitle": "A letter for later",
+  "pagesLookTitle": "Who do you look like?",
+  "pagesLookSubtitle": "Your parents as babies, next to you",
+  "pagesLookPrompt": "Tap to put a baby photo of each parent next to one of {name}.",
+  "@pagesLookPrompt": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pagesLookParentBaby": "Parent {n} as a baby",
+  "@pagesLookParentBaby": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "pagesLookBabyPhoto": "Their photo on this page (without one, the family tree's).",
+  "pagesLookNow": "{name} now",
+  "@pagesLookNow": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "pagesHintLook": "Weight at birth, hair, first word…",
+  "pagesLookNote": "Who you take after",
+  "pagesHintLookNote": "The same eyes, the same frown…",
   "pagesMeasured": "Measured",
   "pagesMonthByMonth": "Month by month",
   "pagesMonthsShort": "{count} mo",
