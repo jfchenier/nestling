@@ -73,11 +73,11 @@ pub fn parse_book(text: &str) -> Value {
 }
 
 /// Keys of lowercase letters, digits and `_` (40 at most), string values of 4,000 characters at
-/// most, 80 keys at most. Empty strings and nulls are dropped.
+/// most, 400 keys at most (a big family tree takes a few hundred). Empty strings and nulls are dropped.
 pub fn check_book(book: &mut Book) -> AppResult<()> {
     book.retain(|_, v| !(v.is_null() || v.as_str().is_some_and(|s| s.trim().is_empty())));
-    if book.len() > 80 {
-        return bad("book has too many entries (80 at most)");
+    if book.len() > 400 {
+        return bad("book has too many entries (400 at most)");
     }
     for (k, v) in book.iter_mut() {
         if k.is_empty() || k.len() > 40 || !k.bytes().all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'_') {
@@ -302,7 +302,7 @@ pub async fn delete_photo(State(state): State<AppState>, user: AuthUser, Path(ch
 }
 
 /// Most photos a child's book pages keep (a family tree has 14 people).
-pub const BOOK_PHOTO_COUNT: i64 = 60;
+pub const BOOK_PHOTO_COUNT: i64 = 300;
 
 /// A book photo key: like a book page key (1-40 lowercase letters, digits or `_`).
 fn check_book_key(key: &str) -> AppResult<()> {

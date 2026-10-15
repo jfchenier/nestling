@@ -777,7 +777,7 @@ paths:
     put:
       tags: [children]
       operationId: putBookPhoto
-      summary: Set a book page's photo (raw JPEG, PNG or WebP, at most 5 MB; 60 per child)
+      summary: Set a book page's photo (raw JPEG, PNG or WebP, at most 5 MB; 300 per child)
       description: The child's `book_photos` gets the key with a new version.
       requestBody:
         required: true
@@ -1684,7 +1684,7 @@ components:
       description: >-
         The baby book's own pages as short texts by key (the app uses e.g. `birth_time`,
         `birth_place`, `hair`, `eyes`, `full_name`, `name_why`, `world_songs`, `price_coffee`).
-        Keys: 1–40 lowercase letters, digits or `_`; at most 80 of them; values are strings of at
+        Keys: 1–40 lowercase letters, digits or `_`; at most 400 of them; values are strings of at
         most 4,000 characters. Empty strings and nulls are dropped.
       additionalProperties: { type: string, maxLength: 4000 }
     Medicine:

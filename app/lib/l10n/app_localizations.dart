@@ -3996,12 +3996,6 @@ abstract class AppLocalizations {
   /// **'Tap to put a baby photo of each parent next to one of {name}.'**
   String pagesLookPrompt(String name);
 
-  /// No description provided for @pagesLookParentBaby.
-  ///
-  /// In en, this message translates to:
-  /// **'Parent {n} as a baby'**
-  String pagesLookParentBaby(int n);
-
   /// No description provided for @pagesLookBabyPhoto.
   ///
   /// In en, this message translates to:
@@ -4248,23 +4242,11 @@ abstract class AppLocalizations {
   /// **'Their photo at the bottom of the tree, apart from the profile picture.'**
   String get pagesTreeBabyPhoto;
 
-  /// No description provided for @pagesTreeGrandparent.
-  ///
-  /// In en, this message translates to:
-  /// **'Their parent (side {n})'**
-  String pagesTreeGrandparent(int n);
-
   /// No description provided for @pagesTreeOthers.
   ///
   /// In en, this message translates to:
-  /// **'Aunts, uncles and cousins'**
+  /// **'Cousins and other family'**
   String get pagesTreeOthers;
-
-  /// No description provided for @pagesTreeParent.
-  ///
-  /// In en, this message translates to:
-  /// **'Parent {n}'**
-  String pagesTreeParent(int n);
 
   /// No description provided for @pagesTreePrompt.
   ///
@@ -4272,23 +4254,11 @@ abstract class AppLocalizations {
   /// **'Tap to write the names of the family.'**
   String get pagesTreePrompt;
 
-  /// No description provided for @pagesTreeSiblings.
-  ///
-  /// In en, this message translates to:
-  /// **'Brothers and sisters'**
-  String get pagesTreeSiblings;
-
   /// No description provided for @pagesTreeFullScreen.
   ///
   /// In en, this message translates to:
   /// **'Full screen'**
   String get pagesTreeFullScreen;
-
-  /// No description provided for @pagesTreeTheirParent.
-  ///
-  /// In en, this message translates to:
-  /// **'Their parent {n}'**
-  String pagesTreeTheirParent(int n);
 
   /// No description provided for @pagesTreeTitle.
   ///
@@ -6521,6 +6491,204 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{part} ({size})'**
   String partSize(Object part, Object size);
+
+  /// No description provided for @treeMother.
+  ///
+  /// In en, this message translates to:
+  /// **'Mother'**
+  String get treeMother;
+
+  /// No description provided for @treeFather.
+  ///
+  /// In en, this message translates to:
+  /// **'Father'**
+  String get treeFather;
+
+  /// No description provided for @treeGrandmother.
+  ///
+  /// In en, this message translates to:
+  /// **'Grandmother'**
+  String get treeGrandmother;
+
+  /// No description provided for @treeGrandfather.
+  ///
+  /// In en, this message translates to:
+  /// **'Grandfather'**
+  String get treeGrandfather;
+
+  /// No description provided for @treeGreatGrandmother.
+  ///
+  /// In en, this message translates to:
+  /// **'Great-grandmother'**
+  String get treeGreatGrandmother;
+
+  /// No description provided for @treeGreatGrandfather.
+  ///
+  /// In en, this message translates to:
+  /// **'Great-grandfather'**
+  String get treeGreatGrandfather;
+
+  /// No description provided for @treeGreat2Grandmother.
+  ///
+  /// In en, this message translates to:
+  /// **'Great-great-grandmother'**
+  String get treeGreat2Grandmother;
+
+  /// No description provided for @treeGreat2Grandfather.
+  ///
+  /// In en, this message translates to:
+  /// **'Great-great-grandfather'**
+  String get treeGreat2Grandfather;
+
+  /// An ancestor further up than a great-great-grandmother: n = how many 'great' (3 = great-great-great-grandmother)
+  ///
+  /// In en, this message translates to:
+  /// **'{n}× great-grandmother'**
+  String treeGreatNGrandmother(int n);
+
+  /// No description provided for @treeGreatNGrandfather.
+  ///
+  /// In en, this message translates to:
+  /// **'{n}× great-grandfather'**
+  String treeGreatNGrandfather(int n);
+
+  /// No description provided for @treeSister.
+  ///
+  /// In en, this message translates to:
+  /// **'Sister'**
+  String get treeSister;
+
+  /// No description provided for @treeBrother.
+  ///
+  /// In en, this message translates to:
+  /// **'Brother'**
+  String get treeBrother;
+
+  /// No description provided for @treeSibling.
+  ///
+  /// In en, this message translates to:
+  /// **'Brother or sister'**
+  String get treeSibling;
+
+  /// No description provided for @treeAunt.
+  ///
+  /// In en, this message translates to:
+  /// **'Aunt'**
+  String get treeAunt;
+
+  /// No description provided for @treeUncle.
+  ///
+  /// In en, this message translates to:
+  /// **'Uncle'**
+  String get treeUncle;
+
+  /// No description provided for @treeAuntOrUncle.
+  ///
+  /// In en, this message translates to:
+  /// **'Aunt or uncle'**
+  String get treeAuntOrUncle;
+
+  /// No description provided for @treeGreatAunt.
+  ///
+  /// In en, this message translates to:
+  /// **'Great-aunt'**
+  String get treeGreatAunt;
+
+  /// No description provided for @treeGreatUncle.
+  ///
+  /// In en, this message translates to:
+  /// **'Great-uncle'**
+  String get treeGreatUncle;
+
+  /// No description provided for @treeGreatAuntOrUncle.
+  ///
+  /// In en, this message translates to:
+  /// **'Great-aunt or great-uncle'**
+  String get treeGreatAuntOrUncle;
+
+  /// A great-grandparent's (or older) sister: n = how many 'great' (2 = great-great-aunt)
+  ///
+  /// In en, this message translates to:
+  /// **'{n}× great-aunt'**
+  String treeGreatNAunt(int n);
+
+  /// No description provided for @treeGreatNUncle.
+  ///
+  /// In en, this message translates to:
+  /// **'{n}× great-uncle'**
+  String treeGreatNUncle(int n);
+
+  /// No description provided for @treeGreatNAuntOrUncle.
+  ///
+  /// In en, this message translates to:
+  /// **'{n}× great-aunt or great-uncle'**
+  String treeGreatNAuntOrUncle(int n);
+
+  /// A relative through the father, e.g. 'Grandmother on Dad's side'
+  ///
+  /// In en, this message translates to:
+  /// **'{relation} on Dad\'s side'**
+  String treeOnDadSide(String relation);
+
+  /// A relative through the mother
+  ///
+  /// In en, this message translates to:
+  /// **'{relation} on Mom\'s side'**
+  String treeOnMomSide(String relation);
+
+  /// Under a relation on the family tree: whose parent this is (name = their child)
+  ///
+  /// In en, this message translates to:
+  /// **'{role, select, mother{{name}\'s mother} other{{name}\'s father}}'**
+  String treeParentOf(String name, String role);
+
+  /// No description provided for @treeSiblingOf.
+  ///
+  /// In en, this message translates to:
+  /// **'{role, select, sister{{name}\'s sister} brother{{name}\'s brother} other{{name}\'s brother or sister}}'**
+  String treeSiblingOf(String name, String role);
+
+  /// No description provided for @treeParentAsBaby.
+  ///
+  /// In en, this message translates to:
+  /// **'{role, select, mother{Mother as a baby} other{Father as a baby}}'**
+  String treeParentAsBaby(String role);
+
+  /// No description provided for @treeAddParents.
+  ///
+  /// In en, this message translates to:
+  /// **'Add their parents'**
+  String get treeAddParents;
+
+  /// No description provided for @treeAddSibling.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a brother or sister'**
+  String get treeAddSibling;
+
+  /// No description provided for @treeAnotherSibling.
+  ///
+  /// In en, this message translates to:
+  /// **'Another brother or sister'**
+  String get treeAnotherSibling;
+
+  /// No description provided for @treeRemovePerson.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from the tree'**
+  String get treeRemovePerson;
+
+  /// No description provided for @treeMoreAbove.
+  ///
+  /// In en, this message translates to:
+  /// **'More generations above'**
+  String get treeMoreAbove;
+
+  /// No description provided for @treeTapHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap someone to see their parents. Hold to edit.'**
+  String get treeTapHint;
 }
 
 class _AppLocalizationsDelegate

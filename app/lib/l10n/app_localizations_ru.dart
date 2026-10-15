@@ -2456,11 +2456,6 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String pagesLookParentBaby(int n) {
-    return 'Родитель $n в младенчестве';
-  }
-
-  @override
   String get pagesLookBabyPhoto =>
       'Фото на этой странице (если нет, берётся из семейного древа).';
 
@@ -2594,31 +2589,13 @@ class AppLocalizationsRu extends AppLocalizations {
       'Фото малыша внизу древа, отдельно от фото профиля.';
 
   @override
-  String pagesTreeGrandparent(int n) {
-    return 'Родитель (сторона $n)';
-  }
-
-  @override
-  String get pagesTreeOthers => 'Тёти, дяди и двоюродные';
-
-  @override
-  String pagesTreeParent(int n) {
-    return 'Родитель $n';
-  }
+  String get pagesTreeOthers => 'Двоюродные и другие родные';
 
   @override
   String get pagesTreePrompt => 'Нажмите, чтобы записать имена родных.';
 
   @override
-  String get pagesTreeSiblings => 'Братья и сёстры';
-
-  @override
   String get pagesTreeFullScreen => 'Во весь экран';
-
-  @override
-  String pagesTreeTheirParent(int n) {
-    return 'Их родитель $n';
-  }
 
   @override
   String get pagesTreeTitle => 'Родословное древо';
@@ -4034,4 +4011,137 @@ class AppLocalizationsRu extends AppLocalizations {
   String partSize(Object part, Object size) {
     return '$part ($size)';
   }
+
+  @override
+  String get treeMother => 'Мама';
+
+  @override
+  String get treeFather => 'Папа';
+
+  @override
+  String get treeGrandmother => 'Бабушка';
+
+  @override
+  String get treeGrandfather => 'Дедушка';
+
+  @override
+  String get treeGreatGrandmother => 'Прабабушка';
+
+  @override
+  String get treeGreatGrandfather => 'Прадедушка';
+
+  @override
+  String get treeGreat2Grandmother => 'Прапрабабушка';
+
+  @override
+  String get treeGreat2Grandfather => 'Прапрадедушка';
+
+  @override
+  String treeGreatNGrandmother(int n) {
+    return '$n× прабабушка';
+  }
+
+  @override
+  String treeGreatNGrandfather(int n) {
+    return '$n× прадедушка';
+  }
+
+  @override
+  String get treeSister => 'Сестра';
+
+  @override
+  String get treeBrother => 'Брат';
+
+  @override
+  String get treeSibling => 'Брат или сестра';
+
+  @override
+  String get treeAunt => 'Тётя';
+
+  @override
+  String get treeUncle => 'Дядя';
+
+  @override
+  String get treeAuntOrUncle => 'Тётя или дядя';
+
+  @override
+  String get treeGreatAunt => 'Двоюродная бабушка';
+
+  @override
+  String get treeGreatUncle => 'Двоюродный дедушка';
+
+  @override
+  String get treeGreatAuntOrUncle => 'Двоюродная бабушка или дедушка';
+
+  @override
+  String treeGreatNAunt(int n) {
+    return '$n× двоюродная бабушка';
+  }
+
+  @override
+  String treeGreatNUncle(int n) {
+    return '$n× двоюродный дедушка';
+  }
+
+  @override
+  String treeGreatNAuntOrUncle(int n) {
+    return '$n× двоюродная бабушка или дедушка';
+  }
+
+  @override
+  String treeOnDadSide(String relation) {
+    return '$relation по папе';
+  }
+
+  @override
+  String treeOnMomSide(String relation) {
+    return '$relation по маме';
+  }
+
+  @override
+  String treeParentOf(String name, String role) {
+    String _temp0 = intl.Intl.selectLogic(role, {
+      'mother': 'Мама · $name',
+      'other': 'Папа · $name',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String treeSiblingOf(String name, String role) {
+    String _temp0 = intl.Intl.selectLogic(role, {
+      'sister': 'Сестра · $name',
+      'brother': 'Брат · $name',
+      'other': 'Брат или сестра · $name',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String treeParentAsBaby(String role) {
+    String _temp0 = intl.Intl.selectLogic(role, {
+      'mother': 'Мама в младенчестве',
+      'other': 'Папа в младенчестве',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get treeAddParents => 'Добавить родителей';
+
+  @override
+  String get treeAddSibling => 'Добавить брата или сестру';
+
+  @override
+  String get treeAnotherSibling => 'Ещё брат или сестра';
+
+  @override
+  String get treeRemovePerson => 'Убрать с древа';
+
+  @override
+  String get treeMoreAbove => 'Выше есть ещё поколения';
+
+  @override
+  String get treeTapHint =>
+      'Нажмите на человека, чтобы увидеть его родителей. Удерживайте, чтобы изменить.';
 }

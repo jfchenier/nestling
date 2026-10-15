@@ -615,7 +615,7 @@ class LocalEngine {
 
   // ---- serverless: photos on the book's own pages ----
 
-  /// `PUT /children/{id}/book-photos/{key}` (60 per child, like the server). Only the photo record
+  /// `PUT /children/{id}/book-photos/{key}` (300 per child, like the server). Only the photo record
   /// changes (`bp:<child id>/<key>`); the child's `book_photos` follows the records on every phone
   /// (see `mergeFamily`).
   Map<String, dynamic> putBookPhoto(String childId, String key, List<int> bytes, String contentType) {
@@ -624,7 +624,7 @@ class LocalEngine {
     if (bytes.length > 5 * 1024 * 1024) throw badRequest('the photo is too large (5 MB at most)');
     final id = '$childId/$key';
     final count = store.bookPhotos.entries.where((e) => e.key.startsWith('$childId/') && e.key != id && e.value['version'] != null).length;
-    if (count >= 60) throw badRequest('the book has too many photos (60 at most)');
+    if (count >= 300) throw badRequest('the book has too many photos (300 at most)');
     final version = math.max(nowMs(), (toInt(store.bookPhotos[id]?['version']) ?? 0) + 1);
     store.bookPhotos[id] = {'version': version, 'type': contentType, 'data': base64Encode(bytes)};
     store.markChanged('bp:$id');

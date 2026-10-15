@@ -114,7 +114,7 @@ Map<String, dynamic> checkBook(Object? raw) {
     if (value.runes.length > 4000) throw badRequest('book.$key is too long (4000 characters at most)');
     out[key] = value.trim();
   }
-  if (out.length > 80) throw badRequest('book has too many entries (80 at most)');
+  if (out.length > 400) throw badRequest('book has too many entries (400 at most)');
   return out;
 }
 
