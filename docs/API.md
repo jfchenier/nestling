@@ -110,7 +110,7 @@ is one child; timer tools use the child's running timer when no `timer_id` is gi
 | `GET / PATCH / DELETE /children/{id}` | | `null` clears `birth_date`/`sex` |
 | `PUT /children/{id}/photo` | raw JPEG, PNG or WebP (≤ 5 MB) | profile picture; the child's `photo_version` changes (null: no photo) |
 | `GET / DELETE /children/{id}/photo` | | the image (`404` without one) / remove it |
-| `PUT /children/{id}/book-photos/{key}` | raw JPEG, PNG or WebP (≤ 5 MB) | a photo on one of the baby book's pages under a key of the app's (1-40 lowercase letters, digits or `_`, e.g. `tree_parent_1`; 60 per child); the child's `book_photos` (key → version) changes |
+| `PUT /children/{id}/book-photos/{key}` | raw JPEG, PNG or WebP (≤ 5 MB) | a photo on one of the baby book's pages under a key of the app's (1-40 lowercase letters, digits or `_`, e.g. `tree_parent_1`; 300 per child); the child's `book_photos` (key → version) changes |
 | `GET / DELETE /children/{id}/book-photos/{key}` | | the image (book viewers too; `404` without one) / remove it |
 
 ### Medicine schedules and reminders
@@ -150,7 +150,7 @@ list (the child JSON carries both).
 by key, which the app fills from its "The day you were born", "Your name" and "The world you were
 born into" pages (`birth_time`, `birth_place`, `hair`, `eyes`, `birth_note`, `full_name`,
 `name_why`, `name_others`, `world_…`, `price_…`). Keys are 1–40 lowercase letters, digits or `_`
-(80 at most); values are strings of 4,000 characters at most; empty ones are dropped. The child JSON
+(400 at most); values are strings of 4,000 characters at most; empty ones are dropped. The child JSON
 carries it as `book` (`{}` when empty); the CSV export keeps it in a `[Profile] Book` column.
 
 ## Events

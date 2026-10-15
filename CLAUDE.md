@@ -177,8 +177,16 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       Book pages (`book_pages.dart`): family tree, "Who do you look like?" (each parent's baby photo beside the baby's, `look_*` texts and photo keys), the day you were born (moon, zodiac), birth story,
       name, the world, growth by month, a letter for later. "Diary" milestones (Growing up) start
       with the past week's schedule (`scheduleLines`); "Our home" shows how long you lived there.
+      Family tree (`app/lib/family_tree.dart` model, `screens/family_tree_page.dart` view, a `part` of
+      `book_pages.dart`): ancestors numbered the genealogists' way (baby 1, n's parents 2n and 2n+1, no
+      end); 2–15 keep their old keys (`tree_parent_1`, `tree_gp_1a`, `tree_ggp_1a_1`), 16 on are
+      `tree_a<n>`; anyone's brothers and sisters `tree_s<n>_<i>`; roles in `<key>_role` (mother/father,
+      sister/brother; an ancestor without one: 2n father, 2n+1 mother). Old `tree_ggp_1a` two-line texts and
+      `tree_siblings` are moved by `migrateTree` on save. Tapping someone flies the camera to them
+      (van Wijk smooth zoom), grows their photo, then re-roots the tree on them (their ancestors unfold);
+      the page shows 3 generations above the root, full screen as many as fit at a readable size.
       Book pages' photos (family tree faces): `PUT/GET/DELETE /children/{id}/book-photos/{key}` (table
-      `book_photos`, any key like the `book` texts, 60 per child; children carry `book_photos` key → version).
+      `book_photos`, any key like the `book` texts, 300 per child (the book itself: 400 keys); children carry `book_photos` key → version).
       Serverless: `LocalStore.bookPhotos` ("child/key", clocks `bp:`), sent with the snapshot; the
       child's `book_photos` follows the records (`syncBookPhotos`). Server-mode Drive backup keeps them.
       Bottom tabs: Home, Timeline, Calendar, Trends, Book; Medicines and reminders, Family and Settings open from Home's menu button (top right; the baby's photo is top left).

@@ -970,14 +970,6 @@
       }
     }
   },
-  "pagesLookParentBaby": "Parent {n} as a baby",
-  "@pagesLookParentBaby": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
   "pagesLookBabyPhoto": "Their photo on this page (without one, the family tree's).",
   "pagesLookNow": "{name} now",
   "@pagesLookNow": {
@@ -1032,34 +1024,9 @@
   },
   "pagesTimeOfBirth": "Time of birth",
   "pagesTreeBabyPhoto": "Their photo at the bottom of the tree, apart from the profile picture.",
-  "pagesTreeGrandparent": "Their parent (side {n})",
-  "@pagesTreeGrandparent": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
-  "pagesTreeOthers": "Aunts, uncles and cousins",
-  "pagesTreeParent": "Parent {n}",
-  "@pagesTreeParent": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
+  "pagesTreeOthers": "Cousins and other family",
   "pagesTreePrompt": "Tap to write the names of the family.",
-  "pagesTreeSiblings": "Brothers and sisters",
   "pagesTreeFullScreen": "Full screen",
-  "pagesTreeTheirParent": "Their parent {n}",
-  "@pagesTreeTheirParent": {
-    "placeholders": {
-      "n": {
-        "type": "int"
-      }
-    }
-  },
   "pagesTreeTitle": "Family tree",
   "pagesWeRemember": "We remember",
   "pagesWeighed": "Weighed",
@@ -1552,5 +1519,119 @@
   "sizeLarge": "Large",
   "formWetSize": "Wet size",
   "formDirtySize": "Dirty size",
-  "partSize": "{part} ({size})"
+  "partSize": "{part} ({size})",
+  "treeMother": "Mother",
+  "treeFather": "Father",
+  "treeGrandmother": "Grandmother",
+  "treeGrandfather": "Grandfather",
+  "treeGreatGrandmother": "Great-grandmother",
+  "treeGreatGrandfather": "Great-grandfather",
+  "treeGreat2Grandmother": "Great-great-grandmother",
+  "treeGreat2Grandfather": "Great-great-grandfather",
+  "treeGreatNGrandmother": "{n}× great-grandmother",
+  "@treeGreatNGrandmother": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    },
+    "description": "An ancestor further up than a great-great-grandmother: n = how many 'great' (3 = great-great-great-grandmother)"
+  },
+  "treeGreatNGrandfather": "{n}× great-grandfather",
+  "@treeGreatNGrandfather": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "treeSister": "Sister",
+  "treeBrother": "Brother",
+  "treeSibling": "Brother or sister",
+  "treeAunt": "Aunt",
+  "treeUncle": "Uncle",
+  "treeAuntOrUncle": "Aunt or uncle",
+  "treeGreatAunt": "Great-aunt",
+  "treeGreatUncle": "Great-uncle",
+  "treeGreatAuntOrUncle": "Great-aunt or great-uncle",
+  "treeGreatNAunt": "{n}× great-aunt",
+  "@treeGreatNAunt": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    },
+    "description": "A great-grandparent's (or older) sister: n = how many 'great' (2 = great-great-aunt)"
+  },
+  "treeGreatNUncle": "{n}× great-uncle",
+  "@treeGreatNUncle": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "treeGreatNAuntOrUncle": "{n}× great-aunt or great-uncle",
+  "@treeGreatNAuntOrUncle": {
+    "placeholders": {
+      "n": {
+        "type": "int"
+      }
+    }
+  },
+  "treeOnDadSide": "{relation} on Dad's side",
+  "@treeOnDadSide": {
+    "placeholders": {
+      "relation": {
+        "type": "String"
+      }
+    },
+    "description": "A relative through the father, e.g. 'Grandmother on Dad's side'"
+  },
+  "treeOnMomSide": "{relation} on Mom's side",
+  "@treeOnMomSide": {
+    "placeholders": {
+      "relation": {
+        "type": "String"
+      }
+    },
+    "description": "A relative through the mother"
+  },
+  "treeParentOf": "{role, select, mother{{name}'s mother} other{{name}'s father}}",
+  "@treeParentOf": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "role": {
+        "type": "String"
+      }
+    },
+    "description": "Under a relation on the family tree: whose parent this is (name = their child)"
+  },
+  "treeSiblingOf": "{role, select, sister{{name}'s sister} brother{{name}'s brother} other{{name}'s brother or sister}}",
+  "@treeSiblingOf": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "role": {
+        "type": "String"
+      }
+    }
+  },
+  "treeParentAsBaby": "{role, select, mother{Mother as a baby} other{Father as a baby}}",
+  "@treeParentAsBaby": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      }
+    }
+  },
+  "treeAddParents": "Add their parents",
+  "treeAddSibling": "Add a brother or sister",
+  "treeAnotherSibling": "Another brother or sister",
+  "treeRemovePerson": "Remove from the tree",
+  "treeMoreAbove": "More generations above",
+  "treeTapHint": "Tap someone to see their parents. Hold to edit."
 }
