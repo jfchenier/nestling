@@ -16,7 +16,8 @@ import 'store.dart';
 /// Per family: the CSV export (`server-<family>.csv`, the layout the import reads), a small JSON
 /// with what the CSV leaves out (time zone, day hours, each child's medicines, reminders, book
 /// pages and profile picture) and the baby book's photos, one file each, sent once
-/// (`server-<family>-photo-<entry>-<version>`; the book pages' photos as
+/// (`server-<family>-photo-<entry>-<version>`; their full-size copies for printing as
+/// `server-<family>-print-<entry>-<version>`; the book pages' photos as
 /// `server-<family>-page-<child>-<key>-<version>`).
 ///
 /// [restore] brings a copy back into a family on any server, or into serverless mode, through the
@@ -89,7 +90,7 @@ class ServerBackup implements Backup {
 
     // Photos: sent once per version; the import knows entries by their source id.
     final keep = <String>{};
-    final photos = <String, String>{};
+    final photos = <String, String>{}, prints = <String, String>{};
     for (final e in (full['events'] as List? ?? []).cast<Map<String, dynamic>>()) {
       final version = toInt(e['photo_version']);
       if (version == null || e['deleted'] == true) continue;
@@ -97,6 +98,12 @@ class ServerBackup implements Backup {
       if (!existing.containsKey(name)) await d.put(name, await api.getBytes('/events/${e['id']}/photo'), null);
       keep.add(name);
       photos[(e['source_id'] ?? e['id']) as String] = name;
+      if (e['photo_print'] == true) {
+        final print = '$base-print-${e['id']}-$version';
+        if (!existing.containsKey(print)) await d.put(print, await api.getBytes('/events/${e['id']}/photo/print'), null);
+        keep.add(print);
+        prints[(e['source_id'] ?? e['id']) as String] = print;
+      }
     }
     final children = <Map<String, dynamic>>[];
     for (final c in (full['children'] as List? ?? []).cast<Map<String, dynamic>>()) {
@@ -129,12 +136,13 @@ class ServerBackup implements Backup {
       'family': {for (final k in const ['id', 'name', 'timezone', 'day_start', 'day_end']) k: f[k]},
       'children': children,
       'photos': photos,
+      'prints': prints,
     };
     await d.put('$base.json', utf8.encode(jsonEncode(manifest)), existing['$base.json'], contentType: 'application/json');
 
     // Photos that were replaced or removed since.
     for (final MapEntry(key: name, value: id) in existing.entries) {
-      if ((name.startsWith('$base-photo-') || name.startsWith('$base-child-') || name.startsWith('$base-page-')) && !keep.contains(name)) {
+      if (const ['photo', 'print', 'child', 'page'].any((k) => name.startsWith('$base-$k-')) && !keep.contains(name)) {
         await d.delete(id);
       }
     }
@@ -244,6 +252,11 @@ class ServerBackup implements Backup {
       final bytes = await d.get(file);
       await api.putBytes('/events/$event/photo', bytes, contentType: _imageType(bytes));
       photos++;
+      // Its print copy goes after it (setting the photo drops the old one).
+      if (copy._files[copy.prints[source]] case final print?) {
+        final full = await d.get(print);
+        await api.putBytes('/events/$event/photo/print', full, contentType: _imageType(full));
+      }
     }
     return RestoreResult(
       familyId: familyId,
@@ -273,6 +286,9 @@ class ServerBackupCopy {
   DateTime get savedAt => DateTime.fromMillisecondsSinceEpoch(toInt(json['saved_at']) ?? 0);
   List<Map<String, dynamic>> get children => [for (final c in (json['children'] as List? ?? [])) (c as Map).cast<String, dynamic>()];
   Map<String, String> get photos => (json['photos'] as Map?)?.cast<String, String>() ?? const {};
+
+  /// The photos' full-size copies for printing, like [photos] (older copies have none).
+  Map<String, String> get prints => (json['prints'] as Map?)?.cast<String, String>() ?? const {};
 }
 
 class RestoreResult {

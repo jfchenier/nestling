@@ -138,6 +138,7 @@
   "bookPhotoAMonth": "une photo par mois",
   "bookPhotoCount": "{count, plural, =1{1 photo} other{{count} photos}}",
   "bookPhotoNotSaved": "Le souvenir est enregistré, mais pas sa photo : {error}",
+  "bookPrintPhotoNotSaved": "Le souvenir et sa photo sont enregistrés, mais pas la copie pleine taille gardée pour l'impression : {error}",
   "bookPhotoOf": "Photo : {name}",
   "bookPreparingPhoto": "Préparation de la photo…",
   "bookSaveToBook": "Ajouter au livre",

@@ -21,6 +21,7 @@ class FakeServer {
   final events = <Map<String, dynamic>>[];
   final timers = <String, Map<String, dynamic>>{};
   final photos = <String, Uint8List>{};
+  final prints = <String, Uint8List>{};
   int photoGets = 0;
   String pushStatus = 'applied';
 
@@ -62,10 +63,19 @@ class FakeServer {
         final e = events.where((e) => e['id'] == id).firstOrNull;
         if (e == null) return json({'error': {'code': 'not_found', 'message': 'event not found'}}, 404);
         photos[id] = req.bodyBytes;
+        prints.remove(id);
         e['photo_version'] = 5000 + photos.length;
+        e.remove('photo_print');
+        return json(e);
+      case ('PUT', ['events', final id, 'photo', 'print']):
+        final e = events.where((e) => e['id'] == id).firstOrNull;
+        if (e == null || !photos.containsKey(id)) return json({'error': {'code': 'not_found', 'message': 'photo not found'}}, 404);
+        prints[id] = req.bodyBytes;
+        e['photo_print'] = true;
         return json(e);
       case ('DELETE', ['events', final id, 'photo']):
         photos.remove(id);
+        prints.remove(id);
         events.where((e) => e['id'] == id).firstOrNull?['photo_version'] = null;
         return http.Response('', 204);
       case ('GET', ['events', final id, 'photo']):
@@ -273,6 +283,7 @@ void main() {
 
   group('book photos', () {
     final jpeg = Uint8List.fromList([0xFF, 0xD8, 0xFF, 1, 2, 3]);
+    final big = Uint8List.fromList([0xFF, 0xD8, 0xFF, ...List.filled(64, 9)]);
     MemoryPhotoCache cache() => store.photoCache as MemoryPhotoCache;
 
     setUp(() => api.pull('f1'));
@@ -340,6 +351,52 @@ void main() {
       api.offline = false;
       await api.sync();
       expect(server.photos, isEmpty);
+      expect(api.pending, 0);
+    });
+
+    test('print copy: sent after the photo, not kept on the device', () async {
+      final e = await api.post('/children/c1/events', {'type': 'milestone', 'name': 'First smile'});
+      await api.putBytes('/events/${e['id']}/photo', jpeg, contentType: 'image/jpeg');
+      final res = await api.putBytes('/events/${e['id']}/photo/print', big, contentType: 'image/jpeg');
+      expect(server.prints[e['id']], big);
+      expect(res['photo_print'], isTrue);
+      expect(store.events[e['id']]!['photo_print'], isTrue);
+      expect(cache().data.keys, ['e-${e['id']}']);
+      expect(api.pending, 0);
+    });
+
+    test('print copy offline: waits for the entry and its photo, then is forgotten', () async {
+      server.up = false;
+      final e = await api.post('/children/c1/events', {'type': 'milestone', 'name': 'First smile'});
+      await api.putBytes('/events/${e['id']}/photo', jpeg, contentType: 'image/jpeg');
+      await api.putBytes('/events/${e['id']}/photo/print', big, contentType: 'image/jpeg');
+      expect(api.pending, 3, reason: 'the entry, its photo and the print copy');
+      await store.flush();
+      expect((await LocalStore.open(persist)).printUploads.keys, [e['id']]);
+
+      server.up = true;
+      api.offline = false;
+      await api.sync();
+      expect(api.pending, 0);
+      expect(server.photos[e['id']], jpeg);
+      expect(server.prints[e['id']], big);
+      expect(store.events[e['id']]!['photo_print'], isTrue);
+      expect(cache().data.keys, ['e-${e['id']}'], reason: 'the print copy is forgotten once sent');
+    });
+
+    test('a new photo drops the print copy still waiting for the one before', () async {
+      final e = await api.post('/children/c1/events', {'type': 'milestone', 'name': 'First smile'});
+      await pumpEventQueue();
+      server.up = false;
+      await api.putBytes('/events/${e['id']}/photo', jpeg, contentType: 'image/jpeg');
+      await api.putBytes('/events/${e['id']}/photo/print', big, contentType: 'image/jpeg');
+      await api.delete('/events/${e['id']}/photo');
+      expect(store.printUploads, isEmpty);
+      expect(cache().data, isEmpty);
+      server.up = true;
+      api.offline = false;
+      await api.sync();
+      expect(server.prints, isEmpty);
       expect(api.pending, 0);
     });
 

@@ -132,6 +132,11 @@ class LocalStore {
   /// in [photoCache] as `e-<id>`), or null for a removed photo. Sent by `SyncApi.sync`.
   final Map<String, int?> photoUploads = {};
 
+  /// Server mode: full-size copies of photos for printing the book (`PUT /events/{id}/photo/print`)
+  /// waiting for their photo and entry to reach the server: event id → version (in [photoCache]
+  /// as `p-<id>`). Forgotten once sent (the device doesn't keep them).
+  final Map<String, int> printUploads = {};
+
   /// Server mode: downloaded photos, kept so they show offline, and the ones in [photoUploads].
   final PhotoCache photoCache;
 
@@ -220,7 +225,7 @@ class LocalStore {
   }
 
   bool get hasData => me != null;
-  int get pendingCount => pending.length + photoUploads.length;
+  int get pendingCount => pending.length + photoUploads.length + printUploads.length;
 
   // ---- lookups ----
 
@@ -338,6 +343,7 @@ class LocalStore {
     eventPhotos.clear();
     bookPhotos.clear();
     photoUploads.clear();
+    printUploads.clear();
     serverless = {};
     stamps.clear();
     stamp = 0;
@@ -393,6 +399,7 @@ class LocalStore {
     'deleted_children': deletedChildren,
     'photos': photos,
     'photo_uploads': photoUploads,
+    'print_uploads': printUploads,
     'serverless': serverless,
     'stamps': stamps,
     'stamp': stamp,
@@ -418,6 +425,7 @@ class LocalStore {
     (j['deleted_children'] as Map? ?? {}).forEach((k, v) => deletedChildren[k] = v);
     (j['photos'] as Map? ?? {}).forEach((k, v) => photos[k] = v);
     (j['photo_uploads'] as Map? ?? {}).forEach((k, v) => photoUploads[k] = v);
+    (j['print_uploads'] as Map? ?? {}).forEach((k, v) => printUploads[k] = v);
     serverless = j['serverless'] ?? {};
     (j['stamps'] as Map? ?? {}).forEach((k, v) => stamps[k] = v);
     stamp = j['stamp'] ?? 0;

@@ -524,6 +524,11 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
+  String bookPrintPhotoNotSaved(Object error) {
+    return 'Момент и фото сохранены, а копия в полном размере для печати — нет: $error';
+  }
+
+  @override
   String bookPhotoOf(Object name) {
     return 'Фото: $name';
   }

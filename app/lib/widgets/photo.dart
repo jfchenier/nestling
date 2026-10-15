@@ -31,24 +31,37 @@ Future<Uint8List> squarePhoto(Uint8List bytes, {int size = 512, bool jpeg = fals
   final square = await recorder.endRecording().toImage(out.round(), out.round());
   if (jpeg) {
     final rgba = await square.toByteData(format: ui.ImageByteFormat.rawStraightRgba);
-    return compute(_jpeg, (rgba!.buffer.asUint8List(), out.round(), out.round()));
+    return compute(_jpeg, (rgba!.buffer.asUint8List(), out.round(), out.round(), 82));
   }
   final png = await square.toByteData(format: ui.ImageByteFormat.png);
   return png!.buffer.asUint8List();
 }
 
-/// Let the user pick a picture for a memory: scaled down to at most [maxSide] px on its long
-/// side and saved as a JPEG (a few hundred KB), so the baby book stays light to store and sync.
-/// Null if cancelled.
-Future<Uint8List?> pickMemoryPhoto({int maxSide = 1600}) async {
+/// A memory's photo: [photo] is scaled down to at most 1600 px on its long side (a few hundred
+/// KB), so the baby book stays light to store and sync; [print] is a full-size copy (at most
+/// 3600 px, enough for a 12-inch print at 300 dpi) kept on the server for printing the book.
+/// No [print] when the picture isn't larger than [photo] already.
+typedef MemoryPhoto = ({Uint8List photo, Uint8List? print});
+
+/// Let the user pick a picture for a memory (see [MemoryPhoto]). Null if cancelled.
+Future<MemoryPhoto?> pickMemoryPhoto() async {
   final files = await FilePicker.pickFiles(type: FileType.image);
   if (files.isEmpty) return null;
-  return memoryPhoto(await files.first.xFile.readAsBytes(), maxSide: maxSide);
+  return memoryPhoto(await files.first.xFile.readAsBytes());
 }
 
-Future<Uint8List> memoryPhoto(Uint8List bytes, {int maxSide = 1600}) async {
+Future<MemoryPhoto> memoryPhoto(Uint8List bytes, {int maxSide = 1600, int printSide = 3600}) async {
   final codec = await ui.instantiateImageCodec(bytes);
   final image = (await codec.getNextFrame()).image;
+  final long = math.max(image.width, image.height);
+  return (
+    photo: await _scaledJpeg(image, maxSide, 82),
+    print: long > maxSide ? await _scaledJpeg(image, printSide, 90) : null,
+  );
+}
+
+/// [image] scaled down to at most [maxSide] px on its long side, as a JPEG.
+Future<Uint8List> _scaledJpeg(ui.Image image, int maxSide, int quality) async {
   final scale = math.min(1.0, maxSide / math.max(image.width, image.height));
   final w = math.max(1, (image.width * scale).round()), h = math.max(1, (image.height * scale).round());
   final recorder = ui.PictureRecorder();
@@ -61,11 +74,11 @@ Future<Uint8List> memoryPhoto(Uint8List bytes, {int maxSide = 1600}) async {
   final scaled = await recorder.endRecording().toImage(w, h);
   final rgba = await scaled.toByteData(format: ui.ImageByteFormat.rawStraightRgba);
   // JPEG encoding is plain Dart: off the UI thread on phones (the web has no isolates).
-  return compute(_jpeg, (rgba!.buffer.asUint8List(), w, h));
+  return compute(_jpeg, (rgba!.buffer.asUint8List(), w, h, quality));
 }
 
-Uint8List _jpeg((Uint8List, int, int) raw) {
-  final (rgba, w, h) = raw;
+Uint8List _jpeg((Uint8List, int, int, int) raw) {
+  final (rgba, w, h, quality) = raw;
   final pic = img.Image.fromBytes(width: w, height: h, bytes: rgba.buffer, numChannels: 4);
-  return img.encodeJpg(pic, quality: 82);
+  return img.encodeJpg(pic, quality: quality);
 }

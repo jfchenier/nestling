@@ -138,6 +138,7 @@
   "bookPhotoAMonth": "фото каждый месяц",
   "bookPhotoCount": "{count, plural, one{{count} фото} few{{count} фото} many{{count} фото} other{{count} фото}}",
   "bookPhotoNotSaved": "Момент сохранён, а фото нет: {error}",
+  "bookPrintPhotoNotSaved": "Момент и фото сохранены, а копия в полном размере для печати — нет: {error}",
   "bookPhotoOf": "Фото: {name}",
   "bookPreparingPhoto": "Готовим фото…",
   "bookSaveToBook": "Сохранить в книгу",
