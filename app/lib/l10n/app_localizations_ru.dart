@@ -3507,7 +3507,7 @@ class AppLocalizationsRu extends AppLocalizations {
   }
 
   @override
-  String get timerLastSideBadge => 'Прошлая\nсторона';
+  String get timerLastSideLabel => 'Прошлая сторона';
 
   @override
   String get timerLeftSide => 'Левая сторона';

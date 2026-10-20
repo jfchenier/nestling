@@ -5694,11 +5694,11 @@ abstract class AppLocalizations {
   /// **'{side, select, left{Last feed ended on the left} other{Last feed ended on the right}} · {ago}\n{side, select, left{Start on the right} other{Start on the left}}'**
   String timerLastFeedEnded(Object ago, String side);
 
-  /// Small round badge, two short lines
+  /// Label above the circle of the side the last breastfeed ended on
   ///
   /// In en, this message translates to:
-  /// **'Last\nside'**
-  String get timerLastSideBadge;
+  /// **'Last side'**
+  String get timerLastSideLabel;
 
   /// No description provided for @timerLeftSide.
   ///

@@ -3462,7 +3462,7 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get timerLastSideBadge => 'Dernier\ncôté';
+  String get timerLastSideLabel => 'Dernier côté';
 
   @override
   String get timerLeftSide => 'Côté gauche';

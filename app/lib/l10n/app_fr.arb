@@ -932,7 +932,7 @@
   "timerFellAsleep": "Endormi",
   "timerKeepsRunning": "Fermez avec ✕ : le minuteur continue.",
   "timerLastFeedEnded": "{side, select, left{Dernière tétée finie à gauche} other{Dernière tétée finie à droite}} · {ago}\n{side, select, left{Commencer à droite} other{Commencer à gauche}}",
-  "timerLastSideBadge": "Dernier\ncôté",
+  "timerLastSideLabel": "Dernier côté",
   "timerLeftSide": "Côté gauche",
   "timerLogPast": "Saisie manuelle",
   "timerMinutes": "Minutes",

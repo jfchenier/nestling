@@ -932,7 +932,7 @@
   "timerFellAsleep": "Se durmió",
   "timerKeepsRunning": "Cierra con ✕ y el temporizador sigue.",
   "timerLastFeedEnded": "{side, select, left{La última toma terminó en el izquierdo} other{La última toma terminó en el derecho}} · {ago}\n{side, select, left{Empieza por el derecho} other{Empieza por el izquierdo}}",
-  "timerLastSideBadge": "Último\nlado",
+  "timerLastSideLabel": "Último lado",
   "timerLeftSide": "Lado izquierdo",
   "timerLogPast": "Registro manual",
   "timerMinutes": "Minutos",

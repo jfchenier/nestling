@@ -3442,7 +3442,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get timerLastSideBadge => 'Last\nside';
+  String get timerLastSideLabel => 'Last side';
 
   @override
   String get timerLeftSide => 'Left side';

@@ -3455,7 +3455,7 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
-  String get timerLastSideBadge => 'Último\nlado';
+  String get timerLastSideLabel => 'Último lado';
 
   @override
   String get timerLeftSide => 'Lado izquierdo';
