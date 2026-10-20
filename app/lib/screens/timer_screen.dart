@@ -513,14 +513,21 @@ class _TimerScreenState extends State<TimerScreen> {
     return Column(
       children: [
         SizedBox(
-          height: 30,
+          height: 36,
           width: size,
           child: last
               ? FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(
-                    l10n.timerLastSideLabel,
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kind.on(c)),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    decoration: ShapeDecoration(
+                      color: kind.fill(c).withValues(alpha: c.isDark ? 0.3 : 0.45),
+                      shape: StadiumBorder(side: BorderSide(color: kind.on(c), width: 1.5)),
+                    ),
+                    child: Text(
+                      l10n.timerLastSideLabel,
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kind.on(c)),
+                    ),
                   ),
                 )
               : null,
