@@ -505,11 +505,12 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  /// A side: "Last side" above it before a feed starts, its round button with the time on that
-  /// side, then its name with a pencil to correct the time.
+  /// A side: "Last side" above it (the side the last feed ended on, then the side last started on
+  /// this timer), its round button with the time on that side, then its name with a pencil to
+  /// correct the time.
   Widget _side(TimerModel? t, String side, double size) {
     final c = context.pal;
-    final last = t == null && _lastSide(context.read<AppState>()) == side;
+    final last = (t != null ? t.side : _lastSide(context.read<AppState>())) == side;
     return Column(
       children: [
         SizedBox(
@@ -552,7 +553,7 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  /// Side the last breastfeed ended on, named above its circle before a new one starts.
+  /// Side the last breastfeed ended on, named above its circle until a new one starts.
   String? _lastSide(AppState s) {
     final last = s.summary?['last']?['feed'];
     return last is Map<String, dynamic> && last['method'] == 'breast' ? Event(last).endSide : null;
