@@ -932,7 +932,7 @@
   "timerFellAsleep": "Засыпание",
   "timerKeepsRunning": "Закройте ✕, и таймер продолжит идти.",
   "timerLastFeedEnded": "{side, select, left{Прошлое кормление закончилось слева} other{Прошлое кормление закончилось справа}} · {ago}\n{side, select, left{Начните справа} other{Начните слева}}",
-  "timerLastSideBadge": "Прошлая\nсторона",
+  "timerLastSideLabel": "Прошлая сторона",
   "timerLeftSide": "Левая сторона",
   "timerLogPast": "Записать прошедшее",
   "timerMinutes": "Минуты",

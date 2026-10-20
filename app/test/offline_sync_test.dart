@@ -41,13 +41,15 @@ class FakeServer {
     final seg = path.split('/').where((s) => s.isNotEmpty).toList();
     switch ((req.method, seg)) {
       case ('POST', ['children', 'c1', 'timers']):
+        // Started recently: a fixed date would, once over 7 days old, make stopping it locally too long an entry.
+        final start = DateTime.now().toUtc().subtract(const Duration(minutes: 30)).toIso8601String();
         final t = <String, dynamic>{
           'id': body['id'],
           'child_id': 'c1',
           'kind': body['kind'],
-          'started_at': '2026-10-09T10:00:00+00:00',
+          'started_at': start,
           'running': true,
-          'segments': [{'side': null, 'start': '2026-10-09T10:00:00+00:00', 'end': null}],
+          'segments': [{'side': null, 'start': start, 'end': null}],
         };
         timers[t['id']] = t;
         return json(t, 201);

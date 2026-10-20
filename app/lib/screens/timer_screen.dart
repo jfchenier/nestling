@@ -345,7 +345,7 @@ class _TimerScreenState extends State<TimerScreen> {
                 Text(
                   clock(_total(t)),
                   textAlign: TextAlign.center,
-                  style: serifStyle(64, weight: FontWeight.w600).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                  style: serifStyle(widget.kind == 'breastfeed' ? 44 : 64, weight: FontWeight.w600).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
                 ),
                 Text(
                   t == null
@@ -362,7 +362,17 @@ class _TimerScreenState extends State<TimerScreen> {
                 ),
                 const SizedBox(height: 28),
                 if (widget.kind == 'breastfeed')
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [_side(t, 'left'), _side(t, 'right')])
+                  LayoutBuilder(
+                    builder: (context, box) {
+                      // As big as two fit side by side on a phone, capped on wide screens.
+                      final size = ((box.maxWidth - 56) / 2).clamp(120.0, 176.0);
+                      return Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [_side(t, 'left', size), _side(t, 'right', size)],
+                      );
+                    },
+                  )
                 else ...[
                   if (widget.kind == 'pump') ...[
                     Padding(padding: const EdgeInsets.symmetric(horizontal: 24), child: _pumpSides(t)),
@@ -495,27 +505,42 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  /// A side: its round button, then the time on that side with a pencil to correct it.
-  Widget _side(TimerModel? t, String side) {
+  /// A side: "Last side" above it (the side the last feed ended on, then the side last started on
+  /// this timer), its round button with the time on that side, then its name with a pencil to
+  /// correct the time.
+  Widget _side(TimerModel? t, String side, double size) {
     final c = context.pal;
-    final seconds = (side == 'left' ? t?.left : t?.right) ?? 0;
+    final last = (t != null ? t.side : _lastSide(context.read<AppState>())) == side;
     return Column(
       children: [
-        Stack(
-          clipBehavior: Clip.none,
-          children: [
-            _circle(t, side),
-            if (t == null && _lastSide(context.read<AppState>()) == side) Positioned(left: -9, top: -9, child: _lastSideBadge()),
-          ],
+        SizedBox(
+          height: 36,
+          width: size,
+          child: last
+              ? FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    decoration: ShapeDecoration(
+                      color: kind.fill(c).withValues(alpha: c.isDark ? 0.3 : 0.45),
+                      shape: StadiumBorder(side: BorderSide(color: kind.on(c), width: 1.5)),
+                    ),
+                    child: Text(
+                      l10n.timerLastSideLabel,
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kind.on(c)),
+                    ),
+                  ),
+                )
+              : null,
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 6),
+        _circle(t, side, size),
+        const SizedBox(height: 8),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              l10n.durMinutesSeconds(seconds ~/ 60, (seconds % 60).toString().padLeft(2, '0')),
-              style: serifStyle(20, weight: FontWeight.w600).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
-            ),
+            const SizedBox(width: 40), // as wide as the pencil, so the name sits under the circle's center
+            Text(side == 'left' ? l10n.left : l10n.right, style: serifStyle(22, color: kind.on(c))),
             IconButton(
               tooltip: l10n.timerEditSide(side),
               visualDensity: VisualDensity.compact,
@@ -528,39 +553,22 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  /// Side the last breastfeed ended on, marked on its circle before a new one starts.
+  /// Side the last breastfeed ended on, named above its circle until a new one starts.
   String? _lastSide(AppState s) {
     final last = s.summary?['last']?['feed'];
     return last is Map<String, dynamic> && last['method'] == 'breast' ? Event(last).endSide : null;
   }
 
-  Widget _lastSideBadge() {
-    final c = context.pal;
-    return ExcludeSemantics(
-      child: Container(
-        width: 42,
-        height: 42,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          color: c.ink,
-          shape: BoxShape.circle,
-          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 6)],
-        ),
-        child: Text(
-          l10n.timerLastSideBadge,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: c.background, fontSize: 10, height: 1.1, fontWeight: FontWeight.w700),
-        ),
-      ),
-    );
-  }
-
-  /// Big round side button: start, pause (same side), switch (other side) or resume.
-  Widget _circle(TimerModel? t, String side) {
+  /// Big round side button: start, pause (same side), switch (other side) or resume. With no
+  /// time on that side yet it holds a big play icon; once timed, the side's time with a small
+  /// play/pause icon under it.
+  Widget _circle(TimerModel? t, String side, double size) {
     final c = context.pal;
     final active = t != null && t.running && t.side == side;
     final current = t != null && t.side == side;
     final strong = c.isDark ? kind.fill(c) : kind.deepTone;
+    final seconds = (side == 'left' ? t?.left : t?.right) ?? 0;
+    final ink = active ? Colors.white : kind.on(c);
     final action = t == null
         ? (_lastSide(context.read<AppState>()) == side ? l10n.timerStartSideLast(side) : l10n.timerStartSide(side))
         : active
@@ -571,13 +579,14 @@ class _TimerScreenState extends State<TimerScreen> {
     return Semantics(
       button: true,
       label: action,
+      value: l10n.durMinutesSeconds(seconds ~/ 60, (seconds % 60).toString().padLeft(2, '0')),
       excludeSemantics: true,
       child: GestureDetector(
         onTap: _busy ? null : () => _tapSide(t, side),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 250),
-          width: 128,
-          height: 128,
+          width: size,
+          height: size,
           decoration: BoxDecoration(
             color: active ? strong : c.surface,
             shape: BoxShape.circle,
@@ -589,14 +598,26 @@ class _TimerScreenState extends State<TimerScreen> {
               ),
             ],
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(side == 'left' ? l10n.left : l10n.right, style: serifStyle(28, color: active ? Colors.white : kind.on(c))),
-              const SizedBox(height: 4),
-              Icon(active ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 30, color: active ? Colors.white : kind.on(c)),
-            ],
-          ),
+          child: active || seconds > 0
+              ? Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(height: 8),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 14),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          clock(seconds),
+                          style: serifStyle(size * 0.25, weight: FontWeight.w600, color: ink)
+                              .copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                        ),
+                      ),
+                    ),
+                    Icon(active ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 28, color: ink),
+                  ],
+                )
+              : Icon(Icons.play_arrow_rounded, size: size * 0.45, color: ink),
         ),
       ),
     );
