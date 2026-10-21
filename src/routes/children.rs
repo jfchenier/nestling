@@ -11,15 +11,15 @@ use serde_json::{json, Value};
 use crate::{
     auth::{child_access, child_book_access, family_tz, member_role, require_member, AuthUser, BOOK_VIEWER},
     error::{bad, ApiJson, AppResult},
-    schedule::{check_medicines, check_reminders, parse_medicines, parse_reminders, Medicine, Reminder},
+    schedule::{check_medicines, check_reminders, check_routines, parse_medicines, parse_reminders, parse_routines, Medicine, Reminder, Routine},
     state::AppState,
     util::{fmt_time, new_id, now_ms},
 };
 
-type ChildRow = (String, String, String, Option<String>, Option<String>, i64, i64, Option<i64>, String, String, String, Option<String>);
+type ChildRow = (String, String, String, Option<String>, Option<String>, i64, i64, Option<i64>, String, String, String, String, Option<String>);
 
 fn child_value(row: ChildRow, tz: Tz) -> Value {
-    let (id, family_id, name, birth_date, sex, created_at, updated_at, photo_version, medicines, reminders, book, book_photos) = row;
+    let (id, family_id, name, birth_date, sex, created_at, updated_at, photo_version, medicines, reminders, routines, book, book_photos) = row;
     json!({
         "id": id, "family_id": family_id, "name": name, "birth_date": birth_date, "sex": sex,
         "created_at": fmt_time(created_at, tz), "updated_at": fmt_time(updated_at, tz),
@@ -27,22 +27,24 @@ fn child_value(row: ChildRow, tz: Tz) -> Value {
         "photo_version": photo_version,
         "medicines": parse_medicines(&medicines),
         "reminders": parse_reminders(&reminders),
+        "routines": parse_routines(&routines),
         "book": parse_book(&book),
         // The book pages' photos: key → version; fetch one from /children/{id}/book-photos/{key}.
         "book_photos": book_photos.as_deref().map(parse_book).unwrap_or_else(|| json!({})),
     })
 }
 
-/// A child as a book viewer sees it: without the medicine schedules and reminders.
+/// A child as a book viewer sees it: without the medicine schedules, reminders and routines.
 pub fn book_view(child: &mut Value) {
     if let Some(obj) = child.as_object_mut() {
         obj.remove("medicines");
         obj.remove("reminders");
+        obj.remove("routines");
     }
 }
 
 const CHILD_COLS: &str = "id, family_id, name, birth_date, sex, created_at, updated_at, \
-    (SELECT p.updated_at FROM child_photos p WHERE p.child_id = children.id) AS photo_version, medicines, reminders, book, \
+    (SELECT p.updated_at FROM child_photos p WHERE p.child_id = children.id) AS photo_version, medicines, reminders, routines, book, \
     (SELECT json_group_object(b.key, b.updated_at) FROM book_photos b WHERE b.child_id = children.id) AS book_photos";
 
 pub async fn children_json(state: &AppState, family_id: &str, tz: Tz) -> AppResult<Vec<Value>> {
@@ -176,6 +178,8 @@ pub struct UpdateChildReq {
     medicines: Option<Vec<Medicine>>,
     #[serde(default)]
     reminders: Option<Vec<Reminder>>,
+    #[serde(default)]
+    routines: Option<Vec<Routine>>,
     /// The baby book's pages; replaces the whole object.
     #[serde(default)]
     book: Option<Book>,
@@ -219,6 +223,14 @@ pub async fn update(State(state): State<AppState>, user: AuthUser, Path(child_id
     if let Some(list) = req.reminders {
         check_reminders(&list)?;
         sqlx::query("UPDATE children SET reminders = ? WHERE id = ?")
+            .bind(serde_json::to_string(&list)?)
+            .bind(&child_id)
+            .execute(&state.db)
+            .await?;
+    }
+    if let Some(mut list) = req.routines {
+        check_routines(&mut list)?;
+        sqlx::query("UPDATE children SET routines = ? WHERE id = ?")
             .bind(serde_json::to_string(&list)?)
             .bind(&child_id)
             .execute(&state.db)

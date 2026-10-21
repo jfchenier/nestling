@@ -155,6 +155,10 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       (any mode) and are pushed only when Firebase is set up (`state.push`), checked every minute,
       once per entry (`reminders_sent`). App: Home's menu → Medicines and reminders; home strip
       (`_ReminderStrip`, same due rule as `reminders.rs`); early-dose warning in the medicine form.
+      Routines (`children.routines`, e.g. a bath): the same schedules for `activity` entries of that
+      kind (`routine_key`: case, spaces, `_` ignored); shown on the home strip only when due. Set times
+      (medicines and routines) can be limited to `weekdays` (1 = Monday) or `every_days` N (from the
+      day of the last entry).
 - [x] **Baby book** (the Firsts card's Book button; tapping the card adds a memory; `app/lib/screens/baby_book.dart`): milestones as a
       scrapbook with one photo each (`/events/{id}/photo`, table `event_photos`; events carry
       `photo_version`), built-in ideas of firsts plus custom ones. For a printed book later, the app also

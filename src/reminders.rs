@@ -1,5 +1,5 @@
 //! Reminders sent to the family's phones (only on a server set up for notifications, see
-//! `push.rs`): "no feed in 3 h" and "next dose of Tylenol is due". Checked every minute; each
+//! `push.rs`): "no feed in 3 h", "next dose of Tylenol is due" and "bath is due". Checked every minute; each
 //! reminder goes out once per entry it is about (`reminders_sent`), so logging a feed (or a dose)
 //! arms it again.
 
@@ -12,7 +12,10 @@ use sqlx::SqlitePool;
 use crate::{
     error::AppResult,
     push::{duration, Push},
-    schedule::{medicine_key, medicine_status, parse_medicines, parse_reminders, Medicine, MedicineStatus},
+    schedule::{
+        medicine_key, medicine_status, parse_medicines, parse_reminders, parse_routines, routine_key, routine_status, Medicine, MedicineStatus,
+        Routine,
+    },
     state::AppState,
     util::{now_ms, parse_tz},
 };
@@ -53,6 +56,43 @@ pub async fn medicines_status(db: &SqlitePool, child_id: &str, medicines: &[Medi
     Ok(out)
 }
 
+/// Times (ms) a routine was done for a child (its `activity` entries), newest first.
+pub async fn routine_done(db: &SqlitePool, child_id: &str, name: &str, now: i64) -> AppResult<Vec<i64>> {
+    let rows: Vec<(i64, Option<String>)> = sqlx::query_as(
+        "SELECT start_at, json_extract(data, '$.kind') FROM events
+         WHERE child_id = ? AND type = 'activity' AND deleted_at IS NULL AND start_at <= ?
+         ORDER BY start_at DESC",
+    )
+    .bind(child_id)
+    .bind(now)
+    .fetch_all(db)
+    .await?;
+    let key = routine_key(name);
+    Ok(rows
+        .into_iter()
+        .filter(|(_, n)| n.as_deref().is_some_and(|n| routine_key(n) == key))
+        .map(|(t, _)| t)
+        .take(30)
+        .collect())
+}
+
+pub async fn routines_status(db: &SqlitePool, child_id: &str, routines: &[Routine], now: i64, tz: Tz) -> AppResult<Vec<(Routine, MedicineStatus)>> {
+    let mut out = Vec::new();
+    for r in routines {
+        let done = routine_done(db, child_id, &r.name, now).await?;
+        let st = routine_status(r, &done, now, tz);
+        out.push((r.clone(), st));
+    }
+    Ok(out)
+}
+
+/// "tummy_time" → "Tummy time".
+pub fn routine_label(name: &str) -> String {
+    let name = name.replace('_', " ");
+    let mut c = name.chars();
+    c.next().map(|f| f.to_uppercase().chain(c).collect()).unwrap_or_default()
+}
+
 /// Checks the reminders every minute (until the server stops).
 pub fn spawn(state: AppState, push: Arc<Push>) {
     tokio::spawn(async move {
@@ -78,15 +118,15 @@ pub struct Due {
 
 /// The reminders due now for every child that has some (sent or not).
 pub async fn due(db: &SqlitePool, now: i64) -> AppResult<Vec<(String, String, Due)>> {
-    let children: Vec<(String, String, String, String, String, String)> = sqlx::query_as(
-        "SELECT c.id, c.family_id, c.name, c.medicines, c.reminders, f.timezone FROM children c
+    let children: Vec<(String, String, String, String, String, String, String)> = sqlx::query_as(
+        "SELECT c.id, c.family_id, c.name, c.medicines, c.reminders, c.routines, f.timezone FROM children c
          JOIN families f ON f.id = c.family_id
-         WHERE c.reminders != '[]' OR c.medicines LIKE '%\"remind\":true%'",
+         WHERE c.reminders != '[]' OR c.medicines LIKE '%\"remind\":true%' OR c.routines LIKE '%\"remind\":true%'",
     )
     .fetch_all(db)
     .await?;
     let mut out = Vec::new();
-    for (child_id, family_id, name, medicines, reminders, tz) in children {
+    for (child_id, family_id, name, medicines, reminders, routines, tz) in children {
         let tz = parse_tz(&tz)?;
         let at = |ms: i64| hhmm(ms, tz);
         for r in parse_reminders(&reminders) {
@@ -149,6 +189,25 @@ pub async fn due(db: &SqlitePool, now: i64) -> AppResult<Vec<(String, String, Du
                 child_id.clone(),
                 family_id.clone(),
                 Due { key: format!("medicine:{}", medicine_key(&m.name)), ref_at: next, title: format!("{name} · {}", m.name), body },
+            ));
+        }
+        for r in parse_routines(&routines).into_iter().filter(|r| r.remind) {
+            let done = routine_done(db, &child_id, &r.name, now).await?;
+            let st = routine_status(&r, &done, now, tz);
+            // Every few hours: once it was done. At set times: from the first one on.
+            let Some(next) = st.next_at.filter(|_| st.last_at.is_some() || !r.times.is_empty()) else { continue };
+            if !st.due || next > now || now - next > STALE_MS {
+                continue;
+            }
+            let body = match st.last_at {
+                Some(last) if !r.times.is_empty() => format!("Due at {} (last done {} ago)", at(next), duration((now - last) / 1000)),
+                Some(last) => format!("Due now (last done {} ago)", duration((now - last) / 1000)),
+                None => format!("Due at {}", at(next)),
+            };
+            out.push((
+                child_id.clone(),
+                family_id.clone(),
+                Due { key: format!("routine:{}", routine_key(&r.name)), ref_at: next, title: format!("{name} · {}", routine_label(&r.name)), body },
             ));
         }
     }

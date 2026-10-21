@@ -253,6 +253,7 @@ class LocalEngine {
       'photo_version': null,
       'medicines': <dynamic>[],
       'reminders': <dynamic>[],
+      'routines': <dynamic>[],
       'book': <String, dynamic>{},
       'book_photos': <String, dynamic>{},
     };
@@ -273,6 +274,7 @@ class LocalEngine {
     }
     if (req['medicines'] != null) c['medicines'] = checkMedicines(req['medicines']);
     if (req['reminders'] != null) c['reminders'] = checkReminders(req['reminders']);
+    if (req['routines'] != null) c['routines'] = checkRoutines(req['routines']);
     if (req['book'] != null) c['book'] = checkBook(req['book']);
     c['updated_at'] = fmt(nowMs());
     store.markChanged('c:$id');
@@ -730,6 +732,10 @@ class LocalEngine {
         for (final m in (child['medicines'] as List? ?? const []))
           medicineJson(Map<String, dynamic>.from(m), medicineDoses(childId, m['name'] as String, now), now, fmt),
       ],
+      'routines': [
+        for (final r in (child['routines'] as List? ?? const []))
+          routineJson(Map<String, dynamic>.from(r), routineDone(childId, r['name'] as String, now), now, fmt),
+      ],
       'last': last,
       'since': since,
       'timers': timers,
@@ -744,6 +750,16 @@ class LocalEngine {
     return [
       for (final e in store.eventsOf(childId))
         if (e['type'] == 'health' && e['kind'] == 'medicine' && e['name'] is String && medicineKey(e['name']) == key)
+          if (startOf(e) case final s when s <= now) s,
+    ]..sort((a, b) => b.compareTo(a));
+  }
+
+  /// Times a routine was done, newest first (see src/reminders.rs `routine_done`).
+  List<int> routineDone(String childId, String name, int now) {
+    final key = routineKey(name);
+    return [
+      for (final e in store.eventsOf(childId))
+        if (e['type'] == 'activity' && e['kind'] is String && routineKey(e['kind']) == key)
           if (startOf(e) case final s when s <= now) s,
     ]..sort((a, b) => b.compareTo(a));
   }
