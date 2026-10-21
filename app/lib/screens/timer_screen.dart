@@ -506,36 +506,16 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  /// A side: "Last side" above it (the side the last feed ended on, then the side last started on
-  /// this timer), its round button with the time on that side, then its name with a pencil to
+  /// A side: its round button with the time on that side ("Last side" in it on the side the last
+  /// feed ended on, then on the side last started on this timer), then its name with a pencil to
   /// correct the time.
   Widget _side(TimerModel? t, String side, double size) {
     final c = context.pal;
     final last = (t != null ? t.side : _lastSide(context.read<AppState>())) == side;
     return Column(
       children: [
-        SizedBox(
-          height: 36,
-          width: size,
-          child: last
-              ? FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                    decoration: ShapeDecoration(
-                      color: kind.fill(c).withValues(alpha: c.isDark ? 0.3 : 0.45),
-                      shape: StadiumBorder(side: BorderSide(color: kind.on(c), width: 1.5)),
-                    ),
-                    child: Text(
-                      l10n.timerLastSideLabel,
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kind.on(c)),
-                    ),
-                  ),
-                )
-              : null,
-        ),
-        const SizedBox(height: 6),
-        _circle(t, side, size),
+        const SizedBox(height: 8),
+        _circle(t, side, size, last: last),
         const SizedBox(height: 8),
         Row(
           mainAxisSize: MainAxisSize.min,
@@ -562,8 +542,9 @@ class _TimerScreenState extends State<TimerScreen> {
 
   /// Big round side button: start, pause (same side), switch (other side) or resume. With no
   /// time on that side yet it holds a big play icon; once timed, the side's time with a small
-  /// play/pause icon under it.
-  Widget _circle(TimerModel? t, String side, double size) {
+  /// play/pause icon under it. [last] adds "Last side" near the top, over the rest, so the play
+  /// icon and the time sit at the same place in both circles.
+  Widget _circle(TimerModel? t, String side, double size, {bool last = false}) {
     final c = context.pal;
     final active = t != null && t.running && t.side == side;
     final current = t != null && t.side == side;
@@ -599,26 +580,53 @@ class _TimerScreenState extends State<TimerScreen> {
               ),
             ],
           ),
-          child: active || seconds > 0
-              ? Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 8),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 14),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text(
-                          clock(seconds),
-                          style: serifStyle(size * 0.25, weight: FontWeight.w600, color: ink)
-                              .copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              if (active || seconds > 0)
+                // A little below the middle, in both circles, to leave room for "Last side".
+                Padding(
+                  padding: EdgeInsets.only(top: size * 0.08),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            clock(seconds),
+                            style: serifStyle(size * 0.25, weight: FontWeight.w600, color: ink)
+                                .copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
+                          ),
                         ),
                       ),
-                    ),
-                    Icon(active ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 28, color: ink),
-                  ],
+                      Icon(active ? Icons.pause_rounded : Icons.play_arrow_rounded, size: 28, color: ink),
+                    ],
+                  ),
                 )
-              : Icon(Icons.play_arrow_rounded, size: size * 0.45, color: ink),
+              else
+                Icon(Icons.play_arrow_rounded, size: size * 0.45, color: ink),
+              if (last)
+                Positioned(
+                  top: size * 0.1,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: size * 0.62),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
+                        decoration: ShapeDecoration(
+                          color: active ? Colors.white.withValues(alpha: 0.2) : kind.fill(c).withValues(alpha: c.isDark ? 0.35 : 0.5),
+                          shape: const StadiumBorder(),
+                        ),
+                        child: Text(l10n.timerLastSideLabel, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: ink)),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
