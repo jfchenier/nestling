@@ -230,7 +230,7 @@ Stopping a timer saves it as an event.
 | `GET /timers/{id}` | | |
 | `POST /timers/{id}/switch` | `{side?, at?}` | change side; without a body flips left↔right; resumes if paused |
 | `POST /timers/{id}/pause` | `{at?}` | |
-| `POST /timers/{id}/resume` | `{side?, at?}` | `at` (pause, resume, switch): when the button was pressed, default now; kept between the timer's last change and now, so an app that shows the change at once and sends it a moment later stays in step |
+| `POST /timers/{id}/resume` | `{side?, at?}` | `at` (pause, resume, switch): when the button was pressed, default now; kept between the timer's last change and now (up to 2 minutes ahead of the server's clock, for phones whose clocks run a little fast), so an app that shows the change at once and sends it a moment later stays in step |
 | `PATCH /timers/{id}` | `{start?, left_seconds?, right_seconds?, seconds?}` | correct a timer: move its start (the total grows or shrinks by the same amount, even while running), set the time on each side (breastfeed) or the total time (`seconds`, sleep and pump); it keeps running |
 | `POST /timers/{id}/stop` | `{event_id?, end?, note?, left_ml?, right_ml?, location?}` | → `201` created event; `end` lets you trim ("fell asleep 5 min ago"); `event_id` makes a retry return the same event (`200`). Two caregivers stopping at once save one event; the second gets `404` |
 | `DELETE /timers/{id}` | | discard without saving |

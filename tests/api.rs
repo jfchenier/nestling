@@ -376,9 +376,14 @@ async fn timer_actions_at() {
     // Before the pause: resumed when it was paused.
     let (_, r) = c.call(Method::POST, &format!("/timers/{tid}/resume"), Some(&t), Some(json!({ "at": ago(35) }))).await;
     assert_eq!(r["segments"][2]["start"], r["segments"][1]["end"]);
-    // In the future: now.
+    // A phone clock a little ahead of the server's: its tap time is kept as sent.
+    let ahead = ago(-1);
+    let (_, p) = c.call(Method::POST, &format!("/timers/{tid}/pause"), Some(&t), Some(json!({ "at": ahead }))).await;
+    assert_eq!(p["segments"][2]["end"], ahead, "{p}");
+    // Far in the future: two minutes ahead at most. (20 s left, then 10 + 31 + 119 s right.)
+    c.call(Method::POST, &format!("/timers/{tid}/resume"), Some(&t), Some(json!({}))).await;
     let (_, p) = c.call(Method::POST, &format!("/timers/{tid}/pause"), Some(&t), Some(json!({ "at": ago(-3600) }))).await;
-    assert!((40..=41).contains(&p["right_seconds"].as_i64().unwrap()), "{p}");
+    assert!((159..=161).contains(&p["right_seconds"].as_i64().unwrap()), "{p}");
 }
 
 #[tokio::test]

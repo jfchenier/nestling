@@ -196,29 +196,41 @@ class TimerModel {
       final drift = running ? DateTime.now().difference(_received).inSeconds : 0;
       return (toInt(json[key]) ?? 0) + (counts(side) ? drift : 0);
     }
-    final now = DateTime.now();
+    return _ms(counts, DateTime.now()) ~/ 1000;
+  }
+
+  int _ms(bool Function(String? side) counts, DateTime now) {
     var ms = 0;
     for (final (side, start, end) in _segments) {
       if (counts(side)) ms += math.max(0, (end ?? now).difference(start).inMilliseconds);
     }
-    return ms ~/ 1000;
+    return ms;
   }
 
-  int get elapsed => _seconds((_) => true, 'elapsed_seconds');
+  /// The segments that count for the last side (left: left and both), or all of them for a timer
+  /// without sides (sleep) or on both sides.
+  bool Function(String?) get _ownSide {
+    final current = _segments.lastOrNull?.$1;
+    if (current != 'left' && current != 'right') return (_) => true;
+    return (s) => s == current || s == 'both';
+  }
+
+  /// The total shown: the last side's seconds plus the rest's, as shown. So on a breastfeed timer
+  /// it is left + right and changes at the same moment as the side that is running (counted on
+  /// its own, the total turned over at another moment of the second and looked out of step).
+  int get elapsed {
+    if (_segments.isEmpty) return _seconds((_) => true, 'elapsed_seconds');
+    final own = _ownSide, now = DateTime.now();
+    return _ms(own, now) ~/ 1000 + _ms((s) => !own(s), now) ~/ 1000;
+  }
+
   int get left => _seconds((s) => s == 'left' || s == 'both', 'left_seconds');
   int get right => _seconds((s) => s == 'right' || s == 'both', 'right_seconds');
 
-  /// Time until a time shown (the total or the running side's) next changes, so a screen can
-  /// refresh right on it.
+  /// Time until the times shown next change (they all turn with the running side), so a screen
+  /// can refresh right on it.
   Duration get untilNextSecond {
     if (!running || _segments.isEmpty) return const Duration(seconds: 1);
-    final now = DateTime.now(), current = _segments.last.$1;
-    var total = 0, onSide = 0;
-    for (final (side, start, end) in _segments) {
-      final ms = math.max(0, (end ?? now).difference(start).inMilliseconds);
-      total += ms;
-      if (side == current) onSide += ms;
-    }
-    return Duration(milliseconds: math.min(1000 - total % 1000, 1000 - onSide % 1000));
+    return Duration(milliseconds: 1000 - _ms(_ownSide, DateTime.now()) % 1000);
   }
 }

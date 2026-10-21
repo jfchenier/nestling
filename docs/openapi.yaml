@@ -2046,7 +2046,7 @@ components:
         at:
           type: string
           format: date-time
-          description: When the button was pressed (default now); kept between the timer's last change and now.
+          description: When the button was pressed (default now); kept between the timer's last change and now (up to 2 minutes ahead of the server's clock).
 
     # -------- insights
     FeedStats:

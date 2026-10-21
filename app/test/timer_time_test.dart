@@ -14,7 +14,8 @@ void main() {
   });
 
   test('a timer counts from its segments, whatever copy of it is shown', () {
-    // 1.6 s on the left, then 1.6 s so far on the right: 3 s in all, though each side shows 1 s.
+    // 1.6 s on the left, then 1.6 s so far on the right: each side shows 1 s, and the total what
+    // they add up to (not the 3.2 s in all, which turns over at other moments than the sides).
     final json = {
       'running': true,
       'side': 'right',
@@ -25,7 +26,7 @@ void main() {
       ],
     };
     final t = TimerModel(json);
-    expect((t.left, t.right, t.elapsed), (1, 1, 3));
+    expect((t.left, t.right, t.elapsed), (1, 1, 2));
     expect(t.untilNextSecond.inMilliseconds, inInclusiveRange(1, 1000));
   });
 
@@ -43,7 +44,33 @@ void main() {
     // Before the pause: resumed when it was paused. In the future: now.
     r = a.handle('POST', '/timers/${t['id']}/resume', body: {'at': ago(35000)});
     expect(r['segments'][2]['start'], r['segments'][1]['end']);
+    // A phone clock a little ahead is kept as sent; far in the future, two minutes ahead at most.
     r = a.handle('POST', '/timers/${t['id']}/pause', body: {'at': ago(-3600000)});
-    expect(r['right_seconds'], inInclusiveRange(40, 41));
+    expect(r['right_seconds'], inInclusiveRange(159, 161));
+  });
+
+  test('the total turns over with the running side', () {
+    // 2.7 s on the left, then 0.5 s on the right: the right side reaches 1 s in 0.5 s, and the
+    // total (2 + 0) goes to 3 at the same moment.
+    final t = TimerModel({
+      'running': true,
+      'side': 'right',
+      'segments': [
+        {'side': 'left', 'start': ago(3200), 'end': ago(500)},
+        {'side': 'right', 'start': ago(500), 'end': null},
+      ],
+    });
+    expect((t.left, t.right, t.elapsed), (2, 0, 2));
+    expect(t.untilNextSecond.inMilliseconds, inInclusiveRange(400, 510));
+    // Paused, the total stays what the sides show.
+    final p = TimerModel({
+      'running': false,
+      'side': 'right',
+      'segments': [
+        {'side': 'left', 'start': ago(3200), 'end': ago(500)},
+        {'side': 'right', 'start': ago(500), 'end': ago(0)},
+      ],
+    });
+    expect((p.left, p.right, p.elapsed), (2, 0, 2));
   });
 }

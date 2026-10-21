@@ -267,11 +267,16 @@ fn parse_side_body(body: &[u8]) -> AppResult<SideReq> {
     serde_json::from_slice(body).map_err(|e| AppError::BadRequest(format!("invalid JSON: {e}")))
 }
 
+/// How far ahead of the server's clock a phone's `at` may be. Phone clocks are often a second or
+/// two off; pulling their taps back to the server's "now" took a second off every pause (and
+/// added one to every resume) when the server's copy reached the phone.
+const CLOCK_SKEW_MS: i64 = 120_000;
+
 /// Time of a pause / resume / switch: `at` (default now), kept between the timer's last change
-/// (`floor`) and now.
+/// (`floor`) and now (give or take a phone clock's drift, [`CLOCK_SKEW_MS`]).
 fn action_time(at: &Option<String>, tz: Tz, floor: i64) -> AppResult<i64> {
     let now = now_ms();
-    Ok(parse_opt_time(at, tz)?.unwrap_or(now).min(now).max(floor))
+    Ok(parse_opt_time(at, tz)?.unwrap_or(now).min(now + CLOCK_SKEW_MS).max(floor))
 }
 
 /// Start a new segment. A closed segment shorter than a second (paused or switched right after it

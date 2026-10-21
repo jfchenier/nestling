@@ -817,10 +817,10 @@ class LocalEngine {
   }
 
   /// Time of a pause / resume / switch: `at` (default now), kept between the timer's last change
-  /// ([floor]) and now. Port of timers.rs `action_time`.
+  /// ([floor]) and now, give or take a phone clock's drift (2 min). Port of timers.rs `action_time`.
   int _actionTime(Map<String, dynamic> req, int floor) {
     final now = nowMs();
-    return math.max(math.min(parseOptTimeMs(req['at']) ?? now, now), floor);
+    return math.max(math.min(parseOptTimeMs(req['at']) ?? now, now + 120000), floor);
   }
 
   Map<String, dynamic> pauseTimer(String id, Map<String, dynamic> req) {
