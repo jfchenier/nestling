@@ -97,7 +97,7 @@ class LocalEngine {
       case ('DELETE', ['timers', final id]):
         return discardTimer(id);
       case ('POST', ['timers', final id, 'pause']):
-        return pauseTimer(id);
+        return pauseTimer(id, b);
       case ('POST', ['timers', final id, 'resume']):
         return resumeTimer(id, b);
       case ('POST', ['timers', final id, 'switch']):
@@ -816,11 +816,18 @@ class LocalEngine {
     return _save(t);
   }
 
-  Map<String, dynamic> pauseTimer(String id) {
+  /// Time of a pause / resume / switch: `at` (default now), kept between the timer's last change
+  /// ([floor]) and now. Port of timers.rs `action_time`.
+  int _actionTime(Map<String, dynamic> req, int floor) {
+    final now = nowMs();
+    return math.max(math.min(parseOptTimeMs(req['at']) ?? now, now), floor);
+  }
+
+  Map<String, dynamic> pauseTimer(String id, Map<String, dynamic> req) {
     final t = _timer(id);
     final last = t.segments.lastOrNull;
     if (last == null || last.end != null) throw conflict('timer is already paused');
-    last.end = math.max(nowMs(), last.start);
+    last.end = _actionTime(req, last.start);
     return _save(t);
   }
 
@@ -828,7 +835,8 @@ class LocalEngine {
     final t = _timer(id);
     if (t.segments.lastOrNull?.end == null && t.segments.isNotEmpty) throw conflict('timer is already running');
     final side = checkSide(t.kind, req['side'] ?? t.segments.lastOrNull?.side);
-    pushSegment(t.segments, Segment(side, nowMs()));
+    final floor = t.segments.map((s) => s.end).nonNulls.fold(0, math.max);
+    pushSegment(t.segments, Segment(side, _actionTime(req, floor)));
     return _save(t);
   }
 
@@ -837,7 +845,7 @@ class LocalEngine {
     if (t.kind == 'sleep') throw badRequest('sleep timers have no sides');
     final current = t.segments.lastOrNull?.side;
     final target = checkSide(t.kind, req['side'] ?? (current == 'left' ? 'right' : 'left'));
-    final now = nowMs();
+    final now = _actionTime(req, t.segments.map((s) => s.end ?? s.start).fold(0, math.max));
     final last = t.segments.lastOrNull;
     if (last != null && last.end == null) {
       if (last.side == target) return t.toApi();

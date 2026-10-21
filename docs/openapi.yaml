@@ -1035,6 +1035,12 @@ paths:
     post:
       tags: [timers]
       operationId: pauseTimer
+      description: The body is optional.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SideRequest" }
       responses:
         "200":
           description: Paused
@@ -2022,7 +2028,7 @@ components:
         id: { type: string }
         child_id: { type: string }
         kind: { $ref: "#/components/schemas/TimerKind" }
-        started_at: { type: string, format: date-time }
+        started_at: { type: string, format: date-time, description: "with milliseconds, like the segments' times" }
         running: { type: boolean, description: false while paused }
         side: { allOf: [{ $ref: "#/components/schemas/Side" }], nullable: true }
         elapsed_seconds: { type: integer, format: int64 }
@@ -2037,6 +2043,10 @@ components:
       type: object
       properties:
         side: { $ref: "#/components/schemas/Side" }
+        at:
+          type: string
+          format: date-time
+          description: When the button was pressed (default now); kept between the timer's last change and now.
 
     # -------- insights
     FeedStats:

@@ -335,6 +335,7 @@ class _TimerScreenState extends State<TimerScreen> {
         child: Constrained(
           maxWidth: 520,
           child: Ticking(
+            next: () => _timer(context.read<AppState>())?.untilNextSecond,
             builder: (context) => ListView(
               children: [
                 const SizedBox(height: 4),

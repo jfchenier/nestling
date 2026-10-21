@@ -308,7 +308,8 @@ async fn timers() {
     assert_eq!(ct["kind"], "breastfeed");
     assert_eq!(ct["running"], true);
     assert_eq!(ct["side"], "right");
-    assert_eq!(ct["started_at"], ev["start"]);
+    // Same start; timer times carry milliseconds, entry times don't.
+    assert_eq!(ct["started_at"].as_str().unwrap()[..19], ev["start"].as_str().unwrap()[..19]);
     assert!((900..=901).contains(&ct["right_seconds"].as_i64().unwrap()), "{ct}");
     let (s, _) = c.call(Method::GET, &format!("/events/{eid}"), Some(&t), None).await;
     assert_eq!(s, StatusCode::NOT_FOUND, "the entry became the timer");
@@ -346,6 +347,38 @@ async fn timers() {
         .await;
     let (s, _) = c.call(Method::POST, &format!("/events/{}/continue", sl2["id"].as_str().unwrap()), Some(&t), None).await;
     assert_eq!(s, StatusCode::CONFLICT);
+}
+
+/// Pause, resume and switch take the time the button was pressed on the phone (`at`), kept
+/// between the timer's last change and now; timer times carry milliseconds.
+#[tokio::test]
+async fn timer_actions_at() {
+    let c = Client::new().await;
+    let t = c.register("a@example.com", "A").await;
+    let (_, fam) = c.call(Method::POST, "/families", Some(&t), Some(json!({ "name": "F" }))).await;
+    let fid = fam["id"].as_str().unwrap();
+    let (_, child) = c.call(Method::POST, &format!("/families/{fid}/children"), Some(&t), Some(json!({ "name": "B", "birth_date": "2026-06-01" }))).await;
+    let cid = child["id"].as_str().unwrap();
+    let ago = |s: i64| (chrono::Utc::now() - chrono::Duration::seconds(s)).to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+
+    let start = ago(60);
+    let (_, timer) = c
+        .call(Method::POST, &format!("/children/{cid}/timers"), Some(&t), Some(json!({ "kind": "breastfeed", "side": "left", "start": start })))
+        .await;
+    let tid = timer["id"].as_str().unwrap();
+    assert_eq!(timer["segments"][0]["start"], start, "milliseconds kept");
+
+    let (s, sw) = c.call(Method::POST, &format!("/timers/{tid}/switch"), Some(&t), Some(json!({ "side": "right", "at": ago(40) }))).await;
+    assert_eq!(s, StatusCode::OK, "{sw}");
+    assert_eq!(sw["left_seconds"], 20);
+    let (_, p) = c.call(Method::POST, &format!("/timers/{tid}/pause"), Some(&t), Some(json!({ "at": ago(30) }))).await;
+    assert_eq!(p["right_seconds"], 10);
+    // Before the pause: resumed when it was paused.
+    let (_, r) = c.call(Method::POST, &format!("/timers/{tid}/resume"), Some(&t), Some(json!({ "at": ago(35) }))).await;
+    assert_eq!(r["segments"][2]["start"], r["segments"][1]["end"]);
+    // In the future: now.
+    let (_, p) = c.call(Method::POST, &format!("/timers/{tid}/pause"), Some(&t), Some(json!({ "at": ago(-3600) }))).await;
+    assert!((40..=41).contains(&p["right_seconds"].as_i64().unwrap()), "{p}");
 }
 
 #[tokio::test]

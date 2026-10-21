@@ -6,7 +6,7 @@ import 'dart:typed_data';
 import '../local/engine.dart';
 import '../l10n/l10n.dart';
 import '../local/store.dart';
-import '../models.dart' show toInt;
+import '../models.dart' show formatTime, toInt;
 import 'api.dart';
 
 /// The API client: answers logging from this device's copy, with offline support.
@@ -391,8 +391,14 @@ class SyncApi extends Api {
   Object? _withIds(String method, String path, Object? body) {
     if (method != 'POST') return body;
     final b = body is Map ? Map<String, dynamic>.from(body) : <String, dynamic>{};
+    // Timer changes carry the time of the tap to the millisecond, so the server's copy matches
+    // the one shown at once here.
+    final at = formatTime(DateTime.now(), millis: true);
     if (RegExp(r'^/children/[^/]+/(events|timers)$').hasMatch(path)) {
       b['id'] ??= LocalEngine.newId();
+      if (path.endsWith('/timers')) b['start'] ??= at;
+    } else if (RegExp(r'^/timers/[^/]+/(pause|resume|switch)$').hasMatch(path)) {
+      b['at'] ??= at;
     } else if (RegExp(r'^/timers/[^/]+/stop$').hasMatch(path)) {
       b['event_id'] ??= LocalEngine.newId();
     } else if (RegExp(r'^/events/[^/]+/continue$').hasMatch(path)) {

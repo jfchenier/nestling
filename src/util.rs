@@ -83,6 +83,15 @@ pub fn fmt_utc(ms: i64) -> String {
     fmt_time(ms, chrono_tz::UTC)
 }
 
+/// Like [`fmt_time`] with milliseconds, e.g. "2026-10-08T11:30:00.250-04:00": timer segments, so a
+/// timer shown on a phone doesn't jump when the server's copy replaces the phone's.
+pub fn fmt_time_ms(ms: i64, tz: Tz) -> String {
+    match tz.timestamp_millis_opt(ms).single() {
+        Some(dt) => dt.to_rfc3339_opts(SecondsFormat::Millis, true),
+        None => String::new(),
+    }
+}
+
 pub fn fmt_time(ms: i64, tz: Tz) -> String {
     match tz.timestamp_millis_opt(ms).single() {
         Some(dt) => dt.to_rfc3339_opts(SecondsFormat::Secs, true),

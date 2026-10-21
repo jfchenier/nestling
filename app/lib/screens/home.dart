@@ -398,6 +398,7 @@ class _ActivityCard extends StatelessWidget {
                       const SizedBox(height: 10),
                       if (t != null)
                         Ticking(
+                          next: () => t.untilNextSecond,
                           builder: (_) => Text(
                             clock(t.elapsed),
                             style: serifStyle(28, color: kind.on(c)).copyWith(fontFeatures: const [FontFeature.tabularFigures()]),
@@ -467,6 +468,7 @@ class _TimerBanner extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 18, 12),
             child: Ticking(
+              next: () => timer.untilNextSecond,
               builder: (_) => Row(
                 children: [
                   Container(

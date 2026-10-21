@@ -17,7 +17,7 @@ use crate::{
     model::{Details, Feed, FeedMethod, Pump, Side, Sleep},
     routes::events::{get_row, insert_event_in, NewEvent},
     state::AppState,
-    util::{fmt_time, new_id, now_ms, parse_opt_time},
+    util::{fmt_time, fmt_time_ms, new_id, now_ms, parse_opt_time},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -98,12 +98,12 @@ impl TimerRow {
             "id": self.id,
             "child_id": self.child_id,
             "kind": self.kind,
-            "started_at": fmt_time(started_at, tz),
+            "started_at": fmt_time_ms(started_at, tz),
             "running": running,
             "side": segs.last().and_then(|s| s.side),
             "elapsed_seconds": total,
             "segments": segs.iter().map(|s| json!({
-                "side": s.side, "start": fmt_time(s.start, tz), "end": s.end.map(|e| fmt_time(e, tz))
+                "side": s.side, "start": fmt_time_ms(s.start, tz), "end": s.end.map(|e| fmt_time_ms(e, tz))
             })).collect::<Vec<_>>(),
             "created_by": self.created_by,
             "updated_at": fmt_time(self.updated_at, tz),
@@ -239,11 +239,12 @@ pub async fn get(State(state): State<AppState>, user: AuthUser, Path(id): Path<S
     Ok(Json(row.to_json(tz)?))
 }
 
-pub async fn pause(State(state): State<AppState>, user: AuthUser, Path(id): Path<String>) -> AppResult<Json<Value>> {
+pub async fn pause(State(state): State<AppState>, user: AuthUser, Path(id): Path<String>, body: axum::body::Bytes) -> AppResult<Json<Value>> {
+    let req = parse_side_body(&body)?;
     let (row, tz) = accessible(&state, &id, &user).await?;
     let mut segs = row.segs()?;
     match segs.last_mut() {
-        Some(last) if last.end.is_none() => last.end = Some(now_ms().max(last.start)),
+        Some(last) if last.end.is_none() => last.end = Some(action_time(&req.at, tz, last.start)?),
         _ => return Err(AppError::Conflict("timer is already paused".into())),
     }
     save(&state, &row, &segs, tz).await
@@ -253,6 +254,10 @@ pub async fn pause(State(state): State<AppState>, user: AuthUser, Path(id): Path
 pub struct SideReq {
     #[serde(default)]
     side: Option<Side>,
+    /// When the button was pressed on the phone (default now), so the server's copy matches what
+    /// the phone already shows.
+    #[serde(default)]
+    at: Option<String>,
 }
 
 fn parse_side_body(body: &[u8]) -> AppResult<SideReq> {
@@ -260,6 +265,13 @@ fn parse_side_body(body: &[u8]) -> AppResult<SideReq> {
         return Ok(SideReq::default());
     }
     serde_json::from_slice(body).map_err(|e| AppError::BadRequest(format!("invalid JSON: {e}")))
+}
+
+/// Time of a pause / resume / switch: `at` (default now), kept between the timer's last change
+/// (`floor`) and now.
+fn action_time(at: &Option<String>, tz: Tz, floor: i64) -> AppResult<i64> {
+    let now = now_ms();
+    Ok(parse_opt_time(at, tz)?.unwrap_or(now).min(now).max(floor))
 }
 
 /// Start a new segment. A closed segment shorter than a second (paused or switched right after it
@@ -283,7 +295,9 @@ pub async fn resume(State(state): State<AppState>, user: AuthUser, Path(id): Pat
         return Err(AppError::Conflict("timer is already running".into()));
     }
     let side = check_side(kind, req.side.or_else(|| segs.last().and_then(|s| s.side)))?;
-    push_segment(&mut segs, Segment { side, start: now_ms(), end: None });
+    let floor = segs.iter().filter_map(|s| s.end).max().unwrap_or(i64::MIN);
+    let start = action_time(&req.at, tz, floor)?;
+    push_segment(&mut segs, Segment { side, start, end: None });
     save(&state, &row, &segs, tz).await
 }
 
@@ -304,7 +318,8 @@ pub async fn switch(State(state): State<AppState>, user: AuthUser, Path(id): Pat
         (None, _) => Side::Left,
     };
     let target = check_side(kind, Some(target))?;
-    let now = now_ms();
+    let floor = segs.iter().map(|s| s.end.unwrap_or(s.start)).max().unwrap_or(i64::MIN);
+    let now = action_time(&req.at, tz, floor)?;
     match segs.last_mut() {
         Some(last) if last.end.is_none() => {
             if last.side == target {
