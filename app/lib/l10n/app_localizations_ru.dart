@@ -4144,4 +4144,99 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get treeTapHint =>
       'Нажмите на человека, чтобы увидеть его родителей. Удерживайте, чтобы изменить.';
+
+  @override
+  String get scheduleRoutineSection => 'Режим дня';
+
+  @override
+  String get scheduleAddRoutine => 'Добавить занятие';
+
+  @override
+  String get scheduleRoutineHint =>
+      'Купание раз в 2 дня, по понедельникам и пятницам…';
+
+  @override
+  String get scheduleModeAfterLast => 'Интервал';
+
+  @override
+  String scheduleRoutineModeHint(String mode) {
+    String _temp0 = intl.Intl.selectLogic(mode, {
+      'times':
+          'В заданное время в выбранные дни, когда бы ни было в прошлый раз.',
+      'other':
+          'Снова через этот срок после прошлого раза, поэтому сдвигается вместе с ним.',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get scheduleRoutineTimesLabel => 'В';
+
+  @override
+  String get scheduleDaysLabel => 'Дни';
+
+  @override
+  String scheduleDaysMode(String mode) {
+    String _temp0 = intl.Intl.selectLogic(mode, {
+      'every': 'Раз в несколько дней',
+      'weekdays': 'По дням недели',
+      'other': 'Каждый день',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String scheduleEveryNDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Раз в $count дней',
+      few: 'Раз в $count дня',
+      one: 'Раз в $count день',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get scheduleEveryNDaysHint =>
+      'Считая со дня, когда это было в прошлый раз.';
+
+  @override
+  String scheduleEveryDaysAt(int count, String times) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Раз в $count дней в $times',
+      few: 'Раз в $count дня в $times',
+      one: 'Раз в $count день в $times',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String scheduleWeekdaysAt(String days, String times) {
+    return '$days в $times';
+  }
+
+  @override
+  String get scheduleDaysUnit => 'дней';
+
+  @override
+  String get scheduleErrEveryRoutine => 'Как часто: от 0,5 часа до 30 дней.';
+
+  @override
+  String get scheduleRemindRoutineDue => 'Напоминать, когда пора';
+
+  @override
+  String homeRoutineDueSince(String time) {
+    return 'Пора с $time';
+  }
+
+  @override
+  String get homeRoutineNotYet => 'Ещё не было';
+
+  @override
+  String homeRoutineDueLast(String ago) {
+    return 'Пора · в прошлый раз $ago';
+  }
 }

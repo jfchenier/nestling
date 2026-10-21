@@ -25,8 +25,8 @@ use crate::{
         events::{EventRow, EVENT_COLS},
         timers::child_timers,
     },
-    reminders::medicines_status,
-    schedule::{medicine_json, parse_medicines},
+    reminders::{medicines_status, routines_status},
+    schedule::{medicine_json, parse_medicines, parse_routines, routine_json},
     state::{AppState, Change},
     trends::{self, TrendEvent},
     util::{fmt_time, now_ms},
@@ -107,16 +107,24 @@ pub async fn summary(State(state): State<AppState>, user: AuthUser, Path(child_i
     let (r0, r1) = trends::range_ms(ctx.tz, today, 1);
     let events = trend_events(&state, &child_id, r0, r1).await?;
     let t = trends::compute(&events, ctx.tz, ctx.day, today, 1, now);
-    let (medicines,): (String,) = sqlx::query_as("SELECT medicines FROM children WHERE id = ?").bind(&child_id).fetch_one(&state.db).await?;
+    let (medicines, routines): (String, String) =
+        sqlx::query_as("SELECT medicines, routines FROM children WHERE id = ?").bind(&child_id).fetch_one(&state.db).await?;
     let medicines: Vec<Value> = medicines_status(&state.db, &child_id, &parse_medicines(&medicines), now, ctx.tz)
         .await?
         .iter()
         .map(|(m, st)| medicine_json(m, st, |ms| fmt_time(ms, ctx.tz)))
         .collect();
+    let routines: Vec<Value> = routines_status(&state.db, &child_id, &parse_routines(&routines), now, ctx.tz)
+        .await?
+        .iter()
+        .map(|(r, st)| routine_json(r, st, |ms| fmt_time(ms, ctx.tz)))
+        .collect();
     Ok(Json(json!({
         "child": child_json(&state, &child_id, ctx.tz).await?,
         // Each medicine schedule with when its next dose is allowed.
         "medicines": medicines,
+        // Each routine with when it is next due.
+        "routines": routines,
         "last": last,
         "since": since,
         "timers": timers,

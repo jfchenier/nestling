@@ -97,7 +97,7 @@ class _EventFormState extends State<EventForm> {
   late final _doseUnit = TextEditingController(text: e?['dose_unit'] ?? _pre?['dose_unit'] ?? 'mL');
   late final _temp = _num(e?['temperature_c'], u.tempIn);
   // activity
-  late final _activityKind = TextEditingController(text: e?['kind'] ?? '');
+  late final _activityKind = TextEditingController(text: e?['kind'] ?? (widget.type == 'activity' ? (_pre?['kind']) : null) ?? '');
   late final _activityMinutes = _minutes(e?.durationSeconds);
 
   @override

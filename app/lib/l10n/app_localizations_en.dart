@@ -4071,4 +4071,91 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get treeTapHint => 'Tap someone to see their parents. Hold to edit.';
+
+  @override
+  String get scheduleRoutineSection => 'Routines';
+
+  @override
+  String get scheduleAddRoutine => 'Add a routine';
+
+  @override
+  String get scheduleRoutineHint =>
+      'A bath every 2 days, every Monday and Friday…';
+
+  @override
+  String get scheduleModeAfterLast => 'Interval';
+
+  @override
+  String scheduleRoutineModeHint(String mode) {
+    String _temp0 = intl.Intl.selectLogic(mode, {
+      'times':
+          'Due at set times on the days you pick, whatever time the last one was done.',
+      'other':
+          'Due again this long after the last one, so it moves with the time it was done.',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get scheduleRoutineTimesLabel => 'At';
+
+  @override
+  String get scheduleDaysLabel => 'On';
+
+  @override
+  String scheduleDaysMode(String mode) {
+    String _temp0 = intl.Intl.selectLogic(mode, {
+      'every': 'Every few days',
+      'weekdays': 'Some weekdays',
+      'other': 'Every day',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String scheduleEveryNDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Every $count days',
+      one: 'Every day',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get scheduleEveryNDaysHint => 'Counted from the day it was last done.';
+
+  @override
+  String scheduleEveryDaysAt(int count, String times) {
+    return 'Every $count days at $times';
+  }
+
+  @override
+  String scheduleWeekdaysAt(String days, String times) {
+    return '$days at $times';
+  }
+
+  @override
+  String get scheduleDaysUnit => 'days';
+
+  @override
+  String get scheduleErrEveryRoutine =>
+      'How often: between 0.5 hours and 30 days.';
+
+  @override
+  String get scheduleRemindRoutineDue => 'Remind when it\'s due';
+
+  @override
+  String homeRoutineDueSince(String time) {
+    return 'Due since $time';
+  }
+
+  @override
+  String get homeRoutineNotYet => 'Not done yet';
+
+  @override
+  String homeRoutineDueLast(String ago) {
+    return 'Due now · last one $ago';
+  }
 }

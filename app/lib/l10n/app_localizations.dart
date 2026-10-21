@@ -6689,6 +6689,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tap someone to see their parents. Hold to edit.'**
   String get treeTapHint;
+
+  /// No description provided for @scheduleRoutineSection.
+  ///
+  /// In en, this message translates to:
+  /// **'Routines'**
+  String get scheduleRoutineSection;
+
+  /// No description provided for @scheduleAddRoutine.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a routine'**
+  String get scheduleAddRoutine;
+
+  /// No description provided for @scheduleRoutineHint.
+  ///
+  /// In en, this message translates to:
+  /// **'A bath every 2 days, every Monday and Friday…'**
+  String get scheduleRoutineHint;
+
+  /// No description provided for @scheduleModeAfterLast.
+  ///
+  /// In en, this message translates to:
+  /// **'Interval'**
+  String get scheduleModeAfterLast;
+
+  /// No description provided for @scheduleRoutineModeHint.
+  ///
+  /// In en, this message translates to:
+  /// **'{mode, select, times{Due at set times on the days you pick, whatever time the last one was done.} other{Due again this long after the last one, so it moves with the time it was done.}}'**
+  String scheduleRoutineModeHint(String mode);
+
+  /// No description provided for @scheduleRoutineTimesLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'At'**
+  String get scheduleRoutineTimesLabel;
+
+  /// No description provided for @scheduleDaysLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'On'**
+  String get scheduleDaysLabel;
+
+  /// No description provided for @scheduleDaysMode.
+  ///
+  /// In en, this message translates to:
+  /// **'{mode, select, every{Every few days} weekdays{Some weekdays} other{Every day}}'**
+  String scheduleDaysMode(String mode);
+
+  /// No description provided for @scheduleEveryNDays.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Every day} other{Every {count} days}}'**
+  String scheduleEveryNDays(int count);
+
+  /// No description provided for @scheduleEveryNDaysHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Counted from the day it was last done.'**
+  String get scheduleEveryNDaysHint;
+
+  /// No description provided for @scheduleEveryDaysAt.
+  ///
+  /// In en, this message translates to:
+  /// **'Every {count} days at {times}'**
+  String scheduleEveryDaysAt(int count, String times);
+
+  /// No description provided for @scheduleWeekdaysAt.
+  ///
+  /// In en, this message translates to:
+  /// **'{days} at {times}'**
+  String scheduleWeekdaysAt(String days, String times);
+
+  /// No description provided for @scheduleDaysUnit.
+  ///
+  /// In en, this message translates to:
+  /// **'days'**
+  String get scheduleDaysUnit;
+
+  /// No description provided for @scheduleErrEveryRoutine.
+  ///
+  /// In en, this message translates to:
+  /// **'How often: between 0.5 hours and 30 days.'**
+  String get scheduleErrEveryRoutine;
+
+  /// No description provided for @scheduleRemindRoutineDue.
+  ///
+  /// In en, this message translates to:
+  /// **'Remind when it\'s due'**
+  String get scheduleRemindRoutineDue;
+
+  /// No description provided for @homeRoutineDueSince.
+  ///
+  /// In en, this message translates to:
+  /// **'Due since {time}'**
+  String homeRoutineDueSince(String time);
+
+  /// No description provided for @homeRoutineNotYet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not done yet'**
+  String get homeRoutineNotYet;
+
+  /// No description provided for @homeRoutineDueLast.
+  ///
+  /// In en, this message translates to:
+  /// **'Due now · last one {ago}'**
+  String homeRoutineDueLast(String ago);
 }
 
 class _AppLocalizationsDelegate

@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../format.dart';
 import '../l10n/l10n.dart';
-import '../local/schedule.dart' show medicineKey;
+import '../local/schedule.dart' show medicineKey, routineKey;
 import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
@@ -888,7 +888,7 @@ class _ReminderStripState extends State<_ReminderStrip> {
         ),
       );
     }
-    final rows = <(String, Widget Function(String))>[
+    final rows = <(String, Widget Function(String))?>[
       for (final (type, since, key) in dueReminders(s, now))
         (
           key,
@@ -949,7 +949,37 @@ class _ReminderStripState extends State<_ReminderStrip> {
               ),
             );
           }(),
-    ].where((r) => !s.dismissed.contains(r.$1)).toList();
+      // Routines show only once they are due.
+      for (final r in (s.summary?['routines'] as List? ?? const []))
+        if (r is Map && r['due'] == true)
+          () {
+            final next = DateTime.tryParse('${r['next_at']}')?.toLocal();
+            final last = DateTime.tryParse('${r['last_at']}')?.toLocal();
+            final fixed = r['times'] is List && (r['times'] as List).isNotEmpty;
+            // Set times: shown from a little before the time (the entry then counts for it).
+            if (fixed && next != null && next.isAfter(now.add(const Duration(minutes: 30)))) return null;
+            final key = '${s.childId}/routine/${routineKey('${r['name']}')}/${r['next_at']}';
+            final String status;
+            if (fixed && next != null) {
+              final today = DateUtils.isSameDay(next, now);
+              status = l10n.homeRoutineDueSince(today ? timeOfDay(next) : '${DateFormat.E().format(next)} ${timeOfDay(next)}');
+            } else {
+              status = last == null ? l10n.homeRoutineNotYet : l10n.homeRoutineDueLast(ago(now.difference(last).inSeconds));
+            }
+            return (
+              key,
+              (String key) => row(
+                key: key,
+                kind: Kind.activity,
+                title: cap('${r['name']}'),
+                status: status,
+                urgent: true,
+                action: l10n.homeLog,
+                onTap: () => showEventForm(context, type: 'activity', prefill: {'kind': r['name']}),
+              ),
+            );
+          }(),
+    ].nonNulls.where((r) => !s.dismissed.contains(r.$1)).toList();
     if (rows.isEmpty) return const SizedBox.shrink();
     // One card per row, so each one can be swiped away on its own.
     return Padding(

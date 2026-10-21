@@ -76,6 +76,9 @@ class Child {
   /// Medicine schedules (`{name, every_hours, max_per_day?, dose?, dose_unit?, remind}`).
   List<Map<String, dynamic>> get medicines => [for (final m in (json['medicines'] as List? ?? const [])) Map<String, dynamic>.from(m)];
 
+  /// Routines (`{name, every_hours, times?, every_days?, weekdays?, remind}`), e.g. a bath every 2 days.
+  List<Map<String, dynamic>> get routines => [for (final r in (json['routines'] as List? ?? const [])) Map<String, dynamic>.from(r)];
+
   /// Reminders (`{type, after_minutes}`), sent by a server set up for notifications.
   List<Map<String, dynamic>> get reminders => [for (final r in (json['reminders'] as List? ?? const [])) Map<String, dynamic>.from(r)];
 

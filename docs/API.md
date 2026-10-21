@@ -45,7 +45,7 @@ A family holds children and their data. Owners and caregivers (`owner`, `caregiv
 everything; owners can also change roles, remove members and delete the family.
 
 A `book_viewer` (e.g. grandparents) only reads the baby book: the family and its children (without
-`medicines` and `reminders`), the children's photos, `milestone` and `growth` entries
+`medicines`, `reminders` and `routines`), the children's photos, `milestone` and `growth` entries
 (`GET /children/{id}/events`, `GET /events/{id}`, their photos), `GET /families/{id}/sync` (those
 entries only, no timers) and the live stream (those changes only). Everything else answers 403; they
 can still leave the family. Their phones get no timer or reminder notifications.
@@ -113,15 +113,17 @@ is one child; timer tools use the child's running timer when no `timer_id` is gi
 | `PUT /children/{id}/book-photos/{key}` | raw JPEG, PNG or WebP (≤ 5 MB) | a photo on one of the baby book's pages under a key of the app's (1-40 lowercase letters, digits or `_`, e.g. `tree_parent_1`; 300 per child); the child's `book_photos` (key → version) changes |
 | `GET / DELETE /children/{id}/book-photos/{key}` | | the image (book viewers too; `404` without one) / remove it |
 
-### Medicine schedules and reminders
+### Medicine schedules, routines and reminders
 
-Saved on the child: `PATCH /children/{id}` with `medicines` and/or `reminders` replaces that whole
-list (the child JSON carries both).
+Saved on the child: `PATCH /children/{id}` with `medicines`, `routines` and/or `reminders` replaces
+that whole list (the child JSON carries all three).
 
 ```json
 {
   "medicines": [{"name": "Acetaminophen (Tylenol)", "every_hours": 4, "max_per_day": 5,
                  "dose": 2.5, "dose_unit": "mL", "remind": true}],
+  "routines": [{"name": "bath", "every_hours": 48, "times": ["19:00"], "every_days": 2, "remind": true},
+               {"name": "tummy_time", "every_hours": 4, "remind": true}],
   "reminders": [{"type": "feed", "after_minutes": 180}]
 }
 ```
@@ -137,10 +139,17 @@ list (the child JSON carries both).
   dose that is due (`due: true`) or of the next one, and the reminder goes out at that time even
   if no dose was ever logged. `every_hours` is still required (the app saves 24 ÷ the number of
   times); `max_per_day` is not used.
+- `every_days` (2–30) or `weekdays` (`[1, 5]`: Monday and Friday; 1 = Monday … 7 = Sunday), with
+  `times` only, one or the other: the times apply on those days only. Every N days counts from the
+  day of the last entry (none yet: due every day until one is logged), so a bath given a day late
+  moves the next one too. A time missed stays due until the next one's window opens.
+- `routines`: the same rules for an activity, its entries being the child's `activity` entries of
+  that `kind` (case, spaces and `_` ignored: `tummy_time` is `Tummy time`). `every_hours` 0.5–720
+  (used without `times`); no `max_per_day` or dose.
 - `reminders`: one per `type` (`feed`, `sleep`, `diaper`, `pump`), `after_minutes` 15–1440. Sleep
   counts time awake.
 - The app shows a reminder on its home screen once it is due (computed from the summary's `last`),
-  on any server. Reminders and a medicine's `remind` also become phone notifications on a server with
+  on any server. Reminders and a medicine's or routine's `remind` also become phone notifications on a server with
   notifications set up (`GET /push/config` → `enabled`). Checked every minute; each one is sent
   once per entry it is about, to every phone of the family.
 
@@ -238,6 +247,7 @@ Timer shape: `{id, child_id, kind, started_at, running, side, elapsed_seconds, l
   "child": {…},
   "medicines": [{…the schedule, "last_at": "…" | null, "next_at": "…" | null, "due": true,
                  "doses_24h": 1, "limited": false}],
+  "routines":  [{…the routine, "last_at": "…" | null, "next_at": "…" | null, "due": true}],
   "last":  {"feed": {event}, "sleep": {event}, "diaper": {event}, "pump": null},
   "since": {"feed_seconds": 5400, "sleep_seconds": 3600, "diaper_seconds": 1200, "pump_seconds": null},
   "timers": [ … ],
@@ -248,7 +258,7 @@ Timer shape: `{id, child_id, kind, started_at, running, side, elapsed_seconds, l
 
 `since.sleep_seconds` is time awake since the last sleep ended (`null` while a sleep timer runs).
 `medicines[].next_at` is when the next dose is allowed (`null`: none given yet); `limited` means
-`max_per_day` is what holds it back.
+`max_per_day` is what holds it back. `routines[]` say the same of each routine.
 
 `GET /children/{id}/trends?days=7&to=2026-10-08` (1–90 days, default 7 ending today):
 

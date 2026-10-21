@@ -1633,5 +1633,78 @@
   "treeAnotherSibling": "Another brother or sister",
   "treeRemovePerson": "Remove from the tree",
   "treeMoreAbove": "More generations above",
-  "treeTapHint": "Tap someone to see their parents. Hold to edit."
+  "treeTapHint": "Tap someone to see their parents. Hold to edit.",
+  "scheduleRoutineSection": "Routines",
+  "scheduleAddRoutine": "Add a routine",
+  "scheduleRoutineHint": "A bath every 2 days, every Monday and Friday…",
+  "scheduleModeAfterLast": "Interval",
+  "scheduleRoutineModeHint": "{mode, select, times{Due at set times on the days you pick, whatever time the last one was done.} other{Due again this long after the last one, so it moves with the time it was done.}}",
+  "@scheduleRoutineModeHint": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleRoutineTimesLabel": "At",
+  "scheduleDaysLabel": "On",
+  "scheduleDaysMode": "{mode, select, every{Every few days} weekdays{Some weekdays} other{Every day}}",
+  "@scheduleDaysMode": {
+    "placeholders": {
+      "mode": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleEveryNDays": "{count, plural, =1{Every day} other{Every {count} days}}",
+  "@scheduleEveryNDays": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "scheduleEveryNDaysHint": "Counted from the day it was last done.",
+  "scheduleEveryDaysAt": "Every {count} days at {times}",
+  "@scheduleEveryDaysAt": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "times": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleWeekdaysAt": "{days} at {times}",
+  "@scheduleWeekdaysAt": {
+    "placeholders": {
+      "days": {
+        "type": "String"
+      },
+      "times": {
+        "type": "String"
+      }
+    }
+  },
+  "scheduleDaysUnit": "days",
+  "scheduleErrEveryRoutine": "How often: between 0.5 hours and 30 days.",
+  "scheduleRemindRoutineDue": "Remind when it's due",
+  "homeRoutineDueSince": "Due since {time}",
+  "@homeRoutineDueSince": {
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "homeRoutineNotYet": "Not done yet",
+  "homeRoutineDueLast": "Due now · last one {ago}",
+  "@homeRoutineDueLast": {
+    "placeholders": {
+      "ago": {
+        "type": "String"
+      }
+    }
+  }
 }

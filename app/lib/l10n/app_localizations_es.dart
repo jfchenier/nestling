@@ -4088,4 +4088,92 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get treeTapHint =>
       'Toca a alguien para ver a sus padres. Mantén pulsado para editar.';
+
+  @override
+  String get scheduleRoutineSection => 'Rutinas';
+
+  @override
+  String get scheduleAddRoutine => 'Añadir una rutina';
+
+  @override
+  String get scheduleRoutineHint =>
+      'Un baño cada 2 días, cada lunes y viernes…';
+
+  @override
+  String get scheduleModeAfterLast => 'Intervalo';
+
+  @override
+  String scheduleRoutineModeHint(String mode) {
+    String _temp0 = intl.Intl.selectLogic(mode, {
+      'times':
+          'Toca a horas fijas los días que elijas, sea cual sea la hora de la última vez.',
+      'other':
+          'Vuelve a tocar este tiempo después de la última vez, así que se mueve con la hora en que se hizo.',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get scheduleRoutineTimesLabel => 'A las';
+
+  @override
+  String get scheduleDaysLabel => 'Días';
+
+  @override
+  String scheduleDaysMode(String mode) {
+    String _temp0 = intl.Intl.selectLogic(mode, {
+      'every': 'Cada pocos días',
+      'weekdays': 'Algunos días',
+      'other': 'Todos los días',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String scheduleEveryNDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Cada $count días',
+      one: 'Todos los días',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get scheduleEveryNDaysHint =>
+      'Contando desde el día de la última vez.';
+
+  @override
+  String scheduleEveryDaysAt(int count, String times) {
+    return 'Cada $count días a las $times';
+  }
+
+  @override
+  String scheduleWeekdaysAt(String days, String times) {
+    return '$days a las $times';
+  }
+
+  @override
+  String get scheduleDaysUnit => 'días';
+
+  @override
+  String get scheduleErrEveryRoutine =>
+      'Frecuencia: entre 0,5 horas y 30 días.';
+
+  @override
+  String get scheduleRemindRoutineDue => 'Recordar cuando toque';
+
+  @override
+  String homeRoutineDueSince(String time) {
+    return 'Toca desde las $time';
+  }
+
+  @override
+  String get homeRoutineNotYet => 'Aún no hecho';
+
+  @override
+  String homeRoutineDueLast(String ago) {
+    return 'Toca ahora · última vez $ago';
+  }
 }

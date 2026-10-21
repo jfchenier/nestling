@@ -1216,6 +1216,52 @@ async fn medicine_schedule_and_reminders() {
     let next = chrono::DateTime::parse_from_rfc3339(med["next_at"].as_str().unwrap()).unwrap();
     assert_eq!(next.with_timezone(&toronto).format("%H:%M").to_string(), at);
     assert!(next > chrono::Utc::now() + chrono::Duration::hours(20), "{sum}");
+
+    // Routines: a bath every 2 days at a set time (3 h ago), tummy time every 4 h.
+    let (s, err) = c
+        .call(
+            Method::PATCH,
+            &format!("/children/{cid}"),
+            Some(&mom),
+            Some(json!({ "routines": [{ "name": "bath", "every_hours": 48, "every_days": 2, "weekdays": [1] , "times": [at.clone()] }] })),
+        )
+        .await;
+    assert_eq!(s, StatusCode::BAD_REQUEST, "{err}");
+    let (s, child) = c
+        .call(
+            Method::PATCH,
+            &format!("/children/{cid}"),
+            Some(&mom),
+            Some(json!({ "routines": [
+                { "name": "bath", "every_hours": 48, "every_days": 2, "times": [at.clone()], "remind": true },
+                { "name": "tummy_time", "every_hours": 4, "remind": true },
+            ] })),
+        )
+        .await;
+    assert_eq!((s, child["routines"][0]["every_days"].clone()), (StatusCode::OK, json!(2)), "{child}");
+    c.call(Method::POST, &format!("/children/{cid}/events"), Some(&mom), Some(json!({ "type": "activity", "kind": "Tummy time", "start": ago(5) })))
+        .await;
+    let (_, sum) = c.call(Method::GET, &format!("/children/{cid}/summary"), Some(&mom), None).await;
+    let (bath, tummy) = (&sum["routines"][0], &sum["routines"][1]);
+    assert_eq!((bath["due"].clone(), bath["last_at"].clone()), (json!(true), Value::Null), "{sum}");
+    assert_eq!((tummy["due"].clone(), tummy["last_at"].is_string()), (json!(true), true), "{sum}");
+    nestling::reminders::check(&state, &push, nestling::util::now_ms()).await.unwrap();
+    let msgs = sent.lock().unwrap().clone();
+    let bodies: Vec<(String, String)> = msgs[3..]
+        .iter()
+        .map(|m| (m["message"]["data"]["title"].as_str().unwrap().to_string(), m["message"]["data"]["body"].as_str().unwrap().to_string()))
+        .collect();
+    assert!(bodies.contains(&("Léa · Bath".into(), format!("Due at {at}"))), "{bodies:?}");
+    assert!(bodies.iter().any(|(t, b)| t == "Léa · Tummy time" && b.starts_with("Due now (last done 5h")), "{bodies:?}");
+
+    // Bathed now: next bath in 2 days at the same time.
+    c.call(Method::POST, &format!("/children/{cid}/events"), Some(&mom), Some(json!({ "type": "activity", "kind": "bath", "start": "now" }))).await;
+    let (_, sum) = c.call(Method::GET, &format!("/children/{cid}/summary"), Some(&mom), None).await;
+    let bath = &sum["routines"][0];
+    assert_eq!(bath["due"], false, "{sum}");
+    let next = chrono::DateTime::parse_from_rfc3339(bath["next_at"].as_str().unwrap()).unwrap();
+    assert_eq!(next.with_timezone(&toronto).format("%H:%M").to_string(), at);
+    assert!(next > chrono::Utc::now() + chrono::Duration::hours(44), "{sum}");
 }
 
 #[tokio::test]
@@ -1276,7 +1322,7 @@ async fn book_viewer_reads_the_book_only() {
     assert_eq!(s, StatusCode::NOT_FOUND);
     let (s, ch) = c.call(Method::GET, &format!("/children/{cid}"), Some(&gran), None).await;
     assert_eq!(s, StatusCode::OK);
-    assert!(ch.get("reminders").is_none() && ch.get("book").is_some(), "{ch}");
+    assert!(ch.get("reminders").is_none() && ch.get("routines").is_none() && ch.get("book").is_some(), "{ch}");
     let (s, synced) = c.call(Method::GET, &format!("/families/{fid}/sync"), Some(&gran), None).await;
     assert_eq!(s, StatusCode::OK);
     assert_eq!(synced["events"].as_array().unwrap().len(), 2, "{synced}");

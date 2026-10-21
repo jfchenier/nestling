@@ -695,6 +695,10 @@ paths:
                   type: array
                   description: Replaces the whole list (one per type).
                   items: { $ref: "#/components/schemas/Reminder" }
+                routines:
+                  type: array
+                  description: Replaces the whole list.
+                  items: { $ref: "#/components/schemas/Routine" }
                 book:
                   allOf: [{ $ref: "#/components/schemas/Book" }]
                   description: Replaces the whole object.
@@ -1545,7 +1549,7 @@ components:
       type: string
       description: |
         `owner` manages the family; `caregiver` logs everything; `book_viewer` (e.g. grandparents)
-        only reads the baby book: its children (without medicines and reminders), their photos,
+        only reads the baby book: its children (without medicines, reminders and routines), their photos,
         milestone and growth entries and their photos, the family sync (those entries only, no
         timers) and the live stream (those changes only). Everything else answers 403.
         `integration` is a connected app such as Home Assistant (see `/families/{id}/integrations`):
@@ -1654,7 +1658,7 @@ components:
           items: { $ref: "#/components/schemas/Child" }
     Child:
       type: object
-      required: [id, family_id, name, birth_date, sex, created_at, updated_at, photo_version, medicines, reminders, book, book_photos]
+      required: [id, family_id, name, birth_date, sex, created_at, updated_at, photo_version, medicines, reminders, routines, book, book_photos]
       properties:
         id: { type: string }
         family_id: { type: string }
@@ -1674,6 +1678,9 @@ components:
         reminders:
           type: array
           items: { $ref: "#/components/schemas/Reminder" }
+        routines:
+          type: array
+          items: { $ref: "#/components/schemas/Routine" }
         book: { $ref: "#/components/schemas/Book" }
         book_photos:
           type: object
@@ -1708,6 +1715,47 @@ components:
             Daily dose times in the family's time zone. When set, a dose is due at each time (a dose
             given up to 2 h before it, or until 2 h before the next time, counts for it) instead of
             `every_hours` after the last one, and `max_per_day` is not used.
+        every_days: { $ref: "#/components/schemas/EveryDays" }
+        weekdays: { $ref: "#/components/schemas/Weekdays" }
+    EveryDays:
+      type: integer
+      minimum: 1
+      maximum: 30
+      description: |
+        With `times` only: due every N days, counted from the day of the last entry (none yet: every
+        day until one is logged). 1 is every day and is not saved. Not with `weekdays`.
+    Weekdays:
+      type: array
+      items: { type: integer, minimum: 1, maximum: 7 }
+      example: [1, 5]
+      description: With `times` only, on these weekdays (1 = Monday … 7 = Sunday; all 7 is every day and is not saved). Not with `every_days`.
+    Routine:
+      type: object
+      description: |
+        A routine activity and how often it is done (e.g. a bath every 2 days at 19:00). Its entries
+        are the child's `activity` events whose `kind` is the same name (case, extra spaces and `_`
+        ignored: `tummy_time` is `Tummy time`).
+      required: [name, every_hours]
+      properties:
+        name: { type: string, maxLength: 80, example: bath }
+        every_hours: { type: number, minimum: 0.5, maximum: 720, description: Hours after the last one, when there are no `times` }
+        remind: { type: boolean, default: false, description: Notify phones when it is due (server with notifications) }
+        times:
+          type: array
+          maxItems: 12
+          items: { type: string, pattern: "^[0-2][0-9]:[0-5][0-9]$", example: "19:00" }
+          description: Set times in the family's time zone, on the days `every_days` or `weekdays` allow (every day without them); same rules as a medicine's.
+        every_days: { $ref: "#/components/schemas/EveryDays" }
+        weekdays: { $ref: "#/components/schemas/Weekdays" }
+    RoutineStatus:
+      allOf:
+        - { $ref: "#/components/schemas/Routine" }
+        - type: object
+          required: [last_at, next_at, due]
+          properties:
+            last_at: { type: string, format: date-time, nullable: true }
+            next_at: { type: string, format: date-time, nullable: true, description: "When it is next due (null when never done, without `times`); with `times`, the time due now or the next one" }
+            due: { type: boolean }
     Reminder:
       type: object
       description: |
@@ -2110,13 +2158,17 @@ components:
           description: The same averages for the period just before `from`; null when nothing was logged then.
     Summary:
       type: object
-      required: [child, medicines, last, since, timers, today, last_24h]
+      required: [child, medicines, routines, last, since, timers, today, last_24h]
       properties:
         child: { $ref: "#/components/schemas/Child" }
         medicines:
           type: array
           description: Each medicine schedule with when its next dose is allowed.
           items: { $ref: "#/components/schemas/MedicineStatus" }
+        routines:
+          type: array
+          description: Each routine with when it is next due.
+          items: { $ref: "#/components/schemas/RoutineStatus" }
         last:
           type: object
           description: The latest event of each kind (null when none).

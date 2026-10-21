@@ -4096,4 +4096,91 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get treeTapHint =>
       'Touche quelqu’un pour voir ses parents. Maintiens pour modifier.';
+
+  @override
+  String get scheduleRoutineSection => 'Routines';
+
+  @override
+  String get scheduleAddRoutine => 'Ajouter une routine';
+
+  @override
+  String get scheduleRoutineHint =>
+      'Un bain tous les 2 jours, chaque lundi et vendredi…';
+
+  @override
+  String get scheduleModeAfterLast => 'Intervalle';
+
+  @override
+  String scheduleRoutineModeHint(String mode) {
+    String _temp0 = intl.Intl.selectLogic(mode, {
+      'times':
+          'Prévue à heures fixes les jours choisis, peu importe l\'heure de la dernière fois.',
+      'other':
+          'Prévue de nouveau ce délai après la dernière fois, donc elle se décale avec l\'heure où elle a été faite.',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String get scheduleRoutineTimesLabel => 'À';
+
+  @override
+  String get scheduleDaysLabel => 'Jours';
+
+  @override
+  String scheduleDaysMode(String mode) {
+    String _temp0 = intl.Intl.selectLogic(mode, {
+      'every': 'Tous les N jours',
+      'weekdays': 'Certains jours',
+      'other': 'Tous les jours',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String scheduleEveryNDays(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Tous les $count jours',
+      one: 'Tous les jours',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get scheduleEveryNDaysHint => 'À compter du jour de la dernière fois.';
+
+  @override
+  String scheduleEveryDaysAt(int count, String times) {
+    return 'Tous les $count jours à $times';
+  }
+
+  @override
+  String scheduleWeekdaysAt(String days, String times) {
+    return '$days à $times';
+  }
+
+  @override
+  String get scheduleDaysUnit => 'jours';
+
+  @override
+  String get scheduleErrEveryRoutine =>
+      'Fréquence : entre 0,5 heure et 30 jours.';
+
+  @override
+  String get scheduleRemindRoutineDue => 'Rappeler quand c’est le moment';
+
+  @override
+  String homeRoutineDueSince(String time) {
+    return 'Prévu depuis $time';
+  }
+
+  @override
+  String get homeRoutineNotYet => 'Pas encore fait';
+
+  @override
+  String homeRoutineDueLast(String ago) {
+    return 'C’est le moment · dernière fois $ago';
+  }
 }

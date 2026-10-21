@@ -96,6 +96,44 @@ void main() {
     expect(checkMedicines([daily([])]).first.containsKey('times'), false);
   });
 
+  test('routines every N days and on weekdays (same cases as schedule.rs, in local time)', () {
+    const h = 3600000;
+    int at(int day, [int hour = 19]) => DateTime(2026, 7, day, hour).millisecondsSinceEpoch;
+    // 2026-07-11 is a Saturday. A bath every 2 days at 19:00.
+    final bath = {'name': 'bath', 'every_hours': 48, 'times': ['19:00'], 'every_days': 2};
+    var st = routineStatus(bath, [], at(11) + h);
+    expect((st.nextAt, st.due), (at(11), true));
+    for (final done in [at(11, 8), at(11) - h, at(11) + 2 * h]) {
+      st = routineStatus(bath, [done], at(11) + 3 * h);
+      expect((st.nextAt, st.due), (at(13), false));
+    }
+    st = routineStatus(bath, [at(10)], at(11) + h);
+    expect((st.nextAt, st.due), (at(12), false));
+    st = routineStatus(bath, [at(9)], at(11) + h);
+    expect((st.nextAt, st.due), (at(11), true));
+    // Mondays and Fridays (13th, 17th).
+    final weekly = {...bath, 'every_days': null, 'weekdays': [1, 5]};
+    st = routineStatus(weekly, [at(10)], at(11, 12));
+    expect((st.nextAt, st.due), (at(13), false));
+    st = routineStatus(weekly, [at(10)], at(13) + h);
+    expect((st.nextAt, st.due), (at(13), true));
+    st = routineStatus(weekly, [at(13) + 600000], at(13) + h);
+    expect((st.nextAt, st.due), (at(17), false));
+    // Validation, as the server does.
+    expect(checkRoutines([{...bath, 'every_days': 1, 'weekdays': [5, 1, 1]}]).first, {
+      'name': 'bath',
+      'every_hours': 48,
+      'remind': false,
+      'times': ['19:00'],
+      'weekdays': [1, 5],
+    });
+    expect(() => checkRoutines([{...bath, 'weekdays': [1]}]), throwsA(anything));
+    expect(() => checkRoutines([{'name': 'bath', 'every_hours': 48, 'every_days': 2}]), throwsA(anything));
+    expect(() => checkRoutines([bath, {...bath, 'name': 'Bath '}]), throwsA(anything));
+    expect(checkRoutines([{...bath, 'every_days': null, 'weekdays': [1, 2, 3, 4, 5, 6, 7]}]).first.containsKey('weekdays'), false);
+    expect(routineKey('Tummy  time'), routineKey('tummy_time'));
+  });
+
   test('stopping a breastfeed timer makes a feed', () {
     final segs = [Segment('left', 0, 600000), Segment('right', 600000)];
     final (start, end, details) = stopTimerSegments('breastfeed', segs, null, {}, 900000);

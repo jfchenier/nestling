@@ -14,8 +14,8 @@ import 'store.dart';
 /// Google Drive (the app's private folder, like [DriveBackup]), in case the server is lost.
 ///
 /// Per family: the CSV export (`server-<family>.csv`, the layout the import reads), a small JSON
-/// with what the CSV leaves out (time zone, day hours, each child's medicines, reminders, book
-/// pages and profile picture) and the baby book's photos, one file each, sent once
+/// with what the CSV leaves out (time zone, day hours, each child's medicines, reminders,
+/// routines, book pages and profile picture) and the baby book's photos, one file each, sent once
 /// (`server-<family>-photo-<entry>-<version>`; their full-size copies for printing as
 /// `server-<family>-print-<entry>-<version>`; the book pages' photos as
 /// `server-<family>-page-<child>-<key>-<version>`).
@@ -123,7 +123,7 @@ class ServerBackup implements Backup {
         pages[key as String] = name;
       }
       children.add({
-        for (final k in const ['id', 'name', 'birth_date', 'sex', 'medicines', 'reminders', 'book']) k: c[k],
+        for (final k in const ['id', 'name', 'birth_date', 'sex', 'medicines', 'reminders', 'routines', 'book']) k: c[k],
         'photo': photo,
         'book_photos': pages,
       });
@@ -166,7 +166,7 @@ class ServerBackup implements Backup {
 
   /// Brings [copy] back through [api]: into family [familyId], or a new family made like the one
   /// backed up. Children are matched by name (missing ones are added); medicines, reminders,
-  /// book pages and profile pictures are put back where the child has none.
+  /// routines, book pages and profile pictures are put back where the child has none.
   Future<RestoreResult> restore(Api api, ServerBackupCopy copy, {String? familyId}) async {
     final d = await _drive(interactive: true);
     final fam = copy.family;
@@ -225,7 +225,7 @@ class ServerBackup implements Backup {
       if (target == null) continue;
       bool empty(Object? v) => v == null || (v is List && v.isEmpty) || (v is Map && v.isEmpty);
       final patch = {
-        for (final k in const ['medicines', 'reminders', 'book'])
+        for (final k in const ['medicines', 'reminders', 'routines', 'book'])
           if (empty(target[k]) && !empty(c[k])) k: c[k],
       };
       if (patch.isNotEmpty) await api.patch('/children/${target['id']}', patch);
