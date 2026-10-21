@@ -539,10 +539,10 @@ class BirthStoryPage extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _PageHead(l10n.pagesStoryTitle, Icons.local_hospital_rounded),
-          if (book['labour_start'] case final v?) _Line(l10n.pagesLabourStarted, v),
-          if (book['birth_people'] case final v?) _Line(l10n.pagesBirthPeople, v),
-          if (stay != null) _Line(l10n.pagesHospital, stay),
+          if (book['labour_start'] case final v?) _Block(l10n.pagesLabourStarted, v),
           if (book['labour_story'] case final v?) _Block(l10n.pagesLabourStory, v),
+          if (book['birth_people'] case final v?) _Block(l10n.pagesBirthPeople, v),
+          if (stay != null) _Block(l10n.pagesHospital, stay),
           if (!hasText(child)) _Prompt(l10n.pagesStoryPrompt),
         ],
       ),
