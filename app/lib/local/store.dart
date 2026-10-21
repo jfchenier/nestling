@@ -62,17 +62,17 @@ class StoredTimer {
   Map<String, dynamic> toApi() {
     final now = nowMs();
     final (left, right, total) = sideSeconds(segments, now);
-    String fmt(int ms) => formatTime(DateTime.fromMillisecondsSinceEpoch(ms));
+    String fmt(int ms, {bool millis = false}) => formatTime(DateTime.fromMillisecondsSinceEpoch(ms), millis: millis);
     return {
       'id': id,
       'child_id': childId,
       'kind': kind,
-      'started_at': fmt(segments.isEmpty ? createdAt : segments.map((s) => s.start).reduce(math.min)),
+      'started_at': fmt(segments.isEmpty ? createdAt : segments.map((s) => s.start).reduce(math.min), millis: true),
       'running': segments.isNotEmpty && segments.last.end == null,
       'side': segments.lastOrNull?.side,
       'elapsed_seconds': total,
       'segments': [
-        for (final s in segments) {'side': s.side, 'start': fmt(s.start), 'end': s.end == null ? null : fmt(s.end!)},
+        for (final s in segments) {'side': s.side, 'start': fmt(s.start, millis: true), 'end': s.end == null ? null : fmt(s.end!, millis: true)},
       ],
       'created_by': createdBy,
       'updated_at': fmt(updatedAt),

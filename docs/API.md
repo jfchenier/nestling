@@ -228,15 +228,16 @@ Stopping a timer saves it as an event.
 | `GET /children/{id}/timers` | | running/paused timers |
 | `POST /children/{id}/timers` | `{id?, kind, side?, start?}` | breastfeed side: `left`/`right` (default left); pump: `left`/`right`/`both` (default both); `start` can be in the past |
 | `GET /timers/{id}` | | |
-| `POST /timers/{id}/switch` | `{side?}` | change side; without a body flips left↔right; resumes if paused |
-| `POST /timers/{id}/pause` | | |
-| `POST /timers/{id}/resume` | `{side?}` | |
+| `POST /timers/{id}/switch` | `{side?, at?}` | change side; without a body flips left↔right; resumes if paused |
+| `POST /timers/{id}/pause` | `{at?}` | |
+| `POST /timers/{id}/resume` | `{side?, at?}` | `at` (pause, resume, switch): when the button was pressed, default now; kept between the timer's last change and now, so an app that shows the change at once and sends it a moment later stays in step |
 | `PATCH /timers/{id}` | `{start?, left_seconds?, right_seconds?, seconds?}` | correct a timer: move its start (the total grows or shrinks by the same amount, even while running), set the time on each side (breastfeed) or the total time (`seconds`, sleep and pump); it keeps running |
 | `POST /timers/{id}/stop` | `{event_id?, end?, note?, left_ml?, right_ml?, location?}` | → `201` created event; `end` lets you trim ("fell asleep 5 min ago"); `event_id` makes a retry return the same event (`200`). Two caregivers stopping at once save one event; the second gets `404` |
 | `DELETE /timers/{id}` | | discard without saving |
 | `POST /events/{id}/continue` | `{timer_id?, side?}` | → `201` running timer: a saved breastfeed, pump or sleep entry goes back to being a timer (same start, same time per side) and keeps going from now on `side` (default: the last side). The entry is deleted; stopping the timer saves it again. `409` if a timer of that kind is already running; `timer_id` makes a retry return the same timer (`200`) |
 
 Timer shape: `{id, child_id, kind, started_at, running, side, elapsed_seconds, left_seconds, right_seconds, segments: [{side, start, end}], …}`.
+`started_at` and the segments' times carry milliseconds (`2026-10-08T11:30:00.250-04:00`), so a client can count the time itself.
 
 ## Summary and trends
 

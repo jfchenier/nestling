@@ -1,6 +1,8 @@
 /// Plain models over the API's JSON. Times are parsed to local [DateTime]s.
 library;
 
+import 'dart:math' as math;
+
 import 'l10n/l10n.dart';
 
 DateTime? parseTime(dynamic v) => v is String ? DateTime.tryParse(v)?.toLocal() : null;
@@ -8,14 +10,16 @@ DateTime? parseTime(dynamic v) => v is String ? DateTime.tryParse(v)?.toLocal() 
 double? toDouble(dynamic v) => v is num ? v.toDouble() : null;
 int? toInt(dynamic v) => v is num ? v.round() : null;
 
-/// RFC 3339 with the device's offset, e.g. `2026-10-08T14:30:00-04:00`.
-String formatTime(DateTime t) {
+/// RFC 3339 with the device's offset, e.g. `2026-10-08T14:30:00-04:00`; with [millis],
+/// `2026-10-08T14:30:00.250-04:00` (timer times).
+String formatTime(DateTime t, {bool millis = false}) {
   final local = t.toLocal();
   final off = local.timeZoneOffset;
   String two(int n) => n.abs().toString().padLeft(2, '0');
   final sign = off.isNegative ? '-' : '+';
+  final ms = millis ? '.${local.millisecond.toString().padLeft(3, '0')}' : '';
   return '${local.year.toString().padLeft(4, '0')}-${two(local.month)}-${two(local.day)}'
-      'T${two(local.hour)}:${two(local.minute)}:${two(local.second)}'
+      'T${two(local.hour)}:${two(local.minute)}:${two(local.second)}$ms'
       '$sign${two(off.inHours)}:${two(off.inMinutes.remainder(60))}';
 }
 
@@ -168,9 +172,15 @@ class Event {
 
 /// A running or paused timer. Elapsed values tick locally from when the JSON was received.
 class TimerModel {
-  TimerModel(this.json) : _received = DateTime.now();
+  TimerModel(this.json) : _received = DateTime.now() {
+    for (final s in json['segments'] as List? ?? const []) {
+      final start = parseTime(s['start']);
+      if (start != null) _segments.add((s['side'] as String?, start, parseTime(s['end'])));
+    }
+  }
   final Map<String, dynamic> json;
   final DateTime _received;
+  final List<(String?, DateTime, DateTime?)> _segments = [];
 
   String get id => json['id'];
   String get childId => json['child_id'];
@@ -179,8 +189,36 @@ class TimerModel {
   String? get side => json['side'];
   DateTime get startedAt => parseTime(json['started_at']) ?? _received;
 
-  int get _drift => running ? DateTime.now().difference(_received).inSeconds : 0;
-  int get elapsed => (toInt(json['elapsed_seconds']) ?? 0) + _drift;
-  int get left => (toInt(json['left_seconds']) ?? 0) + (side == 'left' || side == 'both' ? _drift : 0);
-  int get right => (toInt(json['right_seconds']) ?? 0) + (side == 'right' || side == 'both' ? _drift : 0);
+  /// Counted from the segments to the millisecond, so the time shown keeps going evenly when a
+  /// newer copy of the timer arrives; the totals of the JSON only without segments.
+  int _seconds(bool Function(String? side) counts, String key) {
+    if (_segments.isEmpty) {
+      final drift = running ? DateTime.now().difference(_received).inSeconds : 0;
+      return (toInt(json[key]) ?? 0) + (counts(side) ? drift : 0);
+    }
+    final now = DateTime.now();
+    var ms = 0;
+    for (final (side, start, end) in _segments) {
+      if (counts(side)) ms += math.max(0, (end ?? now).difference(start).inMilliseconds);
+    }
+    return ms ~/ 1000;
+  }
+
+  int get elapsed => _seconds((_) => true, 'elapsed_seconds');
+  int get left => _seconds((s) => s == 'left' || s == 'both', 'left_seconds');
+  int get right => _seconds((s) => s == 'right' || s == 'both', 'right_seconds');
+
+  /// Time until a time shown (the total or the running side's) next changes, so a screen can
+  /// refresh right on it.
+  Duration get untilNextSecond {
+    if (!running || _segments.isEmpty) return const Duration(seconds: 1);
+    final now = DateTime.now(), current = _segments.last.$1;
+    var total = 0, onSide = 0;
+    for (final (side, start, end) in _segments) {
+      final ms = math.max(0, (end ?? now).difference(start).inMilliseconds);
+      total += ms;
+      if (side == current) onSide += ms;
+    }
+    return Duration(milliseconds: math.min(1000 - total % 1000, 1000 - onSide % 1000));
+  }
 }

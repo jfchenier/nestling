@@ -352,28 +352,49 @@ class TexturePainter extends CustomPainter {
   bool shouldRepaint(TexturePainter old) => old.texture != texture || old.color != color;
 }
 
-/// Rebuilds its child every second (for running timers and "time since").
+/// Rebuilds its child every second (for running timers and "time since"); with [next], right
+/// when the time shown changes, so a timer counts on evenly and starts at once.
 class Ticking extends StatefulWidget {
-  const Ticking({super.key, required this.builder});
+  const Ticking({super.key, required this.builder, this.next});
   final WidgetBuilder builder;
+
+  /// Time until the next rebuild (default a second).
+  final Duration? Function()? next;
 
   @override
   State<Ticking> createState() => _TickingState();
 }
 
 class _TickingState extends State<Ticking> {
-  // Not a lazy `late final` initializer: nothing would read it before dispose, so it never started.
-  late final Timer _timer;
+  Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => setState(() {}));
+    _schedule();
+  }
+
+  void _schedule() {
+    _timer?.cancel();
+    // A few ms late, so the second has turned when it rebuilds.
+    final next = widget.next?.call();
+    _timer = Timer(next == null ? const Duration(seconds: 1) : next + const Duration(milliseconds: 15), () {
+      if (!mounted) return;
+      setState(() {});
+      _schedule();
+    });
+  }
+
+  @override
+  void didUpdateWidget(Ticking old) {
+    super.didUpdateWidget(old);
+    // The timer may have changed (paused, switched): line up with it again.
+    if (widget.next != null) _schedule();
   }
 
   @override
   void dispose() {
-    _timer.cancel();
+    _timer?.cancel();
     super.dispose();
   }
 
