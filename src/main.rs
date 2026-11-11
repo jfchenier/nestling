@@ -55,11 +55,22 @@ async fn main() -> anyhow::Result<()> {
     }
     let listener = tokio::net::TcpListener::bind(&bind).await?;
     tracing::info!("Nestling listening on http://{bind} (database: {database_url})");
-    axum::serve(listener, app(state, web_dir).into_make_service_with_connect_info::<std::net::SocketAddr>())
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+    let server = axum::serve(listener, app(state, web_dir).into_make_service_with_connect_info::<std::net::SocketAddr>())
+        .with_graceful_shutdown(shutdown_signal());
+    // Graceful shutdown waits for every open connection to finish, and the apps' SSE live-update
+    // streams never do, so `docker stop` used to hit its timeout and kill the server. Give
+    // in-flight requests a few seconds after the stop signal, then exit anyway.
+    tokio::select! {
+        result = server => result?,
+        _ = async {
+            shutdown_signal().await;
+            tokio::time::sleep(SHUTDOWN_GRACE).await;
+        } => tracing::info!("live connections still open {}s after the stop signal; exiting", SHUTDOWN_GRACE.as_secs()),
+    }
     Ok(())
 }
+
+const SHUTDOWN_GRACE: std::time::Duration = std::time::Duration::from_secs(5);
 
 async fn admin_command(db: &sqlx::SqlitePool, args: &[String]) -> anyhow::Result<()> {
     let (query, value, done) = match args {
