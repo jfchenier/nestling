@@ -189,6 +189,65 @@ struct AuthParams {
     scope: Option<String>,
     #[serde(default)]
     resource: Option<String>,
+    /// Back from single sign-on (see `sso_links`).
+    #[serde(default)]
+    sso_code: Option<String>,
+    #[serde(default)]
+    sso_error: Option<String>,
+}
+
+impl AuthParams {
+    /// The OAuth request's own parameters (what the sign-in page carries between steps).
+    fn pairs(&self, redirect_uri: &str) -> [(&'static str, Option<String>); 8] {
+        [
+            ("response_type", self.response_type.clone()),
+            ("client_id", self.client_id.clone()),
+            ("redirect_uri", Some(redirect_uri.to_string())),
+            ("code_challenge", self.code_challenge.clone()),
+            ("code_challenge_method", self.code_challenge_method.clone()),
+            ("state", self.state.clone()),
+            ("scope", self.scope.clone()),
+            ("resource", self.resource.clone()),
+        ]
+    }
+}
+
+/// The cookie that keeps this browser's single sign-on verifier while it is away at the provider.
+const SSO_COOKIE: &str = "nestling_oauth_sso";
+
+/// The sign-in page, with a button per single sign-on provider. Each showing gets a new verifier,
+/// kept in a cookie for when the browser comes back with `sso_code`.
+fn sign_in(state: &AppState, headers: &HeaderMap, req: &Request, p: &AuthParams, error: Option<&str>, email: &str) -> Response {
+    let mut links = Vec::new();
+    let mut cookie = None;
+    if let Some(sso) = &state.sso {
+        let base = base_url(headers);
+        let (verifier, challenge) = crate::sso::new_verifier();
+        let mut back = Url::parse(&format!("{base}/oauth/authorize")).expect("own address");
+        back.query_pairs_mut().extend_pairs(p.pairs(&req.redirect_uri).iter().filter_map(|(k, v)| v.as_ref().map(|v| (k, v))));
+        for provider in &sso.providers {
+            let mut url = Url::parse(&format!("{base}/api/v1/auth/sso/start")).expect("own address");
+            url.query_pairs_mut()
+                .append_pair("provider", &provider.config.id)
+                .append_pair("return_to", back.as_str())
+                .append_pair("challenge", &challenge);
+            links.push((provider.config.name.clone(), url.to_string()));
+        }
+        let secure = if base.starts_with("https:") { "; Secure" } else { "" };
+        cookie = Some(format!("{SSO_COOKIE}={verifier}; Path=/oauth; HttpOnly; SameSite=Lax; Max-Age=600{secure}"));
+    }
+    let mut res = sign_in_page(req, p, error, email, &links, crate::sso::password_login(state));
+    if let Some(c) = cookie.and_then(|c| HeaderValue::from_str(&c).ok()) {
+        res.headers_mut().insert(header::SET_COOKIE, c);
+    }
+    res
+}
+
+fn cookie(headers: &HeaderMap, name: &str) -> Option<String> {
+    headers.get_all(header::COOKIE).iter().filter_map(|v| v.to_str().ok()).flat_map(|v| v.split(';')).find_map(|kv| {
+        let (k, v) = kv.trim().split_once('=')?;
+        (k == name).then(|| v.to_string())
+    })
 }
 
 /// A checked sign-in request.
@@ -247,11 +306,22 @@ fn redirect_with(redirect_uri: &str, params: &[(&str, &str)], state: Option<&str
     Redirect::to(url.as_str()).into_response()
 }
 
-async fn authorize_page(State(state): State<AppState>, Query(p): Query<AuthParams>) -> Response {
-    match check_request(&state, &p).await {
-        Ok(req) => sign_in_page(&req, &p, None, ""),
-        Err(r) => r,
+async fn authorize_page(State(state): State<AppState>, headers: HeaderMap, Query(p): Query<AuthParams>) -> Response {
+    let req = match check_request(&state, &p).await {
+        Ok(req) => req,
+        Err(r) => return r,
+    };
+    if let Some(error) = &p.sso_error {
+        return sign_in(&state, &headers, &req, &p, Some(error), "");
     }
+    if let Some(code) = &p.sso_code {
+        let verifier = cookie(&headers, SSO_COOKIE).unwrap_or_default();
+        return match crate::sso::redeem(&state, code, &verifier).await {
+            Ok(user_id) => grant(&state, &req, &user_id).await,
+            Err(e) => sign_in(&state, &headers, &req, &p, Some(&e.to_string()), ""),
+        };
+    }
+    sign_in(&state, &headers, &req, &p, None, "")
 }
 
 #[derive(Deserialize)]
@@ -288,13 +358,16 @@ async fn authorize_submit(
     if form.cancel.is_some() {
         return redirect_with(&req.redirect_uri, &[("error", "access_denied")], req.state.as_deref());
     }
+    if !crate::sso::password_login(&state) {
+        return sign_in(&state, &headers, &req, &form.params, Some("Signing in with a password is turned off on this server."), "");
+    }
     let email = form.email.as_deref().unwrap_or("").trim().to_lowercase();
     let password = form.password.as_deref().unwrap_or("");
     let account_key = format!("login:{email}");
     let addr_key = format!("addr:{}", client_addr(&headers, conn.as_deref()));
     let now = now_ms();
     if let Err(e) = state.limiter.check(&account_key, PER_ACCOUNT, now).and_then(|_| state.limiter.check(&addr_key, PER_ADDRESS, now)) {
-        return sign_in_page(&req, &form.params, Some(&e.to_string()), &email);
+        return sign_in(&state, &headers, &req, &form.params, Some(&e.to_string()), &email);
     }
     let row: Option<(String, String)> = match sqlx::query_as("SELECT id, password_hash FROM users WHERE email = ? AND kind = 'person'")
         .bind(&email)
@@ -307,10 +380,16 @@ async fn authorize_submit(
     let Some((user_id, _)) = row.filter(|(_, h)| verify_password(password, h)) else {
         state.limiter.hit(&account_key, now);
         state.limiter.hit(&addr_key, now);
-        return sign_in_page(&req, &form.params, Some("Wrong email or password."), &email);
+        return sign_in(&state, &headers, &req, &form.params, Some("Wrong email or password."), &email);
     };
     state.limiter.clear(&account_key);
-    let families = match owned_families(&state, &user_id).await {
+    grant(&state, &req, &user_id).await
+}
+
+/// Signed in: a code for the app, or first the pick-a-family step for owners of several.
+async fn grant(state: &AppState, req: &Request, user_id: &str) -> Response {
+    let now = now_ms();
+    let families = match owned_families(state, user_id).await {
         Ok(f) => f,
         Err(e) => return error_page(StatusCode::INTERNAL_SERVER_ERROR, &format!("database error: {e}")),
     };
@@ -327,7 +406,7 @@ async fn authorize_submit(
         )
         .bind(sha256_hex(&code))
         .bind(&req.client_id)
-        .bind(&user_id)
+        .bind(user_id)
         .bind(&single)
         .bind(&req.redirect_uri)
         .bind(&req.code_challenge)
@@ -508,7 +587,7 @@ h1{{font-size:22px;margin:0 0 8px}}p{{margin:0 0 16px;color:var(--muted)}}strong
 label{{display:block;font-weight:600;margin:12px 0 4px}}input[type=email],input[type=password]{{width:100%;padding:12px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit}}
 .choice{{display:flex;gap:10px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:12px;margin:8px 0;font-weight:600}}
 .buttons{{display:flex;gap:10px;margin-top:20px}}button{{flex:1;padding:12px;border-radius:12px;border:0;font:inherit;font-weight:700;cursor:pointer}}
-.primary{{background:var(--accent);color:var(--on-accent)}}.secondary{{background:transparent;color:var(--muted);border:1px solid var(--line)}}
+.primary{{background:var(--accent);color:var(--on-accent)}}a.button{{display:block;text-align:center;text-decoration:none;padding:12px;border-radius:12px;font-weight:700;margin-top:12px}}.or{{text-align:center;color:var(--muted);margin-top:20px}}.secondary{{background:transparent;color:var(--muted);border:1px solid var(--line)}}
 .error{{color:var(--error);font-weight:600}}ul{{color:var(--muted);padding-left:20px;margin:0 0 8px}}
 </style></head><body><main>{body}</main></body></html>"#,
         title = esc(title),
@@ -529,34 +608,34 @@ fn host_of(uri: &str) -> String {
     Url::parse(uri).ok().and_then(|u| u.host_str().map(str::to_string)).unwrap_or_default()
 }
 
-fn sign_in_page(req: &Request, p: &AuthParams, error: Option<&str>, email: &str) -> Response {
-    let params = [
-        ("response_type", &p.response_type),
-        ("client_id", &p.client_id),
-        ("redirect_uri", &Some(req.redirect_uri.clone())),
-        ("code_challenge", &p.code_challenge),
-        ("code_challenge_method", &p.code_challenge_method),
-        ("state", &p.state),
-        ("scope", &p.scope),
-        ("resource", &p.resource),
-    ]
-    .iter()
-    .map(|(k, v)| hidden(k, v))
-    .collect::<String>();
+fn sign_in_page(req: &Request, p: &AuthParams, error: Option<&str>, email: &str, sso: &[(String, String)], password: bool) -> Response {
+    let params = p.pairs(&req.redirect_uri).iter().map(|(k, v)| hidden(k, v)).collect::<String>();
     let error = error.map(|e| format!(r#"<p class="error">{}</p>"#, esc(e))).unwrap_or_default();
+    let sso_buttons = sso
+        .iter()
+        .map(|(name, url)| format!(r#"<a class="button primary sso" href="{}">Sign in with {} and allow</a>"#, esc(url), esc(name)))
+        .collect::<String>();
+    let form = if password {
+        let or = if sso.is_empty() { "" } else { r#"<p class="or">or with your Nestling password</p>"# };
+        format!(
+            r#"{or}<form method="post" action="/oauth/authorize">{params}
+<label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" required value="{email}">
+<label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required>
+<div class="buttons"><button class="secondary" name="cancel" value="1" formnovalidate>Cancel</button><button class="primary" type="submit">Sign in and allow</button></div>
+</form>"#,
+            email = esc(email),
+        )
+    } else {
+        format!(r#"<form method="post" action="/oauth/authorize">{params}<div class="buttons"><button class="secondary" name="cancel" value="1">Cancel</button></div></form>"#)
+    };
     let body = format!(
         r#"<h1>Connect {name} to Nestling</h1>
 <p><strong>{name}</strong> ({host}) wants to:</p>
 <ul><li>see your children, their entries and summaries</li><li>log, change and delete entries</li><li>start and stop timers</li></ul>
 <p>It joins the family as a connected app named <strong>{name}</strong>. A family owner can remove it in the app under Family → Connected apps.</p>
-{error}<form method="post" action="/oauth/authorize">{params}
-<label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" required value="{email}">
-<label for="password">Password</label><input id="password" name="password" type="password" autocomplete="current-password" required>
-<div class="buttons"><button class="secondary" name="cancel" value="1" formnovalidate>Cancel</button><button class="primary" type="submit">Sign in and allow</button></div>
-</form>"#,
+{error}{sso_buttons}{form}"#,
         name = esc(&req.client_name),
         host = esc(&host_of(&req.redirect_uri)),
-        email = esc(email),
     );
     page(if error.is_empty() { StatusCode::OK } else { StatusCode::BAD_REQUEST }, "Connect an app", &body)
 }

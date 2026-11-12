@@ -45,9 +45,11 @@ const LOGIN_TTL_MS: i64 = 10 * 60 * 1000;
 /// The link the Android app comes back on (`io.github.jfchenier.nestling://sso`).
 pub const APP_SCHEME: &str = "io.github.jfchenier.nestling";
 
-/// Settings from the environment.
+/// One provider's settings.
 #[derive(Debug, Clone)]
 pub struct OidcConfig {
+    /// Short id the app passes to `/auth/sso/start` (`default` for the unnamed provider).
+    pub id: String,
     /// e.g. `https://id.example.com` (its `/.well-known/openid-configuration` is read).
     pub issuer: String,
     pub client_id: String,
@@ -56,24 +58,73 @@ pub struct OidcConfig {
     /// The button's label in the app ("Sign in with …").
     pub name: String,
     pub scopes: String,
-    /// Create an account for someone the provider knows but Nestling doesn't.
+}
+
+/// Single sign-on settings from the environment.
+#[derive(Debug, Clone)]
+pub struct SsoConfig {
+    pub providers: Vec<OidcConfig>,
+    /// Create an account for someone a provider knows but Nestling doesn't.
     pub signup: bool,
+    /// Signing in with a password (and signing up with one). Only turned off when there are providers.
+    pub password_login: bool,
+}
+
+fn env_var(k: &str) -> Option<String> {
+    std::env::var(k).ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty())
+}
+
+fn env_flag(k: &str, default: bool) -> bool {
+    env_var(k).map_or(default, |v| matches!(v.to_lowercase().as_str(), "1" | "true" | "yes" | "on"))
 }
 
 impl OidcConfig {
-    /// `None` when SSO isn't set up (`NESTLING_OIDC_ISSUER` / `NESTLING_OIDC_CLIENT_ID` unset).
-    pub fn from_env() -> Option<Self> {
-        let var = |k: &str| std::env::var(k).ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty());
-        let issuer = var("NESTLING_OIDC_ISSUER")?.trim_end_matches('/').to_string();
-        let client_id = var("NESTLING_OIDC_CLIENT_ID")?;
+    /// `NESTLING_OIDC_<PREFIX>ISSUER`, `…CLIENT_ID`, … (prefix empty for the unnamed provider).
+    fn from_env(id: &str, prefix: &str) -> Option<Self> {
+        let var = |k: &str| env_var(&format!("NESTLING_OIDC_{prefix}{k}"));
+        let issuer = var("ISSUER")?.trim_end_matches('/').to_string();
+        let Some(client_id) = var("CLIENT_ID") else {
+            tracing::warn!("NESTLING_OIDC_{prefix}ISSUER is set but NESTLING_OIDC_{prefix}CLIENT_ID isn't: that provider is off");
+            return None;
+        };
         Some(OidcConfig {
+            id: id.to_string(),
             issuer,
             client_id,
-            client_secret: var("NESTLING_OIDC_CLIENT_SECRET").unwrap_or_default(),
-            name: var("NESTLING_OIDC_NAME").unwrap_or_else(|| "SSO".into()),
-            scopes: var("NESTLING_OIDC_SCOPES").unwrap_or_else(|| "openid email profile".into()),
-            signup: var("NESTLING_OIDC_SIGNUP").is_some_and(|v| matches!(v.to_lowercase().as_str(), "1" | "true" | "yes" | "on")),
+            client_secret: var("CLIENT_SECRET").unwrap_or_default(),
+            name: var("NAME").unwrap_or_else(|| if prefix.is_empty() { "SSO".into() } else { id.to_string() }),
+            scopes: var("SCOPES").unwrap_or_else(|| "openid email profile".into()),
         })
+    }
+}
+
+impl SsoConfig {
+    /// `None` when no provider is set up. One provider: `NESTLING_OIDC_ISSUER`, `…_CLIENT_ID`, …;
+    /// several: `NESTLING_OIDC_PROVIDERS=pocketid,google` and `NESTLING_OIDC_POCKETID_ISSUER`, ….
+    pub fn from_env() -> Option<Self> {
+        let mut providers: Vec<OidcConfig> = OidcConfig::from_env("default", "").into_iter().collect();
+        for id in env_var("NESTLING_OIDC_PROVIDERS").unwrap_or_default().split(',').map(|i| i.trim().to_lowercase()) {
+            if id.is_empty() || providers.iter().any(|p| p.id == id) {
+                continue;
+            }
+            if !id.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+                tracing::warn!("NESTLING_OIDC_PROVIDERS: '{id}' isn't a valid id (letters, digits, - and _)");
+                continue;
+            }
+            let prefix = format!("{}_", id.to_uppercase().replace('-', "_"));
+            match OidcConfig::from_env(&id, &prefix) {
+                Some(p) => providers.push(p),
+                None => tracing::warn!("NESTLING_OIDC_PROVIDERS names '{id}' but NESTLING_OIDC_{prefix}ISSUER isn't set"),
+            }
+        }
+        let password_login = env_flag("NESTLING_PASSWORD_LOGIN", true);
+        if providers.is_empty() {
+            if !password_login {
+                tracing::warn!("NESTLING_PASSWORD_LOGIN=false is ignored: no single sign-on provider is set up");
+            }
+            return None;
+        }
+        Some(SsoConfig { providers, signup: env_flag("NESTLING_OIDC_SIGNUP", false), password_login })
     }
 }
 
@@ -87,8 +138,34 @@ struct Discovery {
     userinfo_endpoint: Option<String>,
 }
 
-/// SSO when it is set up: the settings and the provider's endpoints, read on first use (so the
-/// server starts even while the provider is down) and again after a failure.
+/// Single sign-on when it is set up.
+pub struct Sso {
+    pub providers: Vec<Arc<Oidc>>,
+    pub signup: bool,
+    pub password_login: bool,
+}
+
+impl Sso {
+    pub fn new(config: SsoConfig) -> Arc<Self> {
+        Arc::new(Sso {
+            providers: config.providers.into_iter().map(Oidc::new).collect(),
+            signup: config.signup,
+            password_login: config.password_login,
+        })
+    }
+
+    /// The provider with this id; the first one when none is named.
+    fn provider(&self, id: Option<&str>) -> AppResult<&Arc<Oidc>> {
+        match id.filter(|i| !i.is_empty()) {
+            None => self.providers.first(),
+            Some(id) => self.providers.iter().find(|p| p.config.id == id),
+        }
+        .ok_or(AppError::NotFound("sign-in provider"))
+    }
+}
+
+/// One provider: its settings and endpoints, read on first use (so the server starts even while
+/// the provider is down) and again after a failure.
 pub struct Oidc {
     pub config: OidcConfig,
     http: reqwest::Client,
@@ -131,13 +208,24 @@ fn upstream(msg: String) -> AppError {
     AppError::Upstream(msg)
 }
 
-fn oidc(state: &AppState) -> AppResult<&Arc<Oidc>> {
-    state.oidc.as_ref().ok_or(AppError::NotFound("single sign-on (not set up on this server)"))
+fn sso(state: &AppState) -> AppResult<&Arc<Sso>> {
+    state.sso.as_ref().ok_or(AppError::NotFound("single sign-on (not set up on this server)"))
 }
 
-/// For `/auth/setup`: the button's label, or null.
+/// For `/auth/setup`: the providers' buttons (`[{id, name}]`, empty without SSO).
 pub fn setup_json(state: &AppState) -> Value {
-    state.oidc.as_ref().map_or(Value::Null, |o| json!({ "name": o.config.name }))
+    state.sso.as_ref().map_or(json!([]), |s| s.providers.iter().map(|p| json!({ "id": p.config.id, "name": p.config.name })).collect())
+}
+
+/// Whether accounts may sign in (and sign up) with a password: always, unless SSO is set up with
+/// `NESTLING_PASSWORD_LOGIN=false`.
+pub fn password_login(state: &AppState) -> bool {
+    state.sso.as_ref().is_none_or(|s| s.password_login)
+}
+
+/// The refusal when password sign-in is off.
+pub fn password_login_off() -> AppError {
+    AppError::Forbidden("signing in with a password is turned off on this server: use single sign-on".into())
 }
 
 fn b64_sha256(s: &str) -> String {
@@ -162,7 +250,7 @@ fn own_origins(headers: &HeaderMap) -> Vec<String> {
 /// Android app's link. Anything else is refused, so a link can't send a code elsewhere.
 fn valid_return(return_to: &str, headers: &HeaderMap) -> bool {
     let Ok(url) = Url::parse(return_to) else { return false };
-    if return_to.len() > 1000 || url.fragment().is_some() {
+    if return_to.len() > 2000 || url.fragment().is_some() {
         return false;
     }
     if url.scheme() == APP_SCHEME {
@@ -188,8 +276,11 @@ fn back_to(url: &str, params: &[(&str, &str)]) -> Response {
 
 #[derive(Deserialize)]
 pub struct StartParams {
-    return_to: String,
-    challenge: String,
+    pub return_to: String,
+    pub challenge: String,
+    /// The provider's id (from `/auth/setup`); the first one when left out.
+    #[serde(default)]
+    pub provider: Option<String>,
 }
 
 /// Step 1: remember the sign-in and send the browser to the provider.
@@ -204,7 +295,7 @@ pub async fn start(State(state): State<AppState>, headers: HeaderMap, Query(p): 
 }
 
 async fn start_url(state: &AppState, headers: &HeaderMap, p: &StartParams) -> AppResult<String> {
-    let oidc = oidc(state)?;
+    let oidc = sso(state)?.provider(p.provider.as_deref())?;
     if p.challenge.len() < 43 || p.challenge.len() > 128 {
         return bad("challenge must be base64url(SHA-256(verifier)) (43 characters)");
     }
@@ -214,10 +305,11 @@ async fn start_url(state: &AppState, headers: &HeaderMap, p: &StartParams) -> Ap
     let (state_token, nonce, verifier) = (random_token(), random_token(), random_token());
     let redirect_uri = format!("{}/api/v1/auth/sso/callback", crate::oauth::base_url(headers));
     sqlx::query(
-        "INSERT INTO sso_logins (state_hash, nonce, pkce_verifier, redirect_uri, return_to, app_challenge, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO sso_logins (state_hash, provider, nonce, pkce_verifier, redirect_uri, return_to, app_challenge, expires_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
     )
     .bind(sha256_hex(&state_token))
+    .bind(&oidc.config.id)
     .bind(&nonce)
     .bind(&verifier)
     .bind(&redirect_uri)
@@ -252,8 +344,8 @@ pub async fn callback(State(state): State<AppState>, Query(p): Query<CallbackPar
     let Some(state_token) = p.state.as_deref().filter(|s| !s.is_empty()) else {
         return AppError::BadRequest("state is missing".into()).into_response();
     };
-    let row: Option<(String, String, String, String)> = match sqlx::query_as(
-        "SELECT nonce, pkce_verifier, redirect_uri, return_to FROM sso_logins
+    let row: Option<(String, String, String, String, String)> = match sqlx::query_as(
+        "SELECT provider, nonce, pkce_verifier, redirect_uri, return_to FROM sso_logins
          WHERE state_hash = ? AND code_hash IS NULL AND expires_at >= ?",
     )
     .bind(sha256_hex(state_token))
@@ -264,7 +356,7 @@ pub async fn callback(State(state): State<AppState>, Query(p): Query<CallbackPar
         Ok(r) => r,
         Err(e) => return AppError::from(e).into_response(),
     };
-    let Some((nonce, verifier, redirect_uri, return_to)) = row else {
+    let Some((provider, nonce, verifier, redirect_uri, return_to)) = row else {
         return AppError::BadRequest("this sign-in has expired or was already used: start again from the app".into()).into_response();
     };
     let result = match (&p.code, &p.error) {
@@ -272,7 +364,7 @@ pub async fn callback(State(state): State<AppState>, Query(p): Query<CallbackPar
             "the sign-in provider refused: {}",
             p.error_description.as_deref().filter(|d| !d.is_empty()).unwrap_or(err)
         ))),
-        (Some(code), None) => finish(&state, code, &nonce, &verifier, &redirect_uri).await,
+        (Some(code), None) => finish(&state, &provider, code, &nonce, &verifier, &redirect_uri).await,
         (None, None) => Err(AppError::BadRequest("the sign-in provider sent no code".into())),
     };
     let state_hash = sha256_hex(state_token);
@@ -350,8 +442,9 @@ fn jwt_claims(jwt: &str) -> AppResult<Claims> {
 }
 
 /// Trades the provider's code for the person's claims, then finds (or makes) their account.
-async fn finish(state: &AppState, code: &str, nonce: &str, verifier: &str, redirect_uri: &str) -> AppResult<String> {
-    let oidc = oidc(state)?;
+async fn finish(state: &AppState, provider: &str, code: &str, nonce: &str, verifier: &str, redirect_uri: &str) -> AppResult<String> {
+    let sso = sso(state)?;
+    let oidc = sso.provider(Some(provider))?;
     let d = oidc.discovery().await?;
     let cfg = &oidc.config;
     let mut form = vec![
@@ -415,7 +508,7 @@ async fn finish(state: &AppState, code: &str, nonce: &str, verifier: &str, redir
             }
         }
     }
-    account_for(state, &cfg.issuer, &claims, cfg.signup).await
+    account_for(state, &cfg.issuer, &claims, sso.signup).await
 }
 
 /// The Nestling account for the provider's account: linked before, else by email, else a new one
@@ -483,22 +576,36 @@ pub struct TokenReq {
 
 /// Step 3: the app trades the one-time code and its verifier for a session.
 pub async fn token(State(state): State<AppState>, ApiJson(req): ApiJson<TokenReq>) -> AppResult<Json<Value>> {
-    oidc(&state)?;
+    let user_id = redeem(&state, &req.code, &req.verifier).await?;
+    let (_, token) = issue_token(&state.db, &user_id, "login", "session").await?;
+    Ok(Json(json!({ "token": token, "user": user_json(&state, &user_id).await? })))
+}
+
+/// The account a one-time `sso_code` stands for, given the verifier behind its challenge. The
+/// code is used up either way.
+pub async fn redeem(state: &AppState, code: &str, verifier: &str) -> AppResult<String> {
+    sso(state)?;
     let row: Option<(String, String)> = sqlx::query_as(
         "DELETE FROM sso_logins WHERE code_hash = ? AND expires_at >= ? AND user_id IS NOT NULL RETURNING user_id, app_challenge",
     )
-    .bind(sha256_hex(req.code.trim()))
+    .bind(sha256_hex(code.trim()))
     .bind(now_ms())
     .fetch_optional(&state.db)
     .await?;
     let Some((user_id, challenge)) = row else {
         return bad("this sign-in code has expired or was already used: sign in again");
     };
-    if b64_sha256(req.verifier.trim()) != challenge {
+    if b64_sha256(verifier.trim()) != challenge {
         return bad("the verifier doesn't match this sign-in");
     }
-    let (_, token) = issue_token(&state.db, &user_id, "login", "session").await?;
-    Ok(Json(json!({ "token": token, "user": user_json(&state, &user_id).await? })))
+    Ok(user_id)
+}
+
+/// A new verifier and its challenge (for pages the server renders itself, see `oauth.rs`).
+pub fn new_verifier() -> (String, String) {
+    let v = random_token();
+    let c = b64_sha256(&v);
+    (v, c)
 }
 
 #[cfg(test)]

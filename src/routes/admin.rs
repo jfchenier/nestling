@@ -65,7 +65,9 @@ pub async fn list_users(State(state): State<AppState>, user: AuthUser) -> AppRes
 pub struct CreateUserReq {
     email: String,
     name: String,
-    password: String,
+    /// May be left out when single sign-on is set up (the account then signs in with it only).
+    #[serde(default)]
+    password: Option<String>,
     #[serde(default)]
     is_admin: bool,
     /// Add the new account to this family (saves an invite code)...
@@ -78,7 +80,12 @@ pub struct CreateUserReq {
 
 pub async fn create_user(State(state): State<AppState>, user: AuthUser, ApiJson(req): ApiJson<CreateUserReq>) -> AppResult<(StatusCode, Json<Value>)> {
     require_admin(&state, &user).await?;
-    let email = check_new_account(&req.email, &req.password, &req.name)?;
+    let password = req.password.as_deref().filter(|p| !p.is_empty());
+    if password.is_none() && state.sso.is_none() {
+        return bad("password is required (accounts without one sign in with single sign-on, which isn't set up)");
+    }
+    // An SSO-only account skips the password check with a stand-in that passes it.
+    let email = check_new_account(&req.email, password.unwrap_or("sso-only-account"), &req.name)?;
     let role = req.role.as_deref().unwrap_or("caregiver");
     crate::routes::families::check_role(role)?;
     if let Some(fid) = &req.family_id {
@@ -87,7 +94,7 @@ pub async fn create_user(State(state): State<AppState>, user: AuthUser, ApiJson(
             return Err(AppError::NotFound("family"));
         }
     }
-    let id = insert_user(&state, &email, &req.name, &req.password, "metric", req.is_admin).await?;
+    let id = insert_user(&state, &email, &req.name, password, "metric", req.is_admin).await?;
     if let Some(fid) = &req.family_id {
         sqlx::query("INSERT INTO memberships (family_id, user_id, role, created_at) VALUES (?, ?, ?, ?)")
             .bind(fid)

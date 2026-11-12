@@ -13,6 +13,7 @@ CREATE TABLE user_identities (
 -- from the callback to the app's `/auth/sso/token` (code_hash, user_id). Ten minutes at most.
 CREATE TABLE sso_logins (
     state_hash    TEXT PRIMARY KEY,
+    provider      TEXT NOT NULL, -- the provider's id (NESTLING_OIDC_PROVIDERS, or 'default')
     nonce         TEXT NOT NULL,
     pkce_verifier TEXT NOT NULL,
     redirect_uri  TEXT NOT NULL, -- this server's callback, as sent to the provider
