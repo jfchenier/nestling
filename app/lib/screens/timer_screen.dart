@@ -506,36 +506,42 @@ class _TimerScreenState extends State<TimerScreen> {
     );
   }
 
-  /// A side: "Last side" above it (the side the last feed ended on, then the side last started on
-  /// this timer), its round button with the time on that side, then its name with a pencil to
+  /// A side: "Last side" on its edge (the side the last feed ended on, then the side last started
+  /// on this timer), its round button with the time on that side, then its name with a pencil to
   /// correct the time.
   Widget _side(TimerModel? t, String side, double size) {
     final c = context.pal;
     final last = (t != null ? t.side : _lastSide(context.read<AppState>())) == side;
     return Column(
       children: [
-        SizedBox(
-          height: 36,
-          width: size,
-          child: last
-              ? FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-                    decoration: ShapeDecoration(
-                      color: kind.fill(c).withValues(alpha: c.isDark ? 0.3 : 0.45),
-                      shape: StadiumBorder(side: BorderSide(color: kind.on(c), width: 1.5)),
-                    ),
-                    child: Text(
-                      l10n.timerLastSideLabel,
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: kind.on(c)),
+        const SizedBox(height: 14),
+        Stack(
+          clipBehavior: Clip.none,
+          children: [
+            _circle(t, side, size),
+            // On the edge, at 11 o'clock on the left circle and 1 o'clock on the right one.
+            if (last)
+              Positioned.fill(
+                child: Align(
+                  alignment: Alignment(side == 'left' ? -0.5 : 0.5, -0.866),
+                  child: FractionalTranslation(
+                    translation: Offset(side == 'left' ? -0.1 : 0.1, -0.433),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 3),
+                      decoration: ShapeDecoration(
+                        color: Color.alphaBlend(kind.fill(c).withValues(alpha: c.isDark ? 0.3 : 0.45), c.background),
+                        shape: StadiumBorder(side: BorderSide(color: kind.on(c), width: 1.5)),
+                      ),
+                      child: Text(
+                        l10n.timerLastSideLabel,
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: kind.on(c)),
+                      ),
                     ),
                   ),
-                )
-              : null,
+                ),
+              ),
+          ],
         ),
-        const SizedBox(height: 6),
-        _circle(t, side, size),
         const SizedBox(height: 8),
         Row(
           mainAxisSize: MainAxisSize.min,
