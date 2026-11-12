@@ -37,6 +37,10 @@ pub fn api() -> Router<AppState> {
         .route("/auth/register", post(accounts::register))
         .route("/auth/login", post(accounts::login))
         .route("/auth/logout", post(accounts::logout))
+        // Single sign-on (OpenID Connect, e.g. Pocket ID), when set up.
+        .route("/auth/sso/start", get(crate::sso::start))
+        .route("/auth/sso/callback", get(crate::sso::callback))
+        .route("/auth/sso/token", post(crate::sso::token))
         .route("/me", get(accounts::me).patch(accounts::update_me))
         .route("/me/tokens", get(accounts::list_tokens).post(accounts::create_token))
         .route("/me/tokens/{id}", delete(accounts::delete_token))

@@ -43,7 +43,7 @@ class _UsersScreenState extends State<UsersScreen> {
     final family = s.family;
     final res = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (_) => _NewUserDialog(familyName: family?.name),
+      builder: (_) => _NewUserDialog(familyName: family?.name, sso: s.ssoOn, passwords: s.passwordLogin),
     );
     if (res == null || !mounted) return;
     if (res.remove('add_to_family') == true && family != null) {
@@ -94,7 +94,7 @@ class _UsersScreenState extends State<UsersScreen> {
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(4, 0, 4, 12),
-                    child: Text(l10n.usersIntro, style: TextStyle(color: c.muted)),
+                    child: Text(context.read<AppState>().ssoOn ? l10n.usersIntroSso : l10n.usersIntro, style: TextStyle(color: c.muted)),
                   ),
                   Card(
                     child: Column(
@@ -124,11 +124,8 @@ class _UsersScreenState extends State<UsersScreen> {
                                 _ => _delete(u),
                               },
                               itemBuilder: (_) => [
-                                PopupMenuItem(value: 'password', child: Text(l10n.usersSetPassword)),
-                                PopupMenuItem(
-                                  value: 'admin',
-                                  child: Text(u['is_admin'] == true ? l10n.usersRemoveAdmin : l10n.usersMakeAdmin),
-                                ),
+                                if (context.read<AppState>().passwordLogin) PopupMenuItem(value: 'password', child: Text(l10n.usersSetPassword)),
+                                PopupMenuItem(value: 'admin', child: Text(u['is_admin'] == true ? l10n.usersRemoveAdmin : l10n.usersMakeAdmin)),
                                 if (u['you'] != true)
                                   PopupMenuItem(
                                     value: 'delete',
@@ -167,8 +164,12 @@ Future<String?> _askPassword(BuildContext context, String name) {
 }
 
 class _NewUserDialog extends StatefulWidget {
-  const _NewUserDialog({this.familyName});
+  const _NewUserDialog({this.familyName, this.sso = false, this.passwords = true});
   final String? familyName;
+
+  /// With single sign-on the password may be left empty (they sign in with SSO); without
+  /// password sign-in it isn't asked at all.
+  final bool sso, passwords;
 
   @override
   State<_NewUserDialog> createState() => _NewUserDialogState();
@@ -208,12 +209,22 @@ class _NewUserDialogState extends State<_NewUserDialog> {
               validator: (v) => (v ?? '').contains('@') ? null : l10n.usersEnterEmail,
             ),
             const SizedBox(height: 10),
-            TextFormField(
-              controller: _password,
-              autocorrect: false,
-              decoration: InputDecoration(labelText: l10n.usersPassword, helperText: l10n.usersCanChangeLater),
-              validator: (v) => (v ?? '').length < 8 ? l10n.familyAtLeast8 : null,
-            ),
+            if (widget.passwords)
+              TextFormField(
+                controller: _password,
+                autocorrect: false,
+                decoration: InputDecoration(
+                  labelText: widget.sso ? l10n.usersPasswordOptional : l10n.usersPassword,
+                  helperText: widget.sso ? l10n.usersSsoHint : l10n.usersCanChangeLater,
+                  helperMaxLines: 3,
+                ),
+                validator: (v) => (widget.sso && (v ?? '').isEmpty) || (v ?? '').length >= 8 ? null : l10n.familyAtLeast8,
+              )
+            else
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(l10n.usersSsoOnly, style: TextStyle(color: context.pal.muted, fontSize: 13)),
+              ),
             if (widget.familyName != null)
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
@@ -256,7 +267,7 @@ class _NewUserDialogState extends State<_NewUserDialog> {
           Navigator.pop(context, {
             'name': _name.text.trim(),
             'email': _email.text.trim(),
-            'password': _password.text,
+            if (_password.text.isNotEmpty) 'password': _password.text,
             'is_admin': _admin,
             'add_to_family': _family,
             'role': _role,

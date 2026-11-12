@@ -62,7 +62,8 @@ pub(crate) fn check_new_account(email: &str, password: &str, name: &str) -> AppR
     Ok(email)
 }
 
-pub(crate) async fn insert_user(state: &AppState, email: &str, name: &str, password: &str, units: &str, is_admin: bool) -> AppResult<String> {
+/// `password` None: an account that signs in with single sign-on only.
+pub(crate) async fn insert_user(state: &AppState, email: &str, name: &str, password: Option<&str>, units: &str, is_admin: bool) -> AppResult<String> {
     let exists: Option<(String,)> = sqlx::query_as("SELECT id FROM users WHERE email = ?")
         .bind(email)
         .fetch_optional(&state.db)
@@ -75,7 +76,10 @@ pub(crate) async fn insert_user(state: &AppState, email: &str, name: &str, passw
         .bind(&id)
         .bind(email)
         .bind(name.trim())
-        .bind(hash_password(password)?)
+        .bind(match password {
+            Some(p) => hash_password(p)?,
+            None => String::new(),
+        })
         .bind(units)
         .bind(now_ms())
         .bind(is_admin)
@@ -84,13 +88,16 @@ pub(crate) async fn insert_user(state: &AppState, email: &str, name: &str, passw
     Ok(id)
 }
 
-/// Public: whether the server still needs its first (admin) account, and whether anyone may sign up.
+/// Public: whether the server still needs its first (admin) account, whether anyone may sign up,
+/// the single sign-on providers' buttons, and whether passwords sign in.
 pub async fn setup_status(State(state): State<AppState>) -> AppResult<Json<Value>> {
     let (users,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users").fetch_one(&state.db).await?;
     Ok(Json(json!({
         "needs_setup": users == 0,
         "open_registration": users == 0 || state.config.open_registration,
         "version": crate::VERSION,
+        "sso": crate::sso::setup_json(&state),
+        "password_login": crate::sso::password_login(&state),
     })))
 }
 
@@ -102,6 +109,9 @@ pub async fn register(
     conn: Option<Extension<ConnectInfo<SocketAddr>>>,
     ApiJson(req): ApiJson<RegisterReq>,
 ) -> AppResult<(StatusCode, Json<Value>)> {
+    if !crate::sso::password_login(&state) {
+        return Err(crate::sso::password_login_off());
+    }
     // Every sign-up counts against the address, so open registration can't be used to mass-create accounts.
     let addr_key = format!("addr:{}", client_addr(&headers, conn.as_deref()));
     let now = now_ms();
@@ -115,7 +125,7 @@ pub async fn register(
     if user_count > 0 && !state.config.open_registration {
         return Err(AppError::Forbidden("sign-up is closed on this server: ask its admin for an account".into()));
     }
-    let id = insert_user(&state, &email, &req.name, &req.password, &units, user_count == 0).await?;
+    let id = insert_user(&state, &email, &req.name, Some(&req.password), &units, user_count == 0).await?;
     let (_, token) = issue_token(&state.db, &id, "login", "session").await?;
     Ok((StatusCode::CREATED, Json(json!({ "token": token, "user": user_json(&state, &id).await? }))))
 }
@@ -127,6 +137,9 @@ pub async fn login(
     conn: Option<Extension<ConnectInfo<SocketAddr>>>,
     ApiJson(req): ApiJson<LoginReq>,
 ) -> AppResult<Json<Value>> {
+    if !crate::sso::password_login(&state) {
+        return Err(crate::sso::password_login_off());
+    }
     let email = req.email.trim().to_lowercase();
     let account_key = format!("login:{email}");
     let addr_key = format!("addr:{}", client_addr(&headers, conn.as_deref()));

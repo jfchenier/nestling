@@ -3480,6 +3480,30 @@ abstract class AppLocalizations {
   /// **'Everything you log is saved on this phone. What\'s your name? Other caregivers see it.'**
   String get loginServerlessIntro;
 
+  /// No description provided for @loginWithSso.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with {name}'**
+  String loginWithSso(Object name);
+
+  /// No description provided for @loginSsoCantOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open the browser to sign in'**
+  String get loginSsoCantOpen;
+
+  /// No description provided for @loginSsoExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'That sign-in has expired: please try again'**
+  String get loginSsoExpired;
+
+  /// No description provided for @loginSsoOr.
+  ///
+  /// In en, this message translates to:
+  /// **'or'**
+  String get loginSsoOr;
+
   /// No description provided for @loginSignIn.
   ///
   /// In en, this message translates to:
@@ -6162,6 +6186,12 @@ abstract class AppLocalizations {
   /// **'Enter a name'**
   String get usersEnterName;
 
+  /// No description provided for @usersIntroSso.
+  ///
+  /// In en, this message translates to:
+  /// **'Only admins can create accounts on this server. Add people with the email they use for single sign-on; they then sign in with it.'**
+  String get usersIntroSso;
+
   /// No description provided for @usersIntro.
   ///
   /// In en, this message translates to:
@@ -6197,6 +6227,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{name} is now an admin'**
   String usersNowAdmin(Object name);
+
+  /// No description provided for @usersPasswordOptional.
+  ///
+  /// In en, this message translates to:
+  /// **'Password (optional)'**
+  String get usersPasswordOptional;
+
+  /// No description provided for @usersSsoHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave empty if they\'ll only use single sign-on: they sign in with the same email.'**
+  String get usersSsoHint;
+
+  /// No description provided for @usersSsoOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'They sign in with single sign-on, using this email.'**
+  String get usersSsoOnly;
 
   /// No description provided for @usersPassword.
   ///

@@ -53,6 +53,15 @@ async fn main() -> anyhow::Result<()> {
         tracing::info!("notifications to phones are on (Firebase project {})", push.account.project_id);
         state = state.with_push(nestling::push::Push::new(push));
     }
+    if let Some(sso) = nestling::sso::SsoConfig::from_env() {
+        for p in &sso.providers {
+            tracing::info!("single sign-on with {} (id {}, issuer {})", p.name, p.id, p.issuer);
+        }
+        if !sso.password_login {
+            tracing::info!("signing in with a password is off");
+        }
+        state = state.with_sso(sso);
+    }
     let listener = tokio::net::TcpListener::bind(&bind).await?;
     tracing::info!("Nestling listening on http://{bind} (database: {database_url})");
     let server = axum::serve(listener, app(state, web_dir).into_make_service_with_connect_info::<std::net::SocketAddr>())

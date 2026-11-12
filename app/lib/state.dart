@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'api/api.dart';
 import 'api/local_api.dart';
 import 'api/stream.dart';
 import 'api/sync_api.dart';
 import 'format.dart';
+import 'l10n/l10n.dart';
 import 'local/drive_backup.dart';
 import 'local/drive_relay.dart';
 import 'local/engine.dart';
@@ -17,6 +19,7 @@ import 'local/server_backup.dart';
 import 'local/store.dart';
 import 'models.dart';
 import 'push.dart';
+import 'sso/sso.dart';
 import 'timer_notifications.dart';
 
 /// The app's navigator, so signing out can close every open screen.
@@ -285,6 +288,66 @@ class AppState extends ChangeNotifier {
         ? await a.post('/auth/register', {'email': email.trim(), 'password': password, 'name': name?.trim()})
         : await a.post('/auth/login', {'email': email.trim(), 'password': password});
     onAccepted?.call();
+    await _signedIn(server, res);
+  }
+
+  /// Why the last single sign-on failed, for the sign-in screen to show once.
+  String? ssoError;
+
+  /// A single sign-on that came back is being turned into a session.
+  bool ssoBusy = false;
+
+  /// The server's sign-in options (from `/auth/setup`, refreshed by [load]): single sign-on is set
+  /// up, and whether passwords still sign in (the app hides what can't be used).
+  bool ssoOn = false, passwordLogin = true;
+
+  Future<void> _loadSignInOptions() async {
+    final status = await setupStatus(server);
+    if (status == null) return;
+    ssoOn = (status['sso'] as List? ?? []).isNotEmpty;
+    passwordLogin = status['password_login'] != false;
+    notifyListeners();
+  }
+
+  /// Opens the server's single sign-on with [provider] in the browser; it comes back to [finishSso].
+  Future<void> startSso(String server, String provider) async {
+    server = normalizeServer(server);
+    final verifier = Sso.newVerifier();
+    await _prefs.setString('sso_verifier', verifier);
+    await _prefs.setString('sso_server', server);
+    final url = Sso.startUrl(server, provider, Sso.returnTo(), await Sso.challenge(verifier));
+    // The web app leaves its page for the provider's and comes back to it; the phone app opens
+    // the browser and comes back through its link.
+    final ok = kIsWeb ? await launchUrl(url, webOnlyWindowName: '_self') : await launchUrl(url, mode: LaunchMode.externalApplication);
+    if (!ok) throw ApiException('sso', l10n.loginSsoCantOpen);
+  }
+
+  /// A single sign-on came back with `sso_code` (or `sso_error`): trades the code for a session.
+  /// A failure is kept in [ssoError] for the sign-in screen.
+  Future<void> finishSso(Map<String, String> params) async {
+    final verifier = _prefs.getString('sso_verifier');
+    final server = _prefs.getString('sso_server');
+    await _prefs.remove('sso_verifier');
+    final code = params['sso_code'];
+    ssoBusy = true;
+    notifyListeners();
+    try {
+      if (params['sso_error'] case final error?) throw ApiException('sso', error);
+      if (code == null || verifier == null || server == null) throw ApiException('sso', l10n.loginSsoExpired);
+      final res = await Api(server).post('/auth/sso/token', {'code': code, 'verifier': verifier});
+      ssoError = null;
+      await _signedIn(server, res);
+    } on ApiException catch (e) {
+      ssoError = e.message;
+      // Still signed in as before (e.g. a second sign-in on the web app that failed).
+      if (signedIn) unawaited(load());
+    } finally {
+      ssoBusy = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> _signedIn(String server, dynamic res) async {
     final user = res['user'];
     // Another account or server: this device's copy isn't theirs.
     final sameAccount = store.server == server && user is Map && store.me?['id'] == user['id'];
@@ -543,6 +606,7 @@ class AppState extends ChangeNotifier {
     loading = true;
     error = null;
     notifyListeners();
+    if (!serverless) unawaited(_loadSignInOptions());
     try {
       me = Me(await a.get('/me'));
       families = [for (final f in (await a.get('/families'))['families'] as List) Family(f)];

@@ -2097,6 +2097,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'Everything you log is saved on this phone. What\'s your name? Other caregivers see it.';
 
   @override
+  String loginWithSso(Object name) {
+    return 'Sign in with $name';
+  }
+
+  @override
+  String get loginSsoCantOpen => 'Couldn\'t open the browser to sign in';
+
+  @override
+  String get loginSsoExpired => 'That sign-in has expired: please try again';
+
+  @override
+  String get loginSsoOr => 'or';
+
+  @override
   String get loginSignIn => 'Sign in';
 
   @override
@@ -3755,6 +3769,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get usersEnterName => 'Enter a name';
 
   @override
+  String get usersIntroSso =>
+      'Only admins can create accounts on this server. Add people with the email they use for single sign-on; they then sign in with it.';
+
+  @override
   String get usersIntro =>
       'Only admins can create accounts on this server. Give people their email and password; they can change the password under Settings → Account.';
 
@@ -3780,6 +3798,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String usersNowAdmin(Object name) {
     return '$name is now an admin';
   }
+
+  @override
+  String get usersPasswordOptional => 'Password (optional)';
+
+  @override
+  String get usersSsoHint =>
+      'Leave empty if they\'ll only use single sign-on: they sign in with the same email.';
+
+  @override
+  String get usersSsoOnly =>
+      'They sign in with single sign-on, using this email.';
 
   @override
   String get usersPassword => 'Password';

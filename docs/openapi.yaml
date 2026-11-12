@@ -64,9 +64,19 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [needs_setup, open_registration, version]
+                required: [needs_setup, open_registration, version, sso, password_login]
                 properties:
                   needs_setup: { type: boolean, description: true while the server has no account }
+                  sso:
+                    type: array
+                    description: the single sign-on (OpenID Connect) providers, empty when none is set up
+                    items:
+                      type: object
+                      required: [id, name]
+                      properties:
+                        id: { type: string, description: "for `/auth/sso/start` (`default` for the unnamed provider)" }
+                        name: { type: string, description: "the button's label (NESTLING_OIDC_NAME), e.g. Pocket ID" }
+                  password_login: { type: boolean, description: "false when NESTLING_PASSWORD_LOGIN=false (with SSO): /auth/login and /auth/register answer 403" }
                   open_registration: { type: boolean, description: whether POST /auth/register is open }
                   version: { type: string, description: "the server's version, e.g. 0.2.1 (a build from main: main-<commit>)" }
   /auth/register:
@@ -76,7 +86,7 @@ paths:
       summary: Create an account
       description: |
         Only the first account (it becomes the admin), unless `NESTLING_OPEN_REGISTRATION` is on;
-        otherwise `403`. Sign-ups count toward the per-address sign-in limit.
+        otherwise `403` (also when password sign-in is turned off). Sign-ups count toward the per-address sign-in limit.
       security: []
       requestBody:
         required: true
@@ -108,7 +118,8 @@ paths:
       description: |
         After 5 failed attempts on an account, or 20 from one address, within 15 minutes: `429`
         until the oldest one is 15 minutes old. Behind a reverse proxy the address comes from
-        `X-Real-IP` / `X-Forwarded-For`.
+        `X-Real-IP` / `X-Forwarded-For`. `403` when password sign-in is turned off
+        (`NESTLING_PASSWORD_LOGIN=false`, with single sign-on).
       security: []
       requestBody:
         required: true
@@ -132,6 +143,93 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
+  /auth/sso/start:
+    get:
+      tags: [accounts]
+      operationId: ssoStart
+      summary: Start a single sign-on (opened in the browser)
+      description: |
+        Only when SSO is set up (`NESTLING_OIDC_ISSUER` and `NESTLING_OIDC_CLIENT_ID`, or several
+        providers with `NESTLING_OIDC_PROVIDERS`). Sends the
+        browser to the provider; it comes back through `/auth/sso/callback`, which sends it on to
+        `return_to` with `sso_code` (trade it at `POST /auth/sso/token`) or `sso_error` (a message).
+      security: []
+      parameters:
+        - name: return_to
+          in: query
+          required: true
+          description: a page of this server (the web app) or `io.github.jfchenier.nestling://sso` (the Android app)
+          schema: { type: string }
+        - name: challenge
+          in: query
+          required: true
+          description: base64url (no padding) of the SHA-256 of a random verifier the app keeps
+          schema: { type: string, minLength: 43, maxLength: 128 }
+        - name: provider
+          in: query
+          description: a provider's `id` from `/auth/setup`; the first one when left out
+          schema: { type: string }
+      responses:
+        "303": { description: To the provider's sign-in page (or back to `return_to` with `sso_error`) }
+        "400":
+          description: "`return_to` isn't allowed"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /auth/sso/callback:
+    get:
+      tags: [accounts]
+      operationId: ssoCallback
+      summary: Where the provider sends the browser back (register this as the redirect URI)
+      description: |
+        `<base>/api/v1/auth/sso/callback`. Links the provider's account to the Nestling account
+        with the same verified email; someone without one gets an account only on a new server
+        (the admin), with `NESTLING_OIDC_SIGNUP` or with open registration.
+      security: []
+      parameters:
+        - { name: code, in: query, schema: { type: string } }
+        - { name: state, in: query, required: true, schema: { type: string } }
+        - { name: error, in: query, schema: { type: string } }
+        - { name: error_description, in: query, schema: { type: string } }
+      responses:
+        "303": { description: "Back to `return_to` with `sso_code` (10 minutes, single use) or `sso_error`" }
+        "400":
+          description: Unknown, expired or already used sign-in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /auth/sso/token:
+    post:
+      tags: [accounts]
+      operationId: ssoToken
+      summary: Trade a single sign-on code for a session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, verifier]
+              properties:
+                code: { type: string, description: "`sso_code` from the return address" }
+                verifier: { type: string, description: the verifier behind `challenge` }
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400":
+          description: Expired or used code, or the verifier doesn't match (the code is used up either way)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: SSO isn't set up on this server
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
   /auth/logout:
     post:
       tags: [accounts]
@@ -316,11 +414,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, name, password]
+              required: [email, name]
               properties:
                 email: { type: string, format: email }
                 name: { type: string }
-                password: { type: string, minLength: 8 }
+                password: { type: string, minLength: 8, description: may be left out when single sign-on is set up (the account then signs in with it only) }
                 is_admin: { type: boolean, default: false }
                 family_id: { type: string, description: also add the account to this family }
                 role:

@@ -11,6 +11,7 @@ pub mod push;
 pub mod reminders;
 pub mod routes;
 pub mod schedule;
+pub mod sso;
 pub mod state;
 pub mod trends;
 pub mod util;

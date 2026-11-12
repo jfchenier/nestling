@@ -124,6 +124,13 @@ Use HTTPS (Caddy, Traefik, Nginx Proxy Manager, Tailscale…) before opening it 
 | `NESTLING_FCM_CREDENTIALS` | unset | Firebase service-account key (JSON file) for [notifications on phones](#notifications-on-phones) |
 | `NESTLING_FCM_APP_ID`, `NESTLING_FCM_API_KEY` | unset | The Firebase Android app's App ID and API key (same section) |
 | `NESTLING_PUBLIC_URL` | unset | The server's public address (e.g. `https://nestling.example.com`) for [assistants](#claude-and-other-assistants); without it the proxy's `X-Forwarded-Proto` / `X-Forwarded-Host` are used |
+| `NESTLING_OIDC_ISSUER`, `NESTLING_OIDC_CLIENT_ID` | unset | Turn on [single sign-on](#single-sign-on-pocket-id) with this OpenID Connect provider and client |
+| `NESTLING_OIDC_CLIENT_SECRET` | unset | The client's secret (leave unset for a public client) |
+| `NESTLING_OIDC_NAME` | `SSO` | The provider's name on the sign-in button ("Sign in with Pocket ID") |
+| `NESTLING_OIDC_SIGNUP` | `false` | Give an account to anyone the provider lets in (normally they need one already, with the same email) |
+| `NESTLING_OIDC_SCOPES` | `openid email profile` | Scopes asked for |
+| `NESTLING_OIDC_PROVIDERS` | unset | Several providers at once, e.g. `pocketid,google`; each one's settings are `NESTLING_OIDC_POCKETID_ISSUER`, `…_CLIENT_ID`, `…_CLIENT_SECRET`, `…_NAME`, `…_SCOPES` |
+| `NESTLING_PASSWORD_LOGIN` | `true` | `false` turns off signing in with a password (only when single sign-on is set up) |
 | `RUST_LOG` | `nestling=info,tower_http=info` | Log level |
 
 ## Running it
@@ -138,6 +145,57 @@ admin. If you lock yourself out, run this on the host:
 docker exec <container> nestling set-password me@example.com 'a new password'
 docker exec <container> nestling make-admin me@example.com
 ```
+
+### Single sign-on (Pocket ID)
+
+Optionally, people can sign in through an OpenID Connect provider such as
+[Pocket ID](https://pocket-id.org) (Authelia, authentik and Keycloak work the same way). Signing in
+with a password keeps working.
+
+1. In Pocket ID, add an OIDC client named Nestling with the callback URL
+   `https://nestling.example.com/api/v1/auth/sso/callback` (your server's public address).
+2. Give the server its settings and restart it:
+
+   ```yaml
+   environment:
+     NESTLING_PUBLIC_URL: "https://nestling.example.com"
+     NESTLING_OIDC_ISSUER: "https://id.example.com"   # Pocket ID's address
+     NESTLING_OIDC_CLIENT_ID: "…"
+     NESTLING_OIDC_CLIENT_SECRET: "…"
+     NESTLING_OIDC_NAME: "Pocket ID"
+   ```
+
+3. The app's sign-in screen shows **Sign in with Pocket ID**.
+
+Several providers can be offered side by side, each with its own button, all with the same
+callback URL:
+
+```yaml
+environment:
+  NESTLING_OIDC_PROVIDERS: "pocketid,google"
+  NESTLING_OIDC_POCKETID_ISSUER: "https://id.example.com"
+  NESTLING_OIDC_POCKETID_CLIENT_ID: "…"
+  NESTLING_OIDC_POCKETID_CLIENT_SECRET: "…"
+  NESTLING_OIDC_POCKETID_NAME: "Pocket ID"
+  NESTLING_OIDC_GOOGLE_ISSUER: "https://accounts.google.com"
+  NESTLING_OIDC_GOOGLE_CLIENT_ID: "…"
+  NESTLING_OIDC_GOOGLE_CLIENT_SECRET: "…"
+  NESTLING_OIDC_GOOGLE_NAME: "Google"
+```
+
+To allow single sign-on only, add `NESTLING_PASSWORD_LOGIN: "false"`: the app then shows only the
+provider buttons, passwords neither sign in nor sign up, admins add accounts without one, and the page
+that connects an assistant signs in with the providers too. (If your provider is down, set it back
+to `true` to sign in with a password; accounts made through SSO need one set first with
+`nestling set-password`.)
+
+The first time, the provider's account is linked to the Nestling account with the same email (the
+provider must say the email is verified); after that it stays linked even if the email changes.
+Someone without a Nestling account is refused: an admin adds them under **Settings → Users** with
+that email (the password can be left empty), or set `NESTLING_OIDC_SIGNUP=true` to let in everyone the provider
+allows (Pocket ID can limit a client to some user groups). On a new server, the first person to sign
+in with SSO becomes the admin. Accounts made through SSO have no password; an admin can give them
+one.
 
 ### Backups
 
