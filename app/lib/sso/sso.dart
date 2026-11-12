@@ -37,8 +37,8 @@ class Sso {
   /// Where the server sends the browser back.
   static String returnTo() => kIsWeb ? '${Uri.base.origin}${Uri.base.path}' : appLink;
 
-  static Uri startUrl(String server, String returnTo, String challenge) =>
-      Uri.parse('$server/api/v1/auth/sso/start').replace(queryParameters: {'return_to': returnTo, 'challenge': challenge});
+  static Uri startUrl(String server, String provider, String returnTo, String challenge) =>
+      Uri.parse('$server/api/v1/auth/sso/start').replace(queryParameters: {'provider': provider, 'return_to': returnTo, 'challenge': challenge});
 
   /// `{sso_code}` or `{sso_error}` when the app was opened by a sign-in coming back (the web page's
   /// address, or the link that started the Android app), else null. Clears the page's address.

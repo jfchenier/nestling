@@ -3794,6 +3794,10 @@ class AppLocalizationsFr extends AppLocalizations {
   String get usersEnterName => 'Saisir un nom';
 
   @override
+  String get usersIntroSso =>
+      'Seuls les admins peuvent créer des comptes sur ce serveur. Ajoutez les gens avec l\'adresse courriel de leur authentification unique ; ils se connectent ensuite avec celle-ci.';
+
+  @override
   String get usersIntro =>
       'Seuls les administrateurs peuvent créer des comptes sur ce serveur. Donnez aux personnes leur courriel et leur mot de passe ; elles pourront le changer sous Réglages → Compte.';
 
@@ -3819,6 +3823,17 @@ class AppLocalizationsFr extends AppLocalizations {
   String usersNowAdmin(Object name) {
     return '$name est maintenant administrateur';
   }
+
+  @override
+  String get usersPasswordOptional => 'Mot de passe (facultatif)';
+
+  @override
+  String get usersSsoHint =>
+      'Laissez vide s\'il se connecte seulement par authentification unique : avec la même adresse courriel.';
+
+  @override
+  String get usersSsoOnly =>
+      'Connexion par authentification unique, avec cette adresse courriel.';
 
   @override
   String get usersPassword => 'Mot de passe';

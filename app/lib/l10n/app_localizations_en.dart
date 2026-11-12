@@ -3769,6 +3769,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get usersEnterName => 'Enter a name';
 
   @override
+  String get usersIntroSso =>
+      'Only admins can create accounts on this server. Add people with the email they use for single sign-on; they then sign in with it.';
+
+  @override
   String get usersIntro =>
       'Only admins can create accounts on this server. Give people their email and password; they can change the password under Settings → Account.';
 
@@ -3794,6 +3798,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String usersNowAdmin(Object name) {
     return '$name is now an admin';
   }
+
+  @override
+  String get usersPasswordOptional => 'Password (optional)';
+
+  @override
+  String get usersSsoHint =>
+      'Leave empty if they\'ll only use single sign-on: they sign in with the same email.';
+
+  @override
+  String get usersSsoOnly =>
+      'They sign in with single sign-on, using this email.';
 
   @override
   String get usersPassword => 'Password';

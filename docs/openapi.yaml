@@ -64,16 +64,19 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [needs_setup, open_registration, version, sso]
+                required: [needs_setup, open_registration, version, sso, password_login]
                 properties:
                   needs_setup: { type: boolean, description: true while the server has no account }
                   sso:
-                    type: object
-                    nullable: true
-                    description: single sign-on (OpenID Connect) when set up, else null
-                    required: [name]
-                    properties:
-                      name: { type: string, description: "the provider's name for the button (NESTLING_OIDC_NAME), e.g. Pocket ID" }
+                    type: array
+                    description: the single sign-on (OpenID Connect) providers, empty when none is set up
+                    items:
+                      type: object
+                      required: [id, name]
+                      properties:
+                        id: { type: string, description: "for `/auth/sso/start` (`default` for the unnamed provider)" }
+                        name: { type: string, description: "the button's label (NESTLING_OIDC_NAME), e.g. Pocket ID" }
+                  password_login: { type: boolean, description: "false when NESTLING_PASSWORD_LOGIN=false (with SSO): /auth/login and /auth/register answer 403" }
                   open_registration: { type: boolean, description: whether POST /auth/register is open }
                   version: { type: string, description: "the server's version, e.g. 0.2.1 (a build from main: main-<commit>)" }
   /auth/register:
@@ -83,7 +86,7 @@ paths:
       summary: Create an account
       description: |
         Only the first account (it becomes the admin), unless `NESTLING_OPEN_REGISTRATION` is on;
-        otherwise `403`. Sign-ups count toward the per-address sign-in limit.
+        otherwise `403` (also when password sign-in is turned off). Sign-ups count toward the per-address sign-in limit.
       security: []
       requestBody:
         required: true
@@ -115,7 +118,8 @@ paths:
       description: |
         After 5 failed attempts on an account, or 20 from one address, within 15 minutes: `429`
         until the oldest one is 15 minutes old. Behind a reverse proxy the address comes from
-        `X-Real-IP` / `X-Forwarded-For`.
+        `X-Real-IP` / `X-Forwarded-For`. `403` when password sign-in is turned off
+        (`NESTLING_PASSWORD_LOGIN=false`, with single sign-on).
       security: []
       requestBody:
         required: true
@@ -145,7 +149,8 @@ paths:
       operationId: ssoStart
       summary: Start a single sign-on (opened in the browser)
       description: |
-        Only when SSO is set up (`NESTLING_OIDC_ISSUER`, `NESTLING_OIDC_CLIENT_ID`). Sends the
+        Only when SSO is set up (`NESTLING_OIDC_ISSUER` and `NESTLING_OIDC_CLIENT_ID`, or several
+        providers with `NESTLING_OIDC_PROVIDERS`). Sends the
         browser to the provider; it comes back through `/auth/sso/callback`, which sends it on to
         `return_to` with `sso_code` (trade it at `POST /auth/sso/token`) or `sso_error` (a message).
       security: []
@@ -160,6 +165,10 @@ paths:
           required: true
           description: base64url (no padding) of the SHA-256 of a random verifier the app keeps
           schema: { type: string, minLength: 43, maxLength: 128 }
+        - name: provider
+          in: query
+          description: a provider's `id` from `/auth/setup`; the first one when left out
+          schema: { type: string }
       responses:
         "303": { description: To the provider's sign-in page (or back to `return_to` with `sso_error`) }
         "400":
@@ -405,11 +414,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [email, name, password]
+              required: [email, name]
               properties:
                 email: { type: string, format: email }
                 name: { type: string }
-                password: { type: string, minLength: 8 }
+                password: { type: string, minLength: 8, description: may be left out when single sign-on is set up (the account then signs in with it only) }
                 is_admin: { type: boolean, default: false }
                 family_id: { type: string, description: also add the account to this family }
                 role:

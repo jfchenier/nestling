@@ -3842,6 +3842,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get usersEnterName => 'Введите имя';
 
   @override
+  String get usersIntroSso =>
+      'Только админы могут создавать аккаунты на этом сервере. Добавьте людей с почтой, которую они используют для единого входа; затем они входят через него.';
+
+  @override
   String get usersIntro =>
       'Только администраторы могут создавать аккаунты на этом сервере. Сообщите людям их эл. почту и пароль; сменить пароль можно в «Настройки» → «Аккаунт».';
 
@@ -3867,6 +3871,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String usersNowAdmin(Object name) {
     return '$name теперь администратор';
   }
+
+  @override
+  String get usersPasswordOptional => 'Пароль (необязательно)';
+
+  @override
+  String get usersSsoHint =>
+      'Оставьте пустым, если вход только через единый вход: с той же почтой.';
+
+  @override
+  String get usersSsoOnly => 'Вход через единый вход, с этой почтой.';
 
   @override
   String get usersPassword => 'Пароль';

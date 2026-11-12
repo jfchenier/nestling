@@ -31,8 +31,9 @@ class _LoginScreenState extends State<LoginScreen> {
   /// "create an account" link only shows when the server allows sign-up.
   bool _needsSetup = false, _openSignUp = false;
 
-  /// The server's single sign-on provider's name (e.g. Pocket ID), when it has one.
-  String? _ssoName;
+  /// The server's single sign-on providers (id, name), e.g. Pocket ID, and whether passwords sign in.
+  List<(String, String)> _sso = [];
+  bool _passwords = true;
   Timer? _debounce;
 
   @override
@@ -53,10 +54,11 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _needsSetup = status?['needs_setup'] == true;
       _openSignUp = status?['open_registration'] == true;
-      _ssoName = switch (status?['sso']) {
-        {'name': final String name} => name,
-        _ => null,
-      };
+      _sso = [
+        for (final p in status?['sso'] as List? ?? [])
+          if (p case {'id': final String id, 'name': final String name}) (id, name),
+      ];
+      _passwords = status?['password_login'] != false;
       _register = _needsSetup || (_register && _openSignUp);
     });
   }
@@ -84,11 +86,11 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _sso() async {
+  Future<void> _startSso(String provider) async {
     if (_server.text.trim().isEmpty) return setState(() => _showServer = true);
     setState(() => _busy = true);
     try {
-      await context.read<AppState>().startSso(_server.text);
+      await context.read<AppState>().startSso(_server.text, provider);
     } on ApiException catch (e) {
       if (mounted) showMessage(context, e.message);
     } finally {
@@ -188,7 +190,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 12),
                   ],
-                  if (_register) ...[
+                  if (_passwords && _register) ...[
                     TextFormField(
                       controller: _name,
                       textCapitalization: TextCapitalization.words,
@@ -198,41 +200,43 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 12),
                   ],
-                  TextFormField(
-                    controller: _email,
-                    keyboardType: TextInputType.emailAddress,
-                    autocorrect: false,
-                    autofillHints: const [AutofillHints.username, AutofillHints.email],
-                    decoration: InputDecoration(labelText: l10n.loginEmail, prefixIcon: const Icon(Icons.mail_outline)),
-                    validator: (v) => (v ?? '').contains('@') ? null : l10n.loginEnterEmail,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _password,
-                    obscureText: true,
-                    autofillHints: [_register || _needsSetup ? AutofillHints.newPassword : AutofillHints.password],
-                    decoration: InputDecoration(labelText: l10n.loginPassword, prefixIcon: const Icon(Icons.lock_outline)),
-                    validator: (v) => _register && (v ?? '').length < 8
-                        ? l10n.loginPasswordMin
-                        : (v ?? '').isEmpty
-                        ? l10n.loginEnterPassword
-                        : null,
-                    onFieldSubmitted: (_) => _submit(),
-                  ),
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: busy ? null : _submit,
-                    child: busy
-                        ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: context.pal.onAccent))
-                        : Text(
-                            _needsSetup
-                                ? l10n.loginCreateAdmin
-                                : _register
-                                ? l10n.loginCreateAccount
-                                : l10n.loginSignIn,
-                          ),
-                  ),
-                  if (_ssoName case final name?) ...[
+                  if (_passwords) ...[
+                    TextFormField(
+                      controller: _email,
+                      keyboardType: TextInputType.emailAddress,
+                      autocorrect: false,
+                      autofillHints: const [AutofillHints.username, AutofillHints.email],
+                      decoration: InputDecoration(labelText: l10n.loginEmail, prefixIcon: const Icon(Icons.mail_outline)),
+                      validator: (v) => (v ?? '').contains('@') ? null : l10n.loginEnterEmail,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _password,
+                      obscureText: true,
+                      autofillHints: [_register || _needsSetup ? AutofillHints.newPassword : AutofillHints.password],
+                      decoration: InputDecoration(labelText: l10n.loginPassword, prefixIcon: const Icon(Icons.lock_outline)),
+                      validator: (v) => _register && (v ?? '').length < 8
+                          ? l10n.loginPasswordMin
+                          : (v ?? '').isEmpty
+                          ? l10n.loginEnterPassword
+                          : null,
+                      onFieldSubmitted: (_) => _submit(),
+                    ),
+                    const SizedBox(height: 24),
+                    FilledButton(
+                      onPressed: busy ? null : _submit,
+                      child: busy
+                          ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: context.pal.onAccent))
+                          : Text(
+                              _needsSetup
+                                  ? l10n.loginCreateAdmin
+                                  : _register
+                                  ? l10n.loginCreateAccount
+                                  : l10n.loginSignIn,
+                            ),
+                    ),
+                  ],
+                  if (_sso.isNotEmpty && _passwords)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 10),
                       child: Row(
@@ -246,14 +250,26 @@ class _LoginScreenState extends State<LoginScreen> {
                         ],
                       ),
                     ),
-                    OutlinedButton.icon(
-                      icon: const Icon(Icons.key_rounded),
-                      label: Text(l10n.loginWithSso(name)),
-                      onPressed: busy ? null : _sso,
+                  // Without passwords, the providers are the sign-in buttons.
+                  for (final (i, (id, name)) in _sso.indexed)
+                    Padding(
+                      padding: EdgeInsets.only(top: i == 0 ? 0 : 10),
+                      child: _passwords
+                          ? OutlinedButton.icon(
+                              icon: const Icon(Icons.key_rounded),
+                              label: Text(l10n.loginWithSso(name)),
+                              onPressed: busy ? null : () => _startSso(id),
+                            )
+                          : FilledButton.icon(
+                              icon: busy
+                                  ? SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2.5, color: context.pal.onAccent))
+                                  : const Icon(Icons.key_rounded),
+                              label: Text(l10n.loginWithSso(name)),
+                              onPressed: busy ? null : () => _startSso(id),
+                            ),
                     ),
-                  ],
                   const SizedBox(height: 8),
-                  if (_openSignUp && !_needsSetup)
+                  if (_passwords && _openSignUp && !_needsSetup)
                     TextButton(
                       onPressed: () => setState(() => _register = !_register),
                       child: Text(_register ? l10n.loginHaveAccount : l10n.loginNewHere),

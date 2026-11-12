@@ -22,15 +22,15 @@ missing from it.
 
 | | | |
 |---|---|---|
-| `GET /auth/setup` | | public: `{needs_setup, open_registration, version, sso}`; `sso` is `{name}` when single sign-on is set up, else `null`; `needs_setup` while the server has no account; `version` is the server's (`0.2.1`; a build from main: `main-<commit>`) |
+| `GET /auth/setup` | | public: `{needs_setup, open_registration, version, sso, password_login}`; `sso` lists the single sign-on providers `[{id, name}]` (empty without SSO); `password_login` is false when `NESTLING_PASSWORD_LOGIN=false` (login and register then answer `403`); `needs_setup` while the server has no account; `version` is the server's (`0.2.1`; a build from main: `main-<commit>`) |
 | `POST /auth/register` | `{email, password (8+), name, units?}` | → `201 {token, user}`. Only the first account (it becomes the admin), unless `NESTLING_OPEN_REGISTRATION` is on; otherwise `403` |
 | `POST /auth/login` | `{email, password}` | → `{token, user}`; a wrong email or password is `400`. After 5 failed attempts on an account, or 20 from one address (sign-ups count too), within 15 minutes: `429` until the oldest one is 15 minutes old. Behind a reverse proxy the address comes from `X-Real-IP` / `X-Forwarded-For` |
-| `GET /auth/sso/start` | query: `return_to`, `challenge` | single sign-on (OpenID Connect), opened in the browser: → `303` to the provider. `return_to` is a page of this server or `io.github.jfchenier.nestling://sso`; `challenge` is base64url(SHA-256(verifier)), the verifier staying in the app |
+| `GET /auth/sso/start` | query: `return_to`, `challenge`, `provider?` | single sign-on (OpenID Connect), opened in the browser: → `303` to the provider (`provider` is an `id` from `/auth/setup`, the first one by default). `return_to` is a page of this server or `io.github.jfchenier.nestling://sso`; `challenge` is base64url(SHA-256(verifier)), the verifier staying in the app |
 | `GET /auth/sso/callback` | | the provider's redirect URI (`<base>/api/v1/auth/sso/callback`): → `303` to `return_to` with `sso_code` (10 minutes, single use) or `sso_error` (a message) |
 | `POST /auth/sso/token` | `{code, verifier}` | → `{token, user}`; a wrong verifier uses the code up (`400`); `404` without SSO |
 | `POST /auth/logout` | | revokes the current token |
 | `GET /admin/users` | | admins: every account with `is_admin` and families |
-| `POST /admin/users` | `{email, name, password, is_admin?, family_id?, role?}` | admins: create an account, optionally added to a family with `role` (`caregiver` by default, or `book_viewer` / `owner`) |
+| `POST /admin/users` | `{email, name, password?, is_admin?, family_id?, role?}` | admins: create an account (`password` may be left out with single sign-on: the account signs in with it), optionally added to a family with `role` (`caregiver` by default, or `book_viewer` / `owner`) |
 | `PATCH /admin/users/{id}` | `{name?, is_admin?, password?}` | admins: a new password signs them out; the last admin can't be demoted |
 | `DELETE /admin/users/{id}` | | admins: not yourself; families and their data stay |
 | `GET /me` | | `{id, email, name, units, families: [{id, name, role}]}` |
@@ -93,7 +93,7 @@ assistants such as Claude, with the OAuth 2.1 sign-in their connectors use:
 | `GET /.well-known/oauth-protected-resource[/mcp]` | | RFC 9728: `{resource: <base>/mcp, authorization_servers: [<base>]}` |
 | `GET /.well-known/oauth-authorization-server` | | RFC 8414 metadata (code flow, PKCE `S256`, public clients) |
 | `POST /oauth/register` | `{client_name?, redirect_uris: [...]}` | RFC 7591: → `201 {client_id, ...}`. 1–5 `https` addresses (or `http` on localhost); limited per address |
-| `GET / POST /oauth/authorize` | the usual query (`response_type=code`, `client_id`, `redirect_uri`, `code_challenge`, `code_challenge_method=S256`, `state`) | a page where a family owner signs in (and picks the family if they own several), then a redirect with `code` (10 minutes, single use) |
+| `GET / POST /oauth/authorize` | the usual query (`response_type=code`, `client_id`, `redirect_uri`, `code_challenge`, `code_challenge_method=S256`, `state`) | a page where a family owner signs in, with a password or a single sign-on button (the verifier waits in a cookie while the browser is at the provider), and picks the family if they own several, then a redirect with `code` (10 minutes, single use) |
 | `POST /oauth/token` | form: `grant_type=authorization_code`, `code`, `client_id`, `redirect_uri`, `code_verifier` | → `{access_token, token_type: "Bearer"}`: the API token of a connected app named after the client, in that family (added the first time, reused after). No expiry, no refresh token; removing the connected app revokes it |
 
 `<base>` is `NESTLING_PUBLIC_URL`, else built from `X-Forwarded-Proto` / `X-Forwarded-Host` (or

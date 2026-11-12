@@ -129,6 +129,8 @@ Use HTTPS (Caddy, Traefik, Nginx Proxy Manager, Tailscale…) before opening it 
 | `NESTLING_OIDC_NAME` | `SSO` | The provider's name on the sign-in button ("Sign in with Pocket ID") |
 | `NESTLING_OIDC_SIGNUP` | `false` | Give an account to anyone the provider lets in (normally they need one already, with the same email) |
 | `NESTLING_OIDC_SCOPES` | `openid email profile` | Scopes asked for |
+| `NESTLING_OIDC_PROVIDERS` | unset | Several providers at once, e.g. `pocketid,google`; each one's settings are `NESTLING_OIDC_POCKETID_ISSUER`, `…_CLIENT_ID`, `…_CLIENT_SECRET`, `…_NAME`, `…_SCOPES` |
+| `NESTLING_PASSWORD_LOGIN` | `true` | `false` turns off signing in with a password (only when single sign-on is set up) |
 | `RUST_LOG` | `nestling=info,tower_http=info` | Log level |
 
 ## Running it
@@ -165,10 +167,32 @@ with a password keeps working.
 
 3. The app's sign-in screen shows **Sign in with Pocket ID**.
 
+Several providers can be offered side by side, each with its own button, all with the same
+callback URL:
+
+```yaml
+environment:
+  NESTLING_OIDC_PROVIDERS: "pocketid,google"
+  NESTLING_OIDC_POCKETID_ISSUER: "https://id.example.com"
+  NESTLING_OIDC_POCKETID_CLIENT_ID: "…"
+  NESTLING_OIDC_POCKETID_CLIENT_SECRET: "…"
+  NESTLING_OIDC_POCKETID_NAME: "Pocket ID"
+  NESTLING_OIDC_GOOGLE_ISSUER: "https://accounts.google.com"
+  NESTLING_OIDC_GOOGLE_CLIENT_ID: "…"
+  NESTLING_OIDC_GOOGLE_CLIENT_SECRET: "…"
+  NESTLING_OIDC_GOOGLE_NAME: "Google"
+```
+
+To allow single sign-on only, add `NESTLING_PASSWORD_LOGIN: "false"`: the app then shows only the
+provider buttons, passwords neither sign in nor sign up, admins add accounts without one, and the page
+that connects an assistant signs in with the providers too. (If your provider is down, set it back
+to `true` to sign in with a password; accounts made through SSO need one set first with
+`nestling set-password`.)
+
 The first time, the provider's account is linked to the Nestling account with the same email (the
 provider must say the email is verified); after that it stays linked even if the email changes.
 Someone without a Nestling account is refused: an admin adds them under **Settings → Users** with
-that email (any password), or set `NESTLING_OIDC_SIGNUP=true` to let in everyone the provider
+that email (the password can be left empty), or set `NESTLING_OIDC_SIGNUP=true` to let in everyone the provider
 allows (Pocket ID can limit a client to some user groups). On a new server, the first person to sign
 in with SSO becomes the admin. Accounts made through SSO have no password; an admin can give them
 one.

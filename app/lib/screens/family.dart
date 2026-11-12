@@ -451,7 +451,7 @@ class SettingsScreen extends StatelessWidget with _FamilyActions {
                     title: Text(s.serverless ? l10n.familyWithoutServer : l10n.familyServer),
                     subtitle: Text(s.serverless ? l10n.familyWithoutServerHint : s.server),
                   ),
-                  if (!s.serverless)
+                  if (!s.serverless && s.passwordLogin)
                     ListTile(leading: const Icon(Icons.password_rounded), title: Text(l10n.familyChangePassword), onTap: () => _changePassword(context)),
                   if (me.isAdmin)
                     ListTile(

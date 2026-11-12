@@ -297,13 +297,25 @@ class AppState extends ChangeNotifier {
   /// A single sign-on that came back is being turned into a session.
   bool ssoBusy = false;
 
-  /// Opens the server's single sign-on in the browser; it comes back to [finishSso].
-  Future<void> startSso(String server) async {
+  /// The server's sign-in options (from `/auth/setup`, refreshed by [load]): single sign-on is set
+  /// up, and whether passwords still sign in (the app hides what can't be used).
+  bool ssoOn = false, passwordLogin = true;
+
+  Future<void> _loadSignInOptions() async {
+    final status = await setupStatus(server);
+    if (status == null) return;
+    ssoOn = (status['sso'] as List? ?? []).isNotEmpty;
+    passwordLogin = status['password_login'] != false;
+    notifyListeners();
+  }
+
+  /// Opens the server's single sign-on with [provider] in the browser; it comes back to [finishSso].
+  Future<void> startSso(String server, String provider) async {
     server = normalizeServer(server);
     final verifier = Sso.newVerifier();
     await _prefs.setString('sso_verifier', verifier);
     await _prefs.setString('sso_server', server);
-    final url = Sso.startUrl(server, Sso.returnTo(), await Sso.challenge(verifier));
+    final url = Sso.startUrl(server, provider, Sso.returnTo(), await Sso.challenge(verifier));
     // The web app leaves its page for the provider's and comes back to it; the phone app opens
     // the browser and comes back through its link.
     final ok = kIsWeb ? await launchUrl(url, webOnlyWindowName: '_self') : await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -594,6 +606,7 @@ class AppState extends ChangeNotifier {
     loading = true;
     error = null;
     notifyListeners();
+    if (!serverless) unawaited(_loadSignInOptions());
     try {
       me = Me(await a.get('/me'));
       families = [for (final f in (await a.get('/families'))['families'] as List) Family(f)];
