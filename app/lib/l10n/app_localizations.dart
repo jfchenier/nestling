@@ -3480,6 +3480,30 @@ abstract class AppLocalizations {
   /// **'Everything you log is saved on this phone. What\'s your name? Other caregivers see it.'**
   String get loginServerlessIntro;
 
+  /// No description provided for @loginWithSso.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in with {name}'**
+  String loginWithSso(Object name);
+
+  /// No description provided for @loginSsoCantOpen.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t open the browser to sign in'**
+  String get loginSsoCantOpen;
+
+  /// No description provided for @loginSsoExpired.
+  ///
+  /// In en, this message translates to:
+  /// **'That sign-in has expired: please try again'**
+  String get loginSsoExpired;
+
+  /// No description provided for @loginSsoOr.
+  ///
+  /// In en, this message translates to:
+  /// **'or'**
+  String get loginSsoOr;
+
   /// No description provided for @loginSignIn.
   ///
   /// In en, this message translates to:

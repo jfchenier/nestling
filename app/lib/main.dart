@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
@@ -13,6 +15,7 @@ import 'screens/login.dart';
 import 'screens/onboarding.dart';
 import 'screens/timeline.dart';
 import 'screens/trends.dart';
+import 'sso/sso.dart';
 import 'state.dart';
 import 'theme.dart';
 import 'widgets/common.dart';
@@ -20,7 +23,14 @@ import 'widgets/common.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final state = AppState(await SharedPreferences.getInstance(), await LocalStore.open());
-  if (state.signedIn) state.load();
+  // Coming back from single sign-on (the web page's address, or the link that opened the phone app).
+  final sso = await Sso.pending();
+  if (sso != null) {
+    unawaited(state.finishSso(sso));
+  } else if (state.signedIn) {
+    state.load();
+  }
+  Sso.listen(state.finishSso);
   runApp(ChangeNotifierProvider.value(value: state, child: const NestlingApp()));
 }
 

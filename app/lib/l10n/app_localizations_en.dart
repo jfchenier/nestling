@@ -2097,6 +2097,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'Everything you log is saved on this phone. What\'s your name? Other caregivers see it.';
 
   @override
+  String loginWithSso(Object name) {
+    return 'Sign in with $name';
+  }
+
+  @override
+  String get loginSsoCantOpen => 'Couldn\'t open the browser to sign in';
+
+  @override
+  String get loginSsoExpired => 'That sign-in has expired: please try again';
+
+  @override
+  String get loginSsoOr => 'or';
+
+  @override
   String get loginSignIn => 'Sign in';
 
   @override

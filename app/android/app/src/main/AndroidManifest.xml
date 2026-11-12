@@ -30,6 +30,13 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Single sign-on comes back here (io.github.jfchenier.nestling://sso?sso_code=…; lib/sso/sso.dart). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="io.github.jfchenier.nestling" android:host="sso"/>
+            </intent-filter>
         </activity>
         <!-- Timers started or stopped on another caregiver's phone (Push.kt). -->
         <service android:name=".PushService" android:exported="false">

@@ -2106,6 +2106,21 @@ class AppLocalizationsFr extends AppLocalizations {
       'Tout ce que vous notez est enregistré sur ce téléphone. Quel est votre nom ? Les autres membres de la famille le verront.';
 
   @override
+  String loginWithSso(Object name) {
+    return 'Se connecter avec $name';
+  }
+
+  @override
+  String get loginSsoCantOpen =>
+      'Impossible d\'ouvrir le navigateur pour se connecter';
+
+  @override
+  String get loginSsoExpired => 'Cette connexion a expiré : réessayez';
+
+  @override
+  String get loginSsoOr => 'ou';
+
+  @override
   String get loginSignIn => 'Se connecter';
 
   @override

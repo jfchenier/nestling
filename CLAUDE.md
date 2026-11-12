@@ -59,6 +59,13 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
   to the REST API with the caller's token) and `src/oauth.rs` (OAuth 2.1 + PKCE, dynamic client
   registration; an owner signs in on a server-rendered page and the token is a connected app named
   after the client). Public address: `NESTLING_PUBLIC_URL`, else the proxy's forwarded headers.
+- Optional **single sign-on** (OpenID Connect, e.g. Pocket ID; `src/sso.rs`, app `app/lib/sso/`): on when
+  `NESTLING_OIDC_ISSUER` + `NESTLING_OIDC_CLIENT_ID` are set; password sign-in stays. The server does the code
+  flow (PKCE, nonce; ID token taken from the token endpoint over TLS, signature not checked), links the
+  provider's `sub` (`user_identities`) to the account with the same verified email, and sends the browser
+  back to the web page or `io.github.jfchenier.nestling://sso` with a one-time `sso_code` the app trades
+  with its own verifier (`/auth/sso/token`). New accounts only for the first (admin), `NESTLING_OIDC_SIGNUP`
+  or open registration. Android link handling (`MainActivity.kt`) not yet tried on a real phone.
 - Accounts: the first account on a server is the **admin**; sign-up is then closed
   (`NESTLING_OPEN_REGISTRATION` default false) and admins create accounts (`/admin/users`, app:
   Settings → Users). Recovery CLI: `nestling set-password <email> <pw>`, `nestling make-admin <email>`.

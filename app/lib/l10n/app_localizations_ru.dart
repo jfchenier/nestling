@@ -2149,6 +2149,20 @@ class AppLocalizationsRu extends AppLocalizations {
       'Всё, что вы записываете, хранится на этом телефоне. Как вас зовут? Другие взрослые увидят это имя.';
 
   @override
+  String loginWithSso(Object name) {
+    return 'Войти через $name';
+  }
+
+  @override
+  String get loginSsoCantOpen => 'Не удалось открыть браузер для входа';
+
+  @override
+  String get loginSsoExpired => 'Срок входа истёк: попробуйте ещё раз';
+
+  @override
+  String get loginSsoOr => 'или';
+
+  @override
   String get loginSignIn => 'Войти';
 
   @override

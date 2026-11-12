@@ -2105,6 +2105,22 @@ class AppLocalizationsEs extends AppLocalizations {
       'Todo lo que registres se guarda en este teléfono. ¿Cómo te llamas? Los demás cuidadores lo verán.';
 
   @override
+  String loginWithSso(Object name) {
+    return 'Iniciar sesión con $name';
+  }
+
+  @override
+  String get loginSsoCantOpen =>
+      'No se pudo abrir el navegador para iniciar sesión';
+
+  @override
+  String get loginSsoExpired =>
+      'Este inicio de sesión ha caducado: inténtalo de nuevo';
+
+  @override
+  String get loginSsoOr => 'o';
+
+  @override
   String get loginSignIn => 'Iniciar sesión';
 
   @override

@@ -30,6 +30,9 @@ class _LoginScreenState extends State<LoginScreen> {
   /// From the server: a brand-new server first creates its admin account; after that the
   /// "create an account" link only shows when the server allows sign-up.
   bool _needsSetup = false, _openSignUp = false;
+
+  /// The server's single sign-on provider's name (e.g. Pocket ID), when it has one.
+  String? _ssoName;
   Timer? _debounce;
 
   @override
@@ -50,6 +53,10 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() {
       _needsSetup = status?['needs_setup'] == true;
       _openSignUp = status?['open_registration'] == true;
+      _ssoName = switch (status?['sso']) {
+        {'name': final String name} => name,
+        _ => null,
+      };
       _register = _needsSetup || (_register && _openSignUp);
     });
   }
@@ -72,6 +79,18 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => _showServer |= e.code == 'network');
         showMessage(context, e.message);
       }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _sso() async {
+    if (_server.text.trim().isEmpty) return setState(() => _showServer = true);
+    setState(() => _busy = true);
+    try {
+      await context.read<AppState>().startSso(_server.text);
+    } on ApiException catch (e) {
+      if (mounted) showMessage(context, e.message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -112,6 +131,15 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final t = Theme.of(context).textTheme;
+    final app = context.watch<AppState>();
+    // A single sign-on that came back refused: say why, once.
+    if (app.ssoError case final error?) {
+      app.ssoError = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) showMessage(context, error);
+      });
+    }
+    final busy = _busy || app.ssoBusy;
     return Scaffold(
       body: SafeArea(
         child: Constrained(
@@ -193,8 +221,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
                   FilledButton(
-                    onPressed: _busy ? null : _submit,
-                    child: _busy
+                    onPressed: busy ? null : _submit,
+                    child: busy
                         ? SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5, color: context.pal.onAccent))
                         : Text(
                             _needsSetup
@@ -204,6 +232,26 @@ class _LoginScreenState extends State<LoginScreen> {
                                 : l10n.loginSignIn,
                           ),
                   ),
+                  if (_ssoName case final name?) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        children: [
+                          const Expanded(child: Divider()),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: Text(l10n.loginSsoOr, style: TextStyle(color: context.pal.muted)),
+                          ),
+                          const Expanded(child: Divider()),
+                        ],
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      icon: const Icon(Icons.key_rounded),
+                      label: Text(l10n.loginWithSso(name)),
+                      onPressed: busy ? null : _sso,
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   if (_openSignUp && !_needsSetup)
                     TextButton(
@@ -236,7 +284,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   OutlinedButton.icon(
                     icon: const Icon(Icons.smartphone_rounded),
                     label: Text(l10n.loginServerless),
-                    onPressed: _busy ? null : _serverless,
+                    onPressed: busy ? null : _serverless,
                   ),
                 ],
               ),
