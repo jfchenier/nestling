@@ -4,7 +4,7 @@ use serde::Serialize;
 use sqlx::SqlitePool;
 use tokio::sync::broadcast;
 
-use crate::{limiter::Limiter, push::Push};
+use crate::{limiter::Limiter, push::Push, sso::Oidc};
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -56,12 +56,14 @@ pub struct AppState {
     pub push: Option<Arc<Push>>,
     /// Failed sign-ins, to slow down password guessing.
     pub limiter: Arc<Limiter>,
+    /// Single sign-on through an OpenID Connect provider, when set up.
+    pub oidc: Option<Arc<Oidc>>,
 }
 
 impl AppState {
     pub fn new(db: SqlitePool, config: Config) -> Self {
         let (changes, _) = broadcast::channel(256);
-        AppState { db, config: Arc::new(config), changes, push: None, limiter: Arc::default() }
+        AppState { db, config: Arc::new(config), changes, push: None, limiter: Arc::default(), oidc: None }
     }
 
     /// Turns on notifications to phones (timer changes are sent from now on).
@@ -70,6 +72,12 @@ impl AppState {
         self.push = Some(push.clone());
         crate::push::spawn(self.clone(), push.clone());
         crate::reminders::spawn(self.clone(), push);
+        self
+    }
+
+    /// Turns on single sign-on (see `sso`).
+    pub fn with_oidc(mut self, config: crate::sso::OidcConfig) -> Self {
+        self.oidc = Some(Oidc::new(config));
         self
     }
 

@@ -84,13 +84,15 @@ pub(crate) async fn insert_user(state: &AppState, email: &str, name: &str, passw
     Ok(id)
 }
 
-/// Public: whether the server still needs its first (admin) account, and whether anyone may sign up.
+/// Public: whether the server still needs its first (admin) account, whether anyone may sign up,
+/// and the single sign-on button's label (null without SSO).
 pub async fn setup_status(State(state): State<AppState>) -> AppResult<Json<Value>> {
     let (users,): (i64,) = sqlx::query_as("SELECT COUNT(*) FROM users").fetch_one(&state.db).await?;
     Ok(Json(json!({
         "needs_setup": users == 0,
         "open_registration": users == 0 || state.config.open_registration,
         "version": crate::VERSION,
+        "sso": crate::sso::setup_json(&state),
     })))
 }
 

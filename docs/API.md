@@ -22,9 +22,12 @@ missing from it.
 
 | | | |
 |---|---|---|
-| `GET /auth/setup` | | public: `{needs_setup, open_registration, version}`; `needs_setup` while the server has no account; `version` is the server's (`0.2.1`; a build from main: `main-<commit>`) |
+| `GET /auth/setup` | | public: `{needs_setup, open_registration, version, sso}`; `sso` is `{name}` when single sign-on is set up, else `null`; `needs_setup` while the server has no account; `version` is the server's (`0.2.1`; a build from main: `main-<commit>`) |
 | `POST /auth/register` | `{email, password (8+), name, units?}` | → `201 {token, user}`. Only the first account (it becomes the admin), unless `NESTLING_OPEN_REGISTRATION` is on; otherwise `403` |
 | `POST /auth/login` | `{email, password}` | → `{token, user}`; a wrong email or password is `400`. After 5 failed attempts on an account, or 20 from one address (sign-ups count too), within 15 minutes: `429` until the oldest one is 15 minutes old. Behind a reverse proxy the address comes from `X-Real-IP` / `X-Forwarded-For` |
+| `GET /auth/sso/start` | query: `return_to`, `challenge` | single sign-on (OpenID Connect), opened in the browser: → `303` to the provider. `return_to` is a page of this server or `io.github.jfchenier.nestling://sso`; `challenge` is base64url(SHA-256(verifier)), the verifier staying in the app |
+| `GET /auth/sso/callback` | | the provider's redirect URI (`<base>/api/v1/auth/sso/callback`): → `303` to `return_to` with `sso_code` (10 minutes, single use) or `sso_error` (a message) |
+| `POST /auth/sso/token` | `{code, verifier}` | → `{token, user}`; a wrong verifier uses the code up (`400`); `404` without SSO |
 | `POST /auth/logout` | | revokes the current token |
 | `GET /admin/users` | | admins: every account with `is_admin` and families |
 | `POST /admin/users` | `{email, name, password, is_admin?, family_id?, role?}` | admins: create an account, optionally added to a family with `role` (`caregiver` by default, or `book_viewer` / `owner`) |

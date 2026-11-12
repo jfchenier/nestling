@@ -64,9 +64,16 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [needs_setup, open_registration, version]
+                required: [needs_setup, open_registration, version, sso]
                 properties:
                   needs_setup: { type: boolean, description: true while the server has no account }
+                  sso:
+                    type: object
+                    nullable: true
+                    description: single sign-on (OpenID Connect) when set up, else null
+                    required: [name]
+                    properties:
+                      name: { type: string, description: "the provider's name for the button (NESTLING_OIDC_NAME), e.g. Pocket ID" }
                   open_registration: { type: boolean, description: whether POST /auth/register is open }
                   version: { type: string, description: "the server's version, e.g. 0.2.1 (a build from main: main-<commit>)" }
   /auth/register:
@@ -132,6 +139,88 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
+  /auth/sso/start:
+    get:
+      tags: [accounts]
+      operationId: ssoStart
+      summary: Start a single sign-on (opened in the browser)
+      description: |
+        Only when SSO is set up (`NESTLING_OIDC_ISSUER`, `NESTLING_OIDC_CLIENT_ID`). Sends the
+        browser to the provider; it comes back through `/auth/sso/callback`, which sends it on to
+        `return_to` with `sso_code` (trade it at `POST /auth/sso/token`) or `sso_error` (a message).
+      security: []
+      parameters:
+        - name: return_to
+          in: query
+          required: true
+          description: a page of this server (the web app) or `io.github.jfchenier.nestling://sso` (the Android app)
+          schema: { type: string }
+        - name: challenge
+          in: query
+          required: true
+          description: base64url (no padding) of the SHA-256 of a random verifier the app keeps
+          schema: { type: string, minLength: 43, maxLength: 128 }
+      responses:
+        "303": { description: To the provider's sign-in page (or back to `return_to` with `sso_error`) }
+        "400":
+          description: "`return_to` isn't allowed"
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /auth/sso/callback:
+    get:
+      tags: [accounts]
+      operationId: ssoCallback
+      summary: Where the provider sends the browser back (register this as the redirect URI)
+      description: |
+        `<base>/api/v1/auth/sso/callback`. Links the provider's account to the Nestling account
+        with the same verified email; someone without one gets an account only on a new server
+        (the admin), with `NESTLING_OIDC_SIGNUP` or with open registration.
+      security: []
+      parameters:
+        - { name: code, in: query, schema: { type: string } }
+        - { name: state, in: query, required: true, schema: { type: string } }
+        - { name: error, in: query, schema: { type: string } }
+        - { name: error_description, in: query, schema: { type: string } }
+      responses:
+        "303": { description: "Back to `return_to` with `sso_code` (10 minutes, single use) or `sso_error`" }
+        "400":
+          description: Unknown, expired or already used sign-in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+  /auth/sso/token:
+    post:
+      tags: [accounts]
+      operationId: ssoToken
+      summary: Trade a single sign-on code for a session
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, verifier]
+              properties:
+                code: { type: string, description: "`sso_code` from the return address" }
+                verifier: { type: string, description: the verifier behind `challenge` }
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Session" }
+        "400":
+          description: Expired or used code, or the verifier doesn't match (the code is used up either way)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          description: SSO isn't set up on this server
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
   /auth/logout:
     post:
       tags: [accounts]
