@@ -3,12 +3,18 @@
 #   :latest and :main   every push to main
 #   :0.2.0, :0.2        tags v0.2.0
 #   :sha-<commit>       every build
+#   :main-YYYY-MM-DD    the weekly rebuild or a manual run (also moves :latest and :main)
+# The weekly rebuild (Monday 04:00 UTC) builds main again from the newest base images, with
+# the runtime stage's Debian packages upgraded, so security fixes land without a code change.
+# It only publishes the image; nothing is redeployed.
 name: Docker image
 
 on:
   push:
     branches: [main]
     tags: ['v*']
+  schedule:
+    - cron: '0 4 * * 1'
   workflow_dispatch:
 
 permissions:
@@ -20,6 +26,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - id: date
+        run: echo "date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -39,6 +48,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=sha
+            type=raw,value=main-${{ steps.date.outputs.date }},enable=${{ github.event_name != 'push' }}
 
       # The version Settings → About shows: 0.2.0 for tag v0.2.0, else <branch>-<commit>.
       - id: version
@@ -54,6 +64,10 @@ jobs:
           context: .
           build-args: NESTLING_VERSION=${{ steps.version.outputs.version }}
           platforms: linux/amd64
+          # Weekly or manual rebuild: fetch the newest base images and redo the runtime stage, so its
+          # apt-get upgrade runs again instead of coming from cache.
+          pull: true
+          no-cache-filters: ${{ github.event_name != 'push' && 'runtime' || '' }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

@@ -19,8 +19,11 @@ COPY docs/openapi.yaml docs/openapi.yaml
 ARG NESTLING_VERSION=""
 RUN cargo build --release
 
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
+# Runtime image. The weekly rebuild (docker.yml) rebuilds this stage without cache, so it
+# picks up the newest base image and Debian security updates.
+FROM debian:bookworm-slim AS runtime
+RUN apt-get update && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --system --uid 10001 --home /data nestling \
     && mkdir -p /data && chown nestling /data
