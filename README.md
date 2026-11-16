@@ -127,9 +127,9 @@ Use HTTPS (Caddy, Traefik, Nginx Proxy Manager, Tailscale…) before opening it 
 | `NESTLING_OIDC_ISSUER`, `NESTLING_OIDC_CLIENT_ID` | unset | Turn on [single sign-on](#single-sign-on-pocket-id) with this OpenID Connect provider and client |
 | `NESTLING_OIDC_CLIENT_SECRET` | unset | The client's secret (leave unset for a public client) |
 | `NESTLING_OIDC_NAME` | `SSO` | The provider's name on the sign-in button ("Sign in with Pocket ID") |
-| `NESTLING_OIDC_SIGNUP` | `false` | Give an account to anyone the provider lets in (normally they need one already, with the same email) |
+| `NESTLING_OIDC_SIGNUP` | `false` | Give an account to anyone the provider lets in (normally they need one already, with the same email); with several providers, the default for each one's `…_SIGNUP` |
 | `NESTLING_OIDC_SCOPES` | `openid email profile` | Scopes asked for |
-| `NESTLING_OIDC_PROVIDERS` | unset | Several providers at once, e.g. `pocketid,google`; each one's settings are `NESTLING_OIDC_POCKETID_ISSUER`, `…_CLIENT_ID`, `…_CLIENT_SECRET`, `…_NAME`, `…_SCOPES` |
+| `NESTLING_OIDC_PROVIDERS` | unset | Several providers at once, e.g. `pocketid,google`; each one's settings are `NESTLING_OIDC_POCKETID_ISSUER`, `…_CLIENT_ID`, `…_CLIENT_SECRET`, `…_NAME`, `…_SCOPES`, `…_SIGNUP` |
 | `NESTLING_PASSWORD_LOGIN` | `true` | `false` turns off signing in with a password (only when single sign-on is set up) |
 | `RUST_LOG` | `nestling=info,tower_http=info` | Log level |
 
@@ -193,7 +193,10 @@ The first time, the provider's account is linked to the Nestling account with th
 provider must say the email is verified); after that it stays linked even if the email changes.
 Someone without a Nestling account is refused: an admin adds them under **Settings → Users** with
 that email (the password can be left empty), or set `NESTLING_OIDC_SIGNUP=true` to let in everyone the provider
-allows (Pocket ID can limit a client to some user groups). On a new server, the first person to sign
+allows (Pocket ID can limit a client to some user groups). With several providers, sign-up can be set
+for each one: `NESTLING_OIDC_POCKETID_SIGNUP: "true"` and `NESTLING_OIDC_GOOGLE_SIGNUP: "false"` give
+an account to anyone with a Pocket ID account, while Google only signs in people who already have
+one. A provider without its own `…_SIGNUP` follows `NESTLING_OIDC_SIGNUP`. On a new server, the first person to sign
 in with SSO becomes the admin. Accounts made through SSO have no password; an admin can give them
 one.
 

@@ -15,7 +15,8 @@
 //!
 //! Accounts: the provider's account is linked on first use (`user_identities`), to the Nestling
 //! account with the same (verified) email. Someone without one gets an account only on a new
-//! server (the first account, the admin), or with `NESTLING_OIDC_SIGNUP` (or open registration).
+//! server (the first account, the admin), or when that provider allows sign-up
+//! (`NESTLING_OIDC_<ID>_SIGNUP`, else `NESTLING_OIDC_SIGNUP`), or with open registration.
 
 use std::{sync::Arc, time::Duration};
 
@@ -58,14 +59,15 @@ pub struct OidcConfig {
     /// The button's label in the app ("Sign in with …").
     pub name: String,
     pub scopes: String,
+    /// Create an account for someone this provider knows but Nestling doesn't
+    /// (`NESTLING_OIDC_<ID>_SIGNUP`, default `NESTLING_OIDC_SIGNUP`).
+    pub signup: bool,
 }
 
 /// Single sign-on settings from the environment.
 #[derive(Debug, Clone)]
 pub struct SsoConfig {
     pub providers: Vec<OidcConfig>,
-    /// Create an account for someone a provider knows but Nestling doesn't.
-    pub signup: bool,
     /// Signing in with a password (and signing up with one). Only turned off when there are providers.
     pub password_login: bool,
 }
@@ -80,7 +82,8 @@ fn env_flag(k: &str, default: bool) -> bool {
 
 impl OidcConfig {
     /// `NESTLING_OIDC_<PREFIX>ISSUER`, `…CLIENT_ID`, … (prefix empty for the unnamed provider).
-    fn from_env(id: &str, prefix: &str) -> Option<Self> {
+    /// `signup` is the default for `…SIGNUP` (the global `NESTLING_OIDC_SIGNUP`).
+    fn from_env(id: &str, prefix: &str, signup: bool) -> Option<Self> {
         let var = |k: &str| env_var(&format!("NESTLING_OIDC_{prefix}{k}"));
         let issuer = var("ISSUER")?.trim_end_matches('/').to_string();
         let Some(client_id) = var("CLIENT_ID") else {
@@ -94,6 +97,7 @@ impl OidcConfig {
             client_secret: var("CLIENT_SECRET").unwrap_or_default(),
             name: var("NAME").unwrap_or_else(|| if prefix.is_empty() { "SSO".into() } else { id.to_string() }),
             scopes: var("SCOPES").unwrap_or_else(|| "openid email profile".into()),
+            signup: env_flag(&format!("NESTLING_OIDC_{prefix}SIGNUP"), signup),
         })
     }
 }
@@ -101,8 +105,10 @@ impl OidcConfig {
 impl SsoConfig {
     /// `None` when no provider is set up. One provider: `NESTLING_OIDC_ISSUER`, `…_CLIENT_ID`, …;
     /// several: `NESTLING_OIDC_PROVIDERS=pocketid,google` and `NESTLING_OIDC_POCKETID_ISSUER`, ….
+    /// Sign-up: `NESTLING_OIDC_SIGNUP` for all of them, `NESTLING_OIDC_POCKETID_SIGNUP` for one.
     pub fn from_env() -> Option<Self> {
-        let mut providers: Vec<OidcConfig> = OidcConfig::from_env("default", "").into_iter().collect();
+        let signup = env_flag("NESTLING_OIDC_SIGNUP", false);
+        let mut providers: Vec<OidcConfig> = OidcConfig::from_env("default", "", signup).into_iter().collect();
         for id in env_var("NESTLING_OIDC_PROVIDERS").unwrap_or_default().split(',').map(|i| i.trim().to_lowercase()) {
             if id.is_empty() || providers.iter().any(|p| p.id == id) {
                 continue;
@@ -112,7 +118,7 @@ impl SsoConfig {
                 continue;
             }
             let prefix = format!("{}_", id.to_uppercase().replace('-', "_"));
-            match OidcConfig::from_env(&id, &prefix) {
+            match OidcConfig::from_env(&id, &prefix, signup) {
                 Some(p) => providers.push(p),
                 None => tracing::warn!("NESTLING_OIDC_PROVIDERS names '{id}' but NESTLING_OIDC_{prefix}ISSUER isn't set"),
             }
@@ -124,7 +130,7 @@ impl SsoConfig {
             }
             return None;
         }
-        Some(SsoConfig { providers, signup: env_flag("NESTLING_OIDC_SIGNUP", false), password_login })
+        Some(SsoConfig { providers, password_login })
     }
 }
 
@@ -141,7 +147,6 @@ struct Discovery {
 /// Single sign-on when it is set up.
 pub struct Sso {
     pub providers: Vec<Arc<Oidc>>,
-    pub signup: bool,
     pub password_login: bool,
 }
 
@@ -149,7 +154,6 @@ impl Sso {
     pub fn new(config: SsoConfig) -> Arc<Self> {
         Arc::new(Sso {
             providers: config.providers.into_iter().map(Oidc::new).collect(),
-            signup: config.signup,
             password_login: config.password_login,
         })
     }
@@ -508,7 +512,7 @@ async fn finish(state: &AppState, provider: &str, code: &str, nonce: &str, verif
             }
         }
     }
-    account_for(state, &cfg.issuer, &claims, sso.signup).await
+    account_for(state, &cfg.issuer, &claims, cfg.signup).await
 }
 
 /// The Nestling account for the provider's account: linked before, else by email, else a new one
@@ -611,6 +615,29 @@ pub fn new_verifier() -> (String, String) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn signup_per_provider() {
+        // The only test that reads these variables.
+        for (k, v) in [
+            ("NESTLING_OIDC_ISSUER", ""),
+            ("NESTLING_OIDC_PROVIDERS", "pocketid,google"),
+            ("NESTLING_OIDC_SIGNUP", "true"),
+            ("NESTLING_OIDC_POCKETID_ISSUER", "https://id.example.com"),
+            ("NESTLING_OIDC_POCKETID_CLIENT_ID", "a"),
+            ("NESTLING_OIDC_GOOGLE_ISSUER", "https://accounts.example.com"),
+            ("NESTLING_OIDC_GOOGLE_CLIENT_ID", "b"),
+            ("NESTLING_OIDC_GOOGLE_SIGNUP", "false"),
+        ] {
+            std::env::set_var(k, v);
+        }
+        let signup = || SsoConfig::from_env().unwrap().providers.iter().map(|p| (p.id.clone(), p.signup)).collect::<Vec<_>>();
+        assert_eq!(signup(), [("pocketid".to_string(), true), ("google".to_string(), false)]);
+        std::env::remove_var("NESTLING_OIDC_SIGNUP");
+        std::env::set_var("NESTLING_OIDC_POCKETID_SIGNUP", "yes");
+        std::env::remove_var("NESTLING_OIDC_GOOGLE_SIGNUP");
+        assert_eq!(signup(), [("pocketid".to_string(), true), ("google".to_string(), false)]);
+    }
 
     #[test]
     fn return_addresses() {
