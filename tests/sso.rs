@@ -90,22 +90,23 @@ impl Client {
         Self::with(signup, true).await.0
     }
 
-    /// With a second provider ("other"), whose fake is returned too.
+    /// With a second provider ("other", never signs up), whose fake is returned too. `signup` is
+    /// the first provider's ("pocketid").
     async fn with(signup: bool, password_login: bool) -> (Self, Shared) {
         let provider = fake_provider().await;
         let other = fake_provider().await;
-        let config = |id: &str, name: &str, p: &Shared| OidcConfig {
+        let config = |id: &str, name: &str, p: &Shared, signup: bool| OidcConfig {
             id: id.into(),
             issuer: p.lock().unwrap().issuer.clone(),
             client_id: "nestling".into(),
             client_secret: "secret".into(),
             name: name.into(),
             scopes: "openid email profile".into(),
+            signup,
         };
         let db = connect("sqlite::memory:", 1).await.unwrap();
         let state = AppState::new(db, Config { open_registration: false, nara: NaraConfig::default() }).with_sso(SsoConfig {
-            providers: vec![config("pocketid", "Pocket ID", &provider), config("other", "Other", &other)],
-            signup,
+            providers: vec![config("pocketid", "Pocket ID", &provider, signup), config("other", "Other", &other, false)],
             password_login,
         });
         (Client { app: app(state, None), provider }, other)
@@ -131,10 +132,15 @@ impl Client {
     /// The whole browser trip for someone the provider describes with `claims`. Returns where the
     /// browser lands back in the app.
     async fn sso(&self, claims: Value, verifier: &str) -> Url {
+        let provider = self.provider.clone();
+        self.sso_via(None, &provider, claims, verifier).await
+    }
+
+    /// The same through the provider `id` (the first one when `None`), whose fake is `fake`.
+    async fn sso_via(&self, id: Option<&str>, fake: &Shared, claims: Value, verifier: &str) -> Url {
         let challenge = URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()));
         let return_to = format!("https://{HOST}/");
-        let start = Url::parse_with_params("http://x/api/v1/auth/sso/start", [("return_to", return_to.as_str()), ("challenge", &challenge)]).unwrap();
-        let (s, _, location) = self.call(Method::GET, &format!("{}?{}", start.path(), start.query().unwrap()), None, None).await;
+        let (s, _, location) = self.call(Method::GET, &start_path(&return_to, &challenge, id), None, None).await;
         assert_eq!(s, StatusCode::SEE_OTHER);
         let to_provider = Url::parse(&location.unwrap()).unwrap();
         let q: HashMap<String, String> = to_provider.query_pairs().into_owned().collect();
@@ -142,7 +148,7 @@ impl Client {
         assert_eq!(q["redirect_uri"], format!("https://{HOST}/api/v1/auth/sso/callback"));
         assert_eq!(q["code_challenge_method"], "S256");
         {
-            let mut p = self.provider.lock().unwrap();
+            let mut p = fake.lock().unwrap();
             p.claims = claims;
             p.challenge = q["code_challenge"].clone();
             p.nonce = q["nonce"].clone();
@@ -231,8 +237,8 @@ async fn sso_sign_in() {
 
 #[tokio::test]
 async fn sso_sign_up_and_return_addresses() {
-    let c = Client::new(true).await;
-    // With NESTLING_OIDC_SIGNUP, anyone the provider knows gets an account (not an admin after the first).
+    let (c, other) = Client::with(true, true).await;
+    // With sign-up on for a provider, anyone it knows gets an account (not an admin after the first).
     for (i, email) in ["first@example.com", "second@example.com"].into_iter().enumerate() {
         let landed = c.sso(json!({ "sub": email, "email": email, "preferred_username": "kid" }), "v").await;
         let (s, b, _) = c
@@ -242,6 +248,11 @@ async fn sso_sign_up_and_return_addresses() {
         assert_eq!(b["user"]["is_admin"], i == 0);
         assert_eq!(b["user"]["name"], "kid");
     }
+    // Sign-up is per provider: the other one only signs in people who have an account.
+    let landed = c.sso_via(Some("other"), &other, json!({ "sub": "x", "email": "third@example.com" }), "v").await;
+    assert!(param(&landed, "sso_error").unwrap().contains("no Nestling account for third@example.com"));
+    let landed = c.sso_via(Some("other"), &other, json!({ "sub": "y", "email": "second@example.com" }), "v").await;
+    assert!(param(&landed, "sso_code").is_some());
 
     // Codes only go back to this server's pages or the app.
     let challenge = "a".repeat(43);

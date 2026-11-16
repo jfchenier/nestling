@@ -64,8 +64,8 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
   flow (PKCE, nonce; ID token taken from the token endpoint over TLS, signature not checked), links the
   provider's `sub` (`user_identities`) to the account with the same verified email, and sends the browser
   back to the web page or `io.github.jfchenier.nestling://sso` with a one-time `sso_code` the app trades
-  with its own verifier (`/auth/sso/token`). New accounts only for the first (admin), `NESTLING_OIDC_SIGNUP`
-  or open registration. Several providers: `NESTLING_OIDC_PROVIDERS=a,b` + `NESTLING_OIDC_A_ISSUER`, ….
+  with its own verifier (`/auth/sso/token`). New accounts only for the first (admin), the provider's sign-up
+  (`NESTLING_OIDC_<ID>_SIGNUP`, default `NESTLING_OIDC_SIGNUP`) or open registration. Several providers: `NESTLING_OIDC_PROVIDERS=a,b` + `NESTLING_OIDC_A_ISSUER`, ….
   `NESTLING_PASSWORD_LOGIN=false` (only with a provider) refuses password login/register, lets admins add
   accounts without a password, and the OAuth page (`oauth.rs`) then signs in with SSO only (verifier in a
   cookie). Android link handling (`MainActivity.kt`) not yet tried on a real phone.
