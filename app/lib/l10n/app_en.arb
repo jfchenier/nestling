@@ -1714,5 +1714,45 @@
         "type": "String"
       }
     }
-  }
+  },
+  "updateAvailable": "Nestling {version} is available",
+  "@updateAvailable": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateAvailableHint": "Update now: your entries and settings stay as they are.",
+  "updateInstall": "Update",
+  "updateLater": "Not now",
+  "updateDownloading": "Downloading the update…",
+  "updateDownloadingPercent": "Downloading the update… {percent}%",
+  "@updateDownloadingPercent": {
+    "placeholders": {
+      "percent": {
+        "type": "int"
+      }
+    }
+  },
+  "updatePermission": "Allow Nestling to install apps in the screen that opened, then tap Update again.",
+  "updateFailed": "The update didn't work. Check the connection and try again.",
+  "updateWebReady": "Nestling was updated",
+  "updateWebReadyHint": "Reload to use the new version.",
+  "updateReload": "Reload",
+  "updateCheckTitle": "Check for updates",
+  "updateCheckHint": "Looks for a new version on GitHub twice a day",
+  "updateCheckNow": "Check now",
+  "updateChecking": "Checking…",
+  "updateUpToDate": "Nestling is up to date",
+  "updateLastChecked": "Last checked {when}",
+  "@updateLastChecked": {
+    "description": "When the last check ran, e.g. '3 hours ago'",
+    "placeholders": {
+      "when": {
+        "type": "String"
+      }
+    }
+  },
+  "updateNeverChecked": "Not checked yet"
 }

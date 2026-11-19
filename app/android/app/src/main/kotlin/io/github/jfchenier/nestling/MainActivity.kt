@@ -17,6 +17,8 @@ class MainActivity : FlutterActivity() {
             .setMethodCallHandler(handler)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, Push.CHANNEL_NAME)
             .setMethodCallHandler(Push.Handler(applicationContext))
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AppUpdate.CHANNEL_NAME)
+            .setMethodCallHandler(AppUpdate(this))
         // Single sign-on coming back through io.github.jfchenier.nestling://sso (lib/sso/sso.dart):
         // the link that started the app is handed over once; later ones arrive in onNewIntent.
         sso = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SSO_CHANNEL).also {

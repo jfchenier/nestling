@@ -21,6 +21,7 @@ import 'models.dart';
 import 'push.dart';
 import 'sso/sso.dart';
 import 'timer_notifications.dart';
+import 'update/update.dart';
 
 /// The app's navigator, so signing out can close every open screen.
 final navigatorKey = GlobalKey<NavigatorState>();
@@ -45,7 +46,12 @@ class AppState extends ChangeNotifier {
     }
     // A phone that was in the background may have lost the live connection without noticing.
     _foreground = AppLifecycleListener(onResume: _resumed);
+    updates = AppUpdates(_prefs)..addListener(notifyListeners);
+    unawaited(updates.check());
   }
+
+  /// A newer app (Android: a release on GitHub; web: the server was updated), see lib/update/.
+  late final AppUpdates updates;
 
   late final AppLifecycleListener _foreground;
 
@@ -306,6 +312,7 @@ class AppState extends ChangeNotifier {
     if (status == null) return;
     ssoOn = (status['sso'] as List? ?? []).isNotEmpty;
     passwordLogin = status['password_login'] != false;
+    updates.sawServerVersion(status['version']);
     notifyListeners();
   }
 
@@ -736,6 +743,8 @@ class AppState extends ChangeNotifier {
         _watchdog = Timer(_silenceLimit, _startStream);
         if (event == 'ready') {
           a.markOnline();
+          // The server may have been updated while the connection was down (web: offer a reload).
+          if (kIsWeb) unawaited(_loadSignInOptions());
           live = true;
           notifyListeners();
           if (refresh) _refreshSoon(f);
@@ -770,6 +779,7 @@ class AppState extends ChangeNotifier {
 
   /// Back in the foreground: reconnect (and reload) rather than trust the old connection.
   void _resumed() {
+    unawaited(updates.check());
     if (api == null || familyId == null || serverless) return;
     _startStream();
   }
@@ -785,6 +795,7 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     _foreground.dispose();
+    updates.removeListener(notifyListeners);
     _stopStream();
     _debounce?.cancel();
     super.dispose();

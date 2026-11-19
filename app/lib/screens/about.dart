@@ -2,19 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../l10n/l10n.dart';
+import '../format.dart';
 import '../state.dart';
 import '../theme.dart';
+import '../update/update.dart';
 import '../widgets/common.dart';
 
-/// The app's version: set at build time (`--dart-define=NESTLING_VERSION=…`; release.yml and the
-/// Docker image do), empty for a local build.
-const appVersion = String.fromEnvironment('NESTLING_VERSION');
+export '../update/update.dart' show appVersion;
 
 String appVersionLabel() => appVersion.isEmpty ? l10n.aboutDevBuild : appVersion;
 
 const sourceCodeUrl = 'https://github.com/jfchenier/nestling';
 
-/// Settings → About: name, versions (app and server), source code, license, open-source licenses.
+/// Settings → About: name, versions (app and server), updates (Android), source code, license,
+/// open-source licenses.
 class AboutScreen extends StatefulWidget {
   const AboutScreen({super.key});
 
@@ -72,6 +73,42 @@ class _AboutScreenState extends State<AboutScreen> {
                 ],
               ),
             ),
+            if (context.watch<AppState>().updates case final u when u.supported) ...[
+              const SizedBox(height: 12),
+              Card(
+                child: Column(
+                  children: [
+                    SwitchListTile(
+                      secondary: const Icon(Icons.update_rounded),
+                      title: Text(l10n.updateCheckTitle),
+                      subtitle: Text(l10n.updateCheckHint),
+                      value: u.enabled,
+                      onChanged: u.setEnabled,
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.system_update_rounded),
+                      title: Text(u.available == null ? l10n.updateCheckNow : l10n.updateAvailable(u.available!.version)),
+                      subtitle: Text(switch (u) {
+                        _ when u.checking => l10n.updateChecking,
+                        _ when u.progress != null => l10n.updateDownloading,
+                        _ when u.needsPermission => l10n.updatePermission,
+                        _ when u.error != null => l10n.updateFailed,
+                        _ when u.available != null => l10n.updateAvailableHint,
+                        _ when u.latest != null => l10n.updateUpToDate,
+                        _ => switch (u.lastCheck) {
+                          final at? => l10n.updateLastChecked(ago(DateTime.now().difference(at).inSeconds)),
+                          null => l10n.updateNeverChecked,
+                        },
+                      }),
+                      trailing: u.checking || u.progress != null
+                          ? const SizedBox.square(dimension: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
+                          : (u.available == null ? null : FilledButton.tonal(onPressed: u.install, child: Text(l10n.updateInstall))),
+                      onTap: u.checking || u.progress != null ? null : (u.available == null ? () => u.check(force: true) : u.install),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 12),
             Card(
               child: Column(

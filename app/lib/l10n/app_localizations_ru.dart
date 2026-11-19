@@ -4267,4 +4267,68 @@ class AppLocalizationsRu extends AppLocalizations {
   String homeRoutineDueLast(String ago) {
     return 'Пора · в прошлый раз $ago';
   }
+
+  @override
+  String updateAvailable(String version) {
+    return 'Доступна версия Nestling $version';
+  }
+
+  @override
+  String get updateAvailableHint =>
+      'Обновите сейчас: записи и настройки сохранятся.';
+
+  @override
+  String get updateInstall => 'Обновить';
+
+  @override
+  String get updateLater => 'Не сейчас';
+
+  @override
+  String get updateDownloading => 'Загрузка обновления…';
+
+  @override
+  String updateDownloadingPercent(int percent) {
+    return 'Загрузка обновления… $percent%';
+  }
+
+  @override
+  String get updatePermission =>
+      'Разрешите Nestling устанавливать приложения в открывшемся окне, затем снова нажмите «Обновить».';
+
+  @override
+  String get updateFailed =>
+      'Не удалось обновить. Проверьте подключение и попробуйте ещё раз.';
+
+  @override
+  String get updateWebReady => 'Nestling обновлён';
+
+  @override
+  String get updateWebReadyHint =>
+      'Перезагрузите страницу, чтобы открыть новую версию.';
+
+  @override
+  String get updateReload => 'Перезагрузить';
+
+  @override
+  String get updateCheckTitle => 'Проверять обновления';
+
+  @override
+  String get updateCheckHint => 'Ищет новую версию на GitHub два раза в день';
+
+  @override
+  String get updateCheckNow => 'Проверить сейчас';
+
+  @override
+  String get updateChecking => 'Проверка…';
+
+  @override
+  String get updateUpToDate => 'Установлена последняя версия';
+
+  @override
+  String updateLastChecked(String when) {
+    return 'Последняя проверка: $when';
+  }
+
+  @override
+  String get updateNeverChecked => 'Ещё не проверялось';
 }
