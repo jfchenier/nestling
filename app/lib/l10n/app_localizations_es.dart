@@ -4207,4 +4207,68 @@ class AppLocalizationsEs extends AppLocalizations {
   String homeRoutineDueLast(String ago) {
     return 'Toca ahora · última vez $ago';
   }
+
+  @override
+  String updateAvailable(String version) {
+    return 'Nestling $version está disponible';
+  }
+
+  @override
+  String get updateAvailableHint =>
+      'Actualiza ahora: tus registros y ajustes se conservan.';
+
+  @override
+  String get updateInstall => 'Actualizar';
+
+  @override
+  String get updateLater => 'Ahora no';
+
+  @override
+  String get updateDownloading => 'Descargando la actualización…';
+
+  @override
+  String updateDownloadingPercent(int percent) {
+    return 'Descargando la actualización… $percent %';
+  }
+
+  @override
+  String get updatePermission =>
+      'Permite que Nestling instale apps en la pantalla que se abrió y vuelve a tocar Actualizar.';
+
+  @override
+  String get updateFailed =>
+      'La actualización no funcionó. Revisa la conexión y vuelve a intentarlo.';
+
+  @override
+  String get updateWebReady => 'Nestling se actualizó';
+
+  @override
+  String get updateWebReadyHint => 'Recarga para usar la nueva versión.';
+
+  @override
+  String get updateReload => 'Recargar';
+
+  @override
+  String get updateCheckTitle => 'Buscar actualizaciones';
+
+  @override
+  String get updateCheckHint =>
+      'Busca una nueva versión en GitHub dos veces al día';
+
+  @override
+  String get updateCheckNow => 'Buscar ahora';
+
+  @override
+  String get updateChecking => 'Buscando…';
+
+  @override
+  String get updateUpToDate => 'Nestling está actualizado';
+
+  @override
+  String updateLastChecked(String when) {
+    return 'Última búsqueda: $when';
+  }
+
+  @override
+  String get updateNeverChecked => 'Aún no se ha buscado';
 }

@@ -233,6 +233,10 @@ private URL in code, docs, commits or screenshots. Use `nestling.example.com` an
       `GET /auth/setup` (`NESTLING_VERSION` at build time, else Cargo's), source link, licenses.
 - [ ] Check the Android signing-key secrets are set (they were lost when the repo was recreated;
       without them release APKs are debug-signed and can't update an installed copy).
+- [x] **App updates** (`app/lib/update/`, `AppUpdate.kt`): Android release builds check GitHub's latest
+      release (every 12 h at most; Settings → About → Check for updates), download the APK, check it
+      against `SHA256SUMS.txt` and open Android's installer; the web app offers a reload when the
+      server's version (`/auth/setup`) differs from its own. Not yet tried on a real phone.
 - [x] Application id `io.github.jfchenier.nestling` (was `org.nestling.nestling` until 0.8.x; a different app to Android).
 
 ### 4. Native mobile app (Android first, same Flutter codebase)

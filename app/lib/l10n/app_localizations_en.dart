@@ -4187,4 +4187,67 @@ class AppLocalizationsEn extends AppLocalizations {
   String homeRoutineDueLast(String ago) {
     return 'Due now · last one $ago';
   }
+
+  @override
+  String updateAvailable(String version) {
+    return 'Nestling $version is available';
+  }
+
+  @override
+  String get updateAvailableHint =>
+      'Update now: your entries and settings stay as they are.';
+
+  @override
+  String get updateInstall => 'Update';
+
+  @override
+  String get updateLater => 'Not now';
+
+  @override
+  String get updateDownloading => 'Downloading the update…';
+
+  @override
+  String updateDownloadingPercent(int percent) {
+    return 'Downloading the update… $percent%';
+  }
+
+  @override
+  String get updatePermission =>
+      'Allow Nestling to install apps in the screen that opened, then tap Update again.';
+
+  @override
+  String get updateFailed =>
+      'The update didn\'t work. Check the connection and try again.';
+
+  @override
+  String get updateWebReady => 'Nestling was updated';
+
+  @override
+  String get updateWebReadyHint => 'Reload to use the new version.';
+
+  @override
+  String get updateReload => 'Reload';
+
+  @override
+  String get updateCheckTitle => 'Check for updates';
+
+  @override
+  String get updateCheckHint => 'Looks for a new version on GitHub twice a day';
+
+  @override
+  String get updateCheckNow => 'Check now';
+
+  @override
+  String get updateChecking => 'Checking…';
+
+  @override
+  String get updateUpToDate => 'Nestling is up to date';
+
+  @override
+  String updateLastChecked(String when) {
+    return 'Last checked $when';
+  }
+
+  @override
+  String get updateNeverChecked => 'Not checked yet';
 }

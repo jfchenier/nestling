@@ -6845,6 +6845,114 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Due now · last one {ago}'**
   String homeRoutineDueLast(String ago);
+
+  /// No description provided for @updateAvailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Nestling {version} is available'**
+  String updateAvailable(String version);
+
+  /// No description provided for @updateAvailableHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Update now: your entries and settings stay as they are.'**
+  String get updateAvailableHint;
+
+  /// No description provided for @updateInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Update'**
+  String get updateInstall;
+
+  /// No description provided for @updateLater.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get updateLater;
+
+  /// No description provided for @updateDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading the update…'**
+  String get updateDownloading;
+
+  /// No description provided for @updateDownloadingPercent.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading the update… {percent}%'**
+  String updateDownloadingPercent(int percent);
+
+  /// No description provided for @updatePermission.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow Nestling to install apps in the screen that opened, then tap Update again.'**
+  String get updatePermission;
+
+  /// No description provided for @updateFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'The update didn\'t work. Check the connection and try again.'**
+  String get updateFailed;
+
+  /// No description provided for @updateWebReady.
+  ///
+  /// In en, this message translates to:
+  /// **'Nestling was updated'**
+  String get updateWebReady;
+
+  /// No description provided for @updateWebReadyHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Reload to use the new version.'**
+  String get updateWebReadyHint;
+
+  /// No description provided for @updateReload.
+  ///
+  /// In en, this message translates to:
+  /// **'Reload'**
+  String get updateReload;
+
+  /// No description provided for @updateCheckTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Check for updates'**
+  String get updateCheckTitle;
+
+  /// No description provided for @updateCheckHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Looks for a new version on GitHub twice a day'**
+  String get updateCheckHint;
+
+  /// No description provided for @updateCheckNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Check now'**
+  String get updateCheckNow;
+
+  /// No description provided for @updateChecking.
+  ///
+  /// In en, this message translates to:
+  /// **'Checking…'**
+  String get updateChecking;
+
+  /// No description provided for @updateUpToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'Nestling is up to date'**
+  String get updateUpToDate;
+
+  /// When the last check ran, e.g. '3 hours ago'
+  ///
+  /// In en, this message translates to:
+  /// **'Last checked {when}'**
+  String updateLastChecked(String when);
+
+  /// No description provided for @updateNeverChecked.
+  ///
+  /// In en, this message translates to:
+  /// **'Not checked yet'**
+  String get updateNeverChecked;
 }
 
 class _AppLocalizationsDelegate

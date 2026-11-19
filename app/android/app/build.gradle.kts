@@ -72,5 +72,7 @@ dependencies {
     // run time, so there is no google-services plugin or google-services.json.
     implementation(platform("com.google.firebase:firebase-bom:34.0.0"))
     implementation("com.google.firebase:firebase-messaging")
+    // App updates: FileProvider shares the downloaded APK with Android's installer (AppUpdate.kt).
+    implementation("androidx.core:core:1.13.1")
 }
 

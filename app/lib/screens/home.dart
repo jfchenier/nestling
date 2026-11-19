@@ -12,6 +12,7 @@ import '../models.dart';
 import '../state.dart';
 import '../theme.dart';
 import '../widgets/common.dart';
+import '../widgets/update_strip.dart';
 import 'baby_book.dart';
 import 'child_form.dart';
 import 'event_form.dart';
@@ -46,6 +47,7 @@ class HomeScreen extends StatelessWidget {
                 // Rolling last 24 hours (older servers: the calendar day).
                 if ((s.summary?['last_24h'] ?? s.summary?['today']) case final Map<String, dynamic> stats)
                   _TodayStrip(today: stats, units: s.units, rolling: s.summary?['last_24h'] != null),
+                const UpdateStrip(),
                 const _ReminderStrip(),
                 _CardGrid(cards: _cards(context, s, history)),
                 const SizedBox(height: 8),

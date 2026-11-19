@@ -177,6 +177,11 @@ sh tool/finish_web_build.sh    # per-build URLs so browsers don't keep an old ap
 (e.g. on a home network). The Docker image builds and serves it automatically. It's installable as a
 PWA ("Add to Home screen" / "Install app").
 
+After the server is updated, an open page sees the server's new version (`/auth/setup`, checked on
+each start and each time the live connection comes back) and shows "Nestling was updated" on Home
+with a Reload button (`lib/update/`). It compares the app's `NESTLING_VERSION` with the server's,
+so it stays quiet for development builds, and offers a reload only once per server version.
+
 ## Releases (GitHub Actions)
 
 - `.github/workflows/ci.yml` — on every push/PR: `cargo test` + `clippy`, `flutter analyze`,
@@ -236,6 +241,14 @@ Notes:
   favicon, `assets/icon.png`, `mipmap-*/` for Android < 8) are rendered.
 - Plain `http://` servers on the home network are allowed (`usesCleartextTraffic`). Use HTTPS when
   the server is reachable from outside.
+- **Updates** (`lib/update/`, `AppUpdate.kt`): a release build looks at GitHub's latest release
+  (`releases/latest`, so never a pre-release) on start and back in the foreground, at most every
+  12 hours. A newer version shows on Home ("Nestling 0.9.1 is available", Update / Not now) and in
+  Settings → About (Check for updates switch, Check now). Update downloads the APK to the cache,
+  checks it against the release's `SHA256SUMS.txt` and opens Android's installer (the first time,
+  Android asks to allow "Install unknown apps" for Nestling). It only installs over the current app
+  when both are signed with the same key. Development builds (no `NESTLING_VERSION`) never check.
+  A Play Store build would have to drop this (`REQUEST_INSTALL_PACKAGES` isn't allowed there).
 
 ## Layout
 
@@ -255,6 +268,7 @@ lib/
   local/peer_sync.dart, pairing.dart, relay.dart, drive_*.dart   phone-to-phone sync, Drive relay and backup
   push.dart            Firebase registration (notifications with the app closed)
   timer_notifications.dart   running-timer notification (Android)
+  update/              app updates: GitHub releases + installer (Android), reload after a server update (web)
   growth/              WHO growth tables
   screens/             home, timer, event form, timeline, summary, calendar, trends, growth chart,
                        family (+ history import, day and night, pairing), child form, users, login, onboarding
