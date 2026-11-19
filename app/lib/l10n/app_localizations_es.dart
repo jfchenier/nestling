@@ -4228,7 +4228,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String updateDownloadingPercent(int percent) {
-    return 'Descargando la actualización… $percent %';
+    return 'Descargando la actualización… $percent %';
   }
 
   @override

@@ -1129,7 +1129,7 @@
   "updateInstall": "Actualizar",
   "updateLater": "Ahora no",
   "updateDownloading": "Descargando la actualización…",
-  "updateDownloadingPercent": "Descargando la actualización… {percent} %",
+  "updateDownloadingPercent": "Descargando la actualización… {percent} %",
   "updatePermission": "Permite que Nestling instale apps en la pantalla que se abrió y vuelve a tocar Actualizar.",
   "updateFailed": "La actualización no funcionó. Revisa la conexión y vuelve a intentarlo.",
   "updateWebReady": "Nestling se actualizó",

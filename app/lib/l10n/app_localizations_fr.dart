@@ -4234,7 +4234,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String updateDownloadingPercent(int percent) {
-    return 'Téléchargement de la mise à jour… $percent %';
+    return 'Téléchargement de la mise à jour… $percent %';
   }
 
   @override
