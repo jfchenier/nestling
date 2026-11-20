@@ -4253,7 +4253,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get updateCheckHint =>
-      'Busca una nueva versión en GitHub dos veces al día';
+      'Busca una nueva versión en GitHub al abrir la app';
 
   @override
   String get updateCheckNow => 'Buscar ahora';

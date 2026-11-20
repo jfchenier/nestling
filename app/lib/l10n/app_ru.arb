@@ -1136,7 +1136,7 @@
   "updateWebReadyHint": "Перезагрузите страницу, чтобы открыть новую версию.",
   "updateReload": "Перезагрузить",
   "updateCheckTitle": "Проверять обновления",
-  "updateCheckHint": "Ищет новую версию на GitHub два раза в день",
+  "updateCheckHint": "Ищет новую версию на GitHub при открытии приложения",
   "updateCheckNow": "Проверить сейчас",
   "updateChecking": "Проверка…",
   "updateUpToDate": "Установлена последняя версия",

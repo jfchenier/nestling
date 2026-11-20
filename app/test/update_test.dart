@@ -63,7 +63,7 @@ void main() {
       latest = 'v0.3.0';
     });
 
-    test('a newer release is offered, then not looked for again for 12 hours', () async {
+    test('a newer release is offered, then not looked for again within the hour', () async {
       final u = AppUpdates(prefs, client: client, current: '0.2.1');
       expect(u.supported, isTrue);
       expect((await u.check())?.version, '0.3.0');
@@ -73,6 +73,15 @@ void main() {
       expect((await again.check())?.version, '0.3.0');
       expect(calls, 1);
       expect(prefs.getString('update_latest'), isNot(contains('release notes')));
+    });
+
+    test('a release published after the last check shows once the hour is up', () async {
+      // Installed 0.3.0; its first check found 0.3.0 itself. 0.3.1 comes out a little later.
+      await AppUpdates(prefs, client: client, current: '0.3.0').check();
+      latest = 'v0.3.1';
+      await prefs.setString('update_checked_at', DateTime.now().toUtc().subtract(const Duration(minutes: 61)).toIso8601String());
+      expect((await AppUpdates(prefs, client: client, current: '0.3.0').check())?.version, '0.3.1');
+      expect(calls, 2);
     });
 
     test('the same or an older release is not offered', () async {

@@ -242,8 +242,8 @@ Notes:
 - Plain `http://` servers on the home network are allowed (`usesCleartextTraffic`). Use HTTPS when
   the server is reachable from outside.
 - **Updates** (`lib/update/`, `AppUpdate.kt`): a release build looks at GitHub's latest release
-  (`releases/latest`, so never a pre-release) on start and back in the foreground, at most every
-  12 hours. A newer version shows on Home ("Nestling 0.9.1 is available", Update / Not now) and in
+  (`releases/latest`, so never a pre-release) on start and back in the foreground, at most once an
+  hour. A newer version shows on Home ("Nestling 0.9.1 is available", Update / Not now) and in
   Settings → About (Check for updates switch, Check now). Update downloads the APK to the cache,
   checks it against the release's `SHA256SUMS.txt` and opens Android's installer (the first time,
   Android asks to allow "Install unknown apps" for Nestling). It only installs over the current app

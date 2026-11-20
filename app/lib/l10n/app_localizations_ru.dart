@@ -4313,7 +4313,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get updateCheckTitle => 'Проверять обновления';
 
   @override
-  String get updateCheckHint => 'Ищет новую версию на GitHub два раза в день';
+  String get updateCheckHint =>
+      'Ищет новую версию на GitHub при открытии приложения';
 
   @override
   String get updateCheckNow => 'Проверить сейчас';

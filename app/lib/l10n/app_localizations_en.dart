@@ -4232,7 +4232,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get updateCheckTitle => 'Check for updates';
 
   @override
-  String get updateCheckHint => 'Looks for a new version on GitHub twice a day';
+  String get updateCheckHint =>
+      'Looks for a new version on GitHub when you open the app';
 
   @override
   String get updateCheckNow => 'Check now';

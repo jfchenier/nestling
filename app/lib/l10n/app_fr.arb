@@ -1136,7 +1136,7 @@
   "updateWebReadyHint": "Rechargez pour utiliser la nouvelle version.",
   "updateReload": "Recharger",
   "updateCheckTitle": "Rechercher les mises à jour",
-  "updateCheckHint": "Cherche une nouvelle version sur GitHub deux fois par jour",
+  "updateCheckHint": "Cherche une nouvelle version sur GitHub à l’ouverture de l’appli",
   "updateCheckNow": "Vérifier maintenant",
   "updateChecking": "Vérification…",
   "updateUpToDate": "Nestling est à jour",
