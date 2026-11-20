@@ -614,8 +614,12 @@ class AppState extends ChangeNotifier {
     error = null;
     notifyListeners();
     if (!serverless) unawaited(_loadSignInOptions());
+    // The account is shown only once its families and the child's data are in: other updates
+    // (sign-in options, app updates, push) repaint the app while this runs, and with an account but
+    // no family yet the first screen would be the "start a family" page for a moment.
+    Me? account;
     try {
-      me = Me(await a.get('/me'));
+      account = Me(await a.get('/me'));
       families = [for (final f in (await a.get('/families'))['families'] as List) Family(f)];
       familyId = families.any((f) => f.id == familyId)
           ? familyId
@@ -626,6 +630,7 @@ class AppState extends ChangeNotifier {
           : kids.where((c) => c.id == _prefs.getString('child')).firstOrNull?.id ?? kids.firstOrNull?.id;
       _startStream(refresh: false);
       await refreshChild(notify: false);
+      me = account;
       // Push anything logged offline last time, and bring the local copy up to date.
       unawaited(a.sync());
       if (!serverless) {
@@ -646,6 +651,7 @@ class AppState extends ChangeNotifier {
         await signOut(forget: false);
         return;
       }
+      if (account != null) me = account;
       error = e.message;
     } finally {
       loading = false;
