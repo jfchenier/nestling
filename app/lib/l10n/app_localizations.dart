@@ -6921,7 +6921,7 @@ abstract class AppLocalizations {
   /// No description provided for @updateCheckHint.
   ///
   /// In en, this message translates to:
-  /// **'Looks for a new version on GitHub twice a day'**
+  /// **'Looks for a new version on GitHub when you open the app'**
   String get updateCheckHint;
 
   /// No description provided for @updateCheckNow.

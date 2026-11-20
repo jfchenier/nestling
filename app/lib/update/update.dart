@@ -90,7 +90,7 @@ String? checksumFor(String sums, String name) {
 /// Keeping the app up to date.
 ///
 /// Android: looks for a newer release on GitHub (on start and back in the foreground, at most every
-/// 12 hours; Settings → About turns it off), downloads its APK, checks it against the release's
+/// an hour; Settings → About turns it off), downloads its APK, checks it against the release's
 /// SHA256SUMS.txt and hands it to Android's installer, which keeps the data (same signing key).
 ///
 /// Web: the page is served by the server, so a redeployed server brings a new app; when the
@@ -104,7 +104,9 @@ class AppUpdates extends ChangeNotifier {
   /// This app's version (empty for a development build, which never looks for updates).
   final String current;
 
-  static const _checkEvery = Duration(hours: 12);
+  /// A new release shows within the hour (a longer wait hid a release published just after the
+  /// app's last look); GitHub allows 60 unauthenticated requests an hour per address.
+  static const _checkEvery = Duration(hours: 1);
 
   /// Phones only (the web app follows the server); a development build has no version to compare.
   bool get supported => platform.canInstall && current.isNotEmpty;
@@ -142,7 +144,7 @@ class AppUpdates extends ChangeNotifier {
 
   DateTime? get lastCheck => DateTime.tryParse(_prefs.getString('update_checked_at') ?? '');
 
-  /// Looks for a newer release. [force]: even if the last check was less than 12 hours ago (and
+  /// Looks for a newer release. [force]: even if the last check was less than an hour ago (and
   /// shows a release that was put off).
   Future<Release?> check({bool force = false}) async {
     if (!supported || checking || (!enabled && !force)) return available;

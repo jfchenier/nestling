@@ -4260,7 +4260,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get updateCheckHint =>
-      'Cherche une nouvelle version sur GitHub deux fois par jour';
+      'Cherche une nouvelle version sur GitHub à l’ouverture de l’appli';
 
   @override
   String get updateCheckNow => 'Vérifier maintenant';
